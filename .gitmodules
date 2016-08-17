@@ -1,0 +1,3 @@
+[submodule "recipe/virtualenv"]
+	path = recipe/virtualenv
+	url = https://github.com/pypa/virtualenv.git
