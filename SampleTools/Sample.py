@@ -368,7 +368,7 @@ class DataSample(NtupleSample):
 
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, 
-                 poissonErrors=True, **kwargs):
+                 poissonErrors=False, **kwargs):
         h = super(DataSample, self).makeHist(var, selection, binning, weight,
                                              perUnitWidth, **kwargs)
         

@@ -1,14 +1,21 @@
 
+import logging
+from rootpy import log as rlog; rlog = rlog["/singleZPlots"]
+# don't show most silly ROOT messages
+logging.basicConfig(level=logging.WARNING)
+rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 
 from rootpy.plotting import Canvas, Legend
 from rootpy.plotting.utils import draw
 
 from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
 from PlotTools import PlotStyle as _Style
-from PlotTools import makeLegend
+from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes
 
 
 outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/singleZ'
+
+test = False
 
 style = _Style()
 
@@ -20,18 +27,35 @@ mcWeight = {
     'ee' : 'e1EffScaleFactor * e2EffScaleFactor',
     'mm' : 'm1EffScaleFactor * m2EffScaleFactor',
     }
-dyByChan = {
-    c : MCSample('DYJets', c, 
-                 '/data/nawoods/ntuples/singleZ_mc_11aug2016/results/DYJets*.root', 
-                 True, lumi) for c in channels
-    }
+
+if test:
+    dyByChan = {
+        c : MCSample('DYJets', c, 
+                     '/data/nawoods/ntuples/singleZ_mc_test/DYJets*.root', 
+                     True, lumi) for c in channels
+        }
+else:
+    dyByChan = {
+        c : MCSample('DYJets', c, 
+                     '/data/nawoods/ntuples/singleZ_mc_11aug2016/results/DYJets*.root', 
+                     True, lumi) for c in channels
+        }
+
 dy = SampleGroup('DYJets', 'z', dyByChan, True)
 
-ttByChan = {
-    c : MCSample('TTJets', c, 
-                 '/data/nawoods/ntuples/singleZ_mc_11aug2016/results/TTJets*.root', 
-                 True, lumi) for c in channels
-    }
+if test:
+    ttByChan = {
+        c : MCSample('TTJets', c, 
+                     '/data/nawoods/ntuples/singleZ_mc_test/TTJets*.root', 
+                     True, lumi) for c in channels
+        }
+else:
+    ttByChan = {
+        c : MCSample('TTJets', c, 
+                     '/data/nawoods/ntuples/singleZ_mc_11aug2016/results/TTJets*.root', 
+                     True, lumi) for c in channels
+        }
+
 tt = SampleGroup('TTJets', 'z', ttByChan, True)
 
 stack = SampleStack('stack', 'z', [dy,tt])
@@ -40,10 +64,16 @@ stack = SampleStack('stack', 'z', [dy,tt])
 dataByChan = {}
 for c in channels:
     samplesByEra = {}
-    for era in ['b','c','d']:
-        samplesByEra['2016{}'.format(era)] = DataSample('data2016{}_{}'.format(era, c), c, 
-                                                        '/data/nawoods/ntuples/singleZ_data2016{}_11aug2016/results/*.root'.format(era)
-                                                        )
+    if test:
+        samplesByEra['test'] = DataSample('test', c, 
+                                          '/data/nawoods/ntuples/singleZ_data_test/*.root',
+                                          )
+    else:
+        for era in ['b','c','d']:
+            samplesByEra['2016{}'.format(era)] = DataSample('data2016{}_{}'.format(era, c), c, 
+                                                            '/data/nawoods/ntuples/singleZ_data2016{}_11aug2016/results/*.root'.format(era)
+                                                            )
+
 
     dataByChan[c] = SampleGroup('data_{}'.format(c), c, samplesByEra)
 
@@ -108,15 +138,34 @@ for chan in ['z', 'ze','zm']:
 
         hStack = stack.makeHist(var, '', binning2l[varName], mcWeight)
         dataPts = data.makeHist(var, '', binning2l[varName], poissonErrors=True)
+        
+        # for ratio
+        dataHist = data.makeHist(var, '', binning2l[varName])
 
         c = Canvas(1000,1000)
 
         leg = makeLegend(c, hStack, dataPts)
 
-        draw([hStack, dataPts], c, 
-             xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
-             ytitle='Events')
+        pad1, pad2 = addPadBelow(c, .23)
+
+        pad1.cd()
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], pad1, 
+                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
+                                                     ytitle='Events')
         leg.Draw("same")
+
+        pad2.cd()
+        ratio, unity = makeRatio(dataHist, hStack)
+        (ratioX, ratioY), ratioLimits = draw(ratio, pad2, ytitle='Data / MC', 
+                                             xlimits=(xmin,xmax),
+                                             ylimits=(0.7,1.3), ydivisions=5)
+        unity.Draw("same")
+
+        c.cd()
+        pad1.Draw()
+        pad2.Draw()
+
+        fixRatioAxes(xaxis,yaxis,ratioX,ratioY, pad1.height, pad2.height)
 
         style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
         c.Print('{}/{}{}.png'.format(outdir, chan, varName))
@@ -127,14 +176,33 @@ for chan in ['l', 'e', 'm']:
         hStack = stack.makeHist(var, '', binning1l[varName], mcWeight)
         dataPts = data.makeHist(var, '', binning1l[varName], poissonErrors=True)
 
-        c = Canvas(1000,1000)
+        # for ratio
+        dataHist = data.makeHist(var, '', binning1l[varName])
+
+        c = Canvas(1000,1200)
 
         leg = makeLegend(c, hStack, dataPts)
 
-        draw([hStack, dataPts], c, 
-             xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
-             ytitle='Leptons')
+        pad1, pad2 = addPadBelow(c, .23)
+
+        pad1.cd()
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], pad1, 
+                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
+                                                     ytitle='Leptons')
         leg.Draw("same")
+
+        pad2.cd()
+        ratio, unity = makeRatio(dataHist, hStack)
+        (ratioX, ratioY), ratioLimits = draw(ratio, pad2, ytitle='Data / MC', 
+                                             xlimits=(xmin,xmax),
+                                             ylimits=(0.7,1.3), ydivisions=5)
+        unity.Draw("same")
+
+        c.cd()
+        pad1.Draw()
+        pad2.Draw()
+
+        fixRatioAxes(xaxis,yaxis,ratioX,ratioY, pad1.height, pad2.height)
 
         style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
         c.Print('{}/{}{}.png'.format(outdir, chan, varName))
