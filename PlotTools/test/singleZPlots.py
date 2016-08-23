@@ -5,17 +5,25 @@ from rootpy import log as rlog; rlog = rlog["/singleZPlots"]
 logging.basicConfig(level=logging.WARNING)
 rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 
+from rootpy.io import root_open
 from rootpy.plotting import Canvas, Legend
 from rootpy.plotting.utils import draw
 
 from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
 from PlotTools import PlotStyle as _Style
 from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes
+from Utilities import WeightStringMaker
+
+from os import environ
+from os import path as _path
 
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/singleZ'
 
 test = False
+
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/singleZ'
+if test:
+    outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/test'
 
 style = _Style()
 
@@ -23,9 +31,15 @@ lumi = 12900.
 
 channels = ['ee','mm']
 
+puWeight = WeightStringMaker('puWeight')
+fPU = root_open(_path.join(environ['zzt'], 'data', 'pileup', 
+                           'pileup_MC_80x_271036-276811_69200.root'))
+hPU = fPU.puweight
+strPU = puWeight.makeWeightStringFromHist(hPU, 'nTruePU')
+
 mcWeight = {
-    'ee' : 'e1EffScaleFactor * e2EffScaleFactor',
-    'mm' : 'm1EffScaleFactor * m2EffScaleFactor',
+    'ee' : 'e1EffScaleFactor * e2EffScaleFactor * {}'.format(strPU),
+    'mm' : 'm1EffScaleFactor * m2EffScaleFactor * {}'.format(strPU),
     }
 
 if test:
@@ -96,7 +110,7 @@ units = {
 binning2l = {
     'Mass' : [60, 60., 120.],
     'Pt' : [60, 0., 300.],
-    'Eta' : [40,-5.,5.],
+    'Eta' : [48,-6.,6.],
     'Phi' : [24, -3.15,3.15],
     'nJets' : [6,-0.5,5.5],
     }
@@ -132,7 +146,7 @@ for v in binning1l:
     vars1l['l'][v].update(vars1l['m'][v].copy())
 
 
-for chan in ['z', 'ze','zm']:
+for chan in ['z', 'ze', 'zm']:
     for varName, var in vars2l[chan].iteritems():
         print "Plotting {} {}".format(chan, varName)
 
@@ -141,6 +155,9 @@ for chan in ['z', 'ze','zm']:
         
         # for ratio
         dataHist = data.makeHist(var, '', binning2l[varName])
+
+        print "    data: {} MC: {:.2f}".format(dataHist.Integral(), hStack.Integral())
+        print ''
 
         c = Canvas(1000,1000)
 
@@ -173,11 +190,15 @@ for chan in ['z', 'ze','zm']:
 for chan in ['l', 'e', 'm']:
     for varName, var in vars1l[chan].iteritems():
         print "Plotting {} {}".format(chan, varName)
+
         hStack = stack.makeHist(var, '', binning1l[varName], mcWeight)
         dataPts = data.makeHist(var, '', binning1l[varName], poissonErrors=True)
 
         # for ratio
         dataHist = data.makeHist(var, '', binning1l[varName])
+
+        print "    data: {} MC: {:.2f}".format(dataHist.Integral(), hStack.Integral())
+        print ''
 
         c = Canvas(1000,1200)
 
