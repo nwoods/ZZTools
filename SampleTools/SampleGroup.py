@@ -88,7 +88,9 @@ class SampleGroup(_SampleBase):
             out.title = self.prettyName
             return out
 
-        h = Hist(*binning, title=self.prettyName, **self._format)
+        # use TH1D instead of TH1F because some datasets are now big enough for
+        # floating point stuff to matter (!!)
+        h = Hist(*binning, type='D', title=self.prettyName, **self._format)
 
         for s in samplesToUse:
             h += self._samples[s].makeHist(var[s], selection[s], binning,

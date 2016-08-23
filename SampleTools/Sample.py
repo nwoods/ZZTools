@@ -128,7 +128,6 @@ class NtupleSample(_SampleBase):
 
         self.ntuple = self.combineNtuples(self.files, self.channel)
 
-
     def combineNtuples(self, files, chan):
         '''
         Makes a TreeChain of the files (or a bare TTree if there's just one 
@@ -145,7 +144,6 @@ class NtupleSample(_SampleBase):
         self.ntuple.Draw(var, selection, 'goff', hist)
         hist.sumw2()
 
-
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, **kwargs):
         '''
         If var, selection, and/or weight are iterables (which must be of the 
@@ -156,7 +154,9 @@ class NtupleSample(_SampleBase):
         if len(binning) != 3:
             binning = [binning]
         
-        h = Hist(*binning, title=self.prettyName, **self._format)
+        # use TH1D instead of TH1F because some datasets are now big enough for
+        # floating point stuff to matter (!!)
+        h = Hist(*binning, type='D', title=self.prettyName, **self._format)
 
         nToAdd = max(1 if isinstance(var,str) else len(var),
                      1 if isinstance(selection,str) else len(selection),
@@ -364,7 +364,7 @@ class DataSample(NtupleSample):
 
 
     def formatDefault(self):
-        self.format(True, drawstyle='PE2', legendstyle='LPE')
+        self.format(True, drawstyle='PE', legendstyle='LPE')
 
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, 
