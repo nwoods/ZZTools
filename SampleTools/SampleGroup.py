@@ -14,7 +14,7 @@ from Metadata.metadata import sampleInfo as _samples
 from Sample import _SampleBase
 from . import DataSample as _DataSample
 
-from rootpy.plotting import Hist, HistStack
+from rootpy.plotting import Hist, Hist2D, HistStack
 
 
 class SampleGroup(_SampleBase):
@@ -53,7 +53,7 @@ class SampleGroup(_SampleBase):
 
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, 
-                 poissonErrors=False, **kwargs):
+                 poissonErrors=False, postprocess=False, **kwargs):
         '''
         If var, selection, and/or weight are dictionaries, they will be used to
         add histograms from the sample of the same key. If they are strings or 
@@ -81,20 +81,88 @@ class SampleGroup(_SampleBase):
         if poissonErrors:
             assert all(isinstance(self._samples[s], _DataSample) or isinstance(self._samples[s], SampleGroup) for s in samplesToUse), \
                 "Poisson errors only make sense with data."
-            out = sum(self._samples[s].makeHist(var[s], selection[s], binning,
-                                                weight[s], perUnitWidth, 
-                                                poissonErrors=True,
-                                                **kwargs) for s in samplesToUse)
+            h = sum(self._samples[s].makeHist(var[s], selection[s], binning,
+                                              weight[s], perUnitWidth, 
+                                              poissonErrors=False,
+                                              postprocess=postprocess,
+                                              **kwargs) for s in samplesToUse)
+            out = h.poisson_errors()
             out.title = self.prettyName
+            for a,b in self._format.iteritems():
+                setattr(out,a,b)
+
+            if postprocess:
+                self._postprocessor(out)
+
             return out
 
+        bins = binning[:]
+        if len(bins) != 3:
+            bins = [bins]
         # use TH1D instead of TH1F because some datasets are now big enough for
         # floating point stuff to matter (!!)
-        h = Hist(*binning, type='D', title=self.prettyName, **self._format)
+        h = Hist(*bins, type='D', title=self.prettyName, **self._format)
 
         for s in samplesToUse:
             h += self._samples[s].makeHist(var[s], selection[s], binning,
                                            weight[s], perUnitWidth, **kwargs)
+
+        if postprocess:
+            self._postprocessor(h)
+
+        return h
+
+
+    def makeHist2(self, varX, varY, selection, binningX, binningY, 
+                  weight='', postprocess=False, **kwargs):
+        '''
+        If var[XY], selection, and/or weight are dictionaries, they will be 
+        used to add histograms from the sample of the same key. If they are 
+        strings or appropriate iterables, they will be used to add histograms 
+        from all samples.
+        '''
+        if isinstance(varX, dict):
+            samplesToUse = varX.keys()
+            if not isinstance(varY, str):
+                assert all(k in varY for k in varX), "X and Y variables must match"
+        elif isinstance(varY, dict):
+            samplesToUse = varY.keys()
+        elif isinstance(selection, dict):
+            samplesToUse = selection.keys()
+        elif isinstance(weight, dict):
+            samplesToUse = weight.keys()
+        else:
+            samplesToUse = self._samples.keys()
+
+        if not isinstance(varX, dict):
+            varX = {k:varX for k in samplesToUse}
+        if not isinstance(varY, dict):
+            varY = {k:varY for k in samplesToUse}
+        if not isinstance(selection, dict):
+            selection = {k:selection for k in samplesToUse}
+        if not isinstance(weight, dict):
+            weight = {k:weight for k in samplesToUse}
+
+        binsX = binningX[:]
+        if len(binsX) != 3:
+            binsX = [binsX]
+        binsY = binningY[:]
+        if len(binsY) != 3:
+            binsY = [binsY]
+        binning = binsX + binsY
+
+        # use TH2D instead of TH2F because some datasets are now big enough for
+        # floating point stuff to matter (!!)
+        h = Hist2D(*binning, type='D', title=self.prettyName, **self._format)
+
+        for s in samplesToUse:
+            h += self._samples[s].makeHist2(varX[s], varY[s], selection[s], 
+                                            binningX, binningY, weight[s], 
+                                            postprocess=postprocess, 
+                                            **kwargs)
+
+        if postprocess:
+            self._postprocessor(h)
 
         return h
 
@@ -102,6 +170,13 @@ class SampleGroup(_SampleBase):
     def formatDefault(self):
         self.format(True, drawstyle='hist', fillstyle='solid', legendstyle='F')
 
+
+    def applyWeight(self, w, reset=False):
+        '''
+        Apply weight w to all samples in the group.
+        '''
+        for s in self._samples.values():
+            s.applyWeight(w, reset)
 
 
 class SampleStack(_SampleBase):
@@ -127,14 +202,14 @@ class SampleStack(_SampleBase):
 
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, 
-                 *extraHists, **kwargs):
+                 postprocess=False, *extraHists, **kwargs):
         sortByMax = kwargs.pop('sortByMax', True)
 
         sig = []
         bkg = []
         for s in self._samples:
             h = s.makeHist(var, selection, binning, weight, 
-                           perUnitWidth, **kwargs)
+                           perUnitWidth, postprocess=postprocess, **kwargs)
             try:
                 isSignal = s.isSignal
             except AttributeError:
@@ -147,13 +222,49 @@ class SampleStack(_SampleBase):
         hists = SampleStack.orderForStack(list(extraHists)+bkg)
         hists += SampleStack.orderForStack(sig)
 
-        # # workaround for weird root bug
-        # emptyHist = hists[0].empty_clone()
-        # hists.append(emptyHist)
+        stack = HistStack(hists, drawstyle='histnoclear')
+
+        if postprocess:
+            self._postprocessor(h)
+
+        return stack
+
+
+    def makeHist2(self, varX, varY, selection, binningX, binningY, 
+                  weight='', postprocess=False, *extraHists, **kwargs):
+        sortByMax = kwargs.pop('sortByMax', True)
+
+        sig = []
+        bkg = []
+        for s in self._samples:
+            h = s.makeHist2(varX, varY, selection, binningX, binningY, weight, 
+                            postprocess=postprocess, **kwargs)
+            try:
+                isSignal = s.isSignal
+            except AttributeError:
+                isSignal = False
+            if isSignal:
+                sig.append(h)
+            else:
+                bkg.append(h)
+
+        hists = SampleStack.orderForStack(list(extraHists)+bkg)
+        hists += SampleStack.orderForStack(sig)
 
         stack = HistStack(hists, drawstyle='histnoclear')
 
+        if postprocess:
+            self._postprocessor(h)
+
         return stack
+
+
+    def applyWeight(self, w, reset=False):
+        '''
+        Apply weight w to all samples in the stack.
+        '''
+        for s in self._samples:
+            s.applyWeight(w, reset)
 
 
     @staticmethod

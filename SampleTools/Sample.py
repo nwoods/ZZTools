@@ -22,7 +22,7 @@ from Utilities import combineWeights
 from rootpy.io import root_open, TemporaryFile
 from rootpy.io import DoesNotExist as _RootpyDNE
 from rootpy.tree import Tree, TreeChain
-from rootpy.plotting import Hist, Canvas
+from rootpy.plotting import Hist, Hist2D, Canvas
 
 from glob import glob
 from math import sqrt
@@ -37,7 +37,8 @@ _dummy.draw()
 
 
 class _SampleBase(object):
-    def __init__(self, name, channel, dataIn, initFromMetadata=False, *args, **kwargs):
+    def __init__(self, name, channel, dataIn, 
+                 initFromMetadata=False, *args, **kwargs):
         self.name = name
         self.channel = channel
         self.shortName = name
@@ -49,6 +50,8 @@ class _SampleBase(object):
             self.initFromMetadata()
 
         self.storeInputs(dataIn)
+
+        self._postprocessor = lambda *args, **kwargs: None
 
 
     def initFromMetadata(self):
@@ -106,16 +109,31 @@ class _SampleBase(object):
     def prettyName(self, name):
         self._prettyName = name
 
+    def setPostprocessor(self, f):
+        '''
+        Set a function that is always run on a histogram made by this object.
+        '''
+        if not hasattr(f, '__call__'):
+            raise ValueError('Failed to set postprocessor: '
+                             '{} is not callable'.format(f))
+
+        self._postprocessor = f
 
 
 class NtupleSample(_SampleBase):
-    def __init__(self, name, channel, dataIn, initFromMetadata=False, *args, **kwargs):
+    def __init__(self, name, channel, dataIn, initFromMetadata=False, 
+                 *args, **kwargs):
         self.weight = ''
 
         super(NtupleSample, self).__init__(name, channel, dataIn, initFromMetadata, *args, **kwargs)
 
+        self.oldNtuples = []
             
     def storeInputs(self, inputs):
+        if isinstance(inputs, Tree):
+            self.ntuple = inputs
+            return self.ntuple
+
         if isinstance(inputs, str):
             inputs = [inputs]
 
@@ -124,9 +142,13 @@ class NtupleSample(_SampleBase):
             self.files += glob(inp)
 
         if not self.files:
-            raise IOError("No files found for {}".format(self.name))
+            raise IOError(("No files found for {}.\n"
+                           "Paths checked:\n{}").format(self.name,
+                                                        '\n'.join(inputs))
+                          )
 
         self.ntuple = self.combineNtuples(self.files, self.channel)
+        return self.ntuple
 
     def combineNtuples(self, files, chan):
         '''
@@ -144,7 +166,8 @@ class NtupleSample(_SampleBase):
         self.ntuple.Draw(var, selection, 'goff', hist)
         hist.sumw2()
 
-    def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, **kwargs):
+    def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, 
+                 postprocess=False, **kwargs):
         '''
         If var, selection, and/or weight are iterables (which must be of the 
         same length), the hists from the resulting var/selection/weight sets
@@ -188,6 +211,60 @@ class NtupleSample(_SampleBase):
                 h.SetBinError(ib, h.GetBinContent(ib) * sqrt(binUnit / w))
             h.sumw2()
 
+        if postprocess:
+            self._postprocessor(h)
+
+        return h
+
+
+    def makeHist2(self, varX, varY, selection, binningX, binningY, weight='', 
+                  postprocess=False, **kwargs):
+        '''
+        If var[XY], selection, and/or weight are iterables (which must be of the 
+        same length), the hists from the resulting var/selection/weight sets
+        will be added together. If some are strings, they are reused the
+        appropriate number of times.
+        '''
+        if len(binningX) != 3:
+            binningX = [binningX]
+        if len(binningY) != 3:
+            binningY = [binningY]
+        binning = binningX + binningY
+
+        # use TH2D instead of TH2F because some datasets are now big enough for
+        # floating point stuff to matter (!!)
+        h = Hist2D(*binning, type='D', title=self.prettyName, drawstyle='colz')
+
+        nToAdd = max(1 if isinstance(varX,str) else len(var),
+                     1 if isinstance(varY,str) else len(var),
+                     1 if isinstance(selection,str) else len(selection),
+                     1 if isinstance(weight,str) else len(weight))
+        if isinstance(varX, str):
+            varX = nToAdd * [varX]
+        if isinstance(varY, str):
+            varY = nToAdd * [varY]
+        if isinstance(selection, str):
+            selection = nToAdd * [selection]
+        if isinstance(weight, str):
+            weight = nToAdd * [weight]
+
+        assert len(varX) == len(varY) and len(varY) == len(selection) and len(selection) == len(weight), \
+            "Invalid plotting parameters! Variables: {} and {}, selection: {}, weight: {}.".format(varX,varY,selection,weight)
+
+        for vx, vy, s, w in zip(varX, varY, selection, weight):
+            v = '{}:{}'.format(vx,vy)
+
+            w = combineWeights(w, self.weight)
+
+            s = combineWeights(w, s)
+
+            self.addToHist(h, v, s)
+
+        h.sumw2()
+
+        if postprocess:
+            self._postprocessor(h)
+
         return h
 
 
@@ -204,7 +281,7 @@ class NtupleSample(_SampleBase):
         if reset:
             self.weight = str(w)
         else:
-            self.weight = combineWeights(self.weight, w)
+            self.weight = combineWeights(self._weight, w)
 
     @property
     def weight(self):
@@ -214,6 +291,30 @@ class NtupleSample(_SampleBase):
         if not isinstance(w, str):
             w = str(w)
         self._weight = w
+
+    def applyCut(self, cut='', name=''):
+        '''
+        cut (str, Cut, function, or other callable): selection for rows to copy.
+            If a string or Cut, the Tree will be copied with CopyTree using 
+            that cut. If a function or other callable, each row will be copied
+            if cut(row) evaluates to True.
+        name (str): name for new tree (defaults to name of old tree. Only used 
+            if cut is callable).
+        '''
+        self.oldNtuples.append(self.ntuple)
+        if hasattr(cut, '__call__'):
+            if not name:
+                name = self.oldNtuples[-1].GetName()
+            self.ntuple = Tree(name)
+            self.ntuple.set_buffer(self.oldNtuples[-1]._buffer, 
+                                   create_branches=True)
+            for row in self.oldNtuples[-1]:
+                if cut(row):
+                    self.ntuple.fill()
+        else:
+            self.ntuple = asrootpy(self.oldNtuples[-1].CopyTree(cut))
+
+        return self.ntuple
 
 
 
@@ -239,7 +340,7 @@ class MCSample(NtupleSample):
 
 
     def storeInputs(self, inputs):
-        super(MCSample, self).storeInputs(inputs)
+        stored = super(MCSample, self).storeInputs(inputs)
 
         # get the sum of the weights if applicable
         if len(self.files) == 1:
@@ -255,6 +356,8 @@ class MCSample(NtupleSample):
                 self.sumW = metaChain.Draw('1', 'summedWeights').Integral()
             except _RootpyDNE:
                 pass
+
+        return stored
 
 
     def implicitWeight(self):
@@ -329,7 +432,8 @@ class _FileWrapper(object):
         try:
             _rm(self.name)
         except OSError:
-            rlog.warning("Failed to delete temporary file {} -- you may need to delete it manually")
+            rlog.warning("Failed to delete temporary file {} -- you may "
+                         "need to delete it manually".format(self.name))
 
 class DataSample(NtupleSample):
     def __init__(self, name, channel, dataIn, *args, **kwargs):
@@ -368,7 +472,7 @@ class DataSample(NtupleSample):
 
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, 
-                 poissonErrors=False, **kwargs):
+                 poissonErrors=False, postprocess=False, **kwargs):
         h = super(DataSample, self).makeHist(var, selection, binning, weight,
                                              perUnitWidth, **kwargs)
         
@@ -379,4 +483,8 @@ class DataSample(NtupleSample):
                 setattr(pois, a, b)
             return pois
 
+        if postprocess:
+            self._postprocessor(h)
+
         return h
+
