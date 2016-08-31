@@ -155,19 +155,22 @@ class PlotStyle(object):
                 self.fixXExponent(obj)
 
 
-    def fixZScale(self,canvas):
+    def fixZScale(self, canvas, width=0.09):
         '''
         Temperature plot scales may run off the right side of the canvas. Fix 
-        that if applicable
+        that if applicable.
+        width is the minimum fraction of the canvas taken up by the axis and 
+        its labels.
         '''
         for obj in canvas.GetListOfPrimitives():
             if obj.InheritsFrom(TH2.Class()):
                 scale = obj.GetListOfFunctions().FindObject("palette")
                 if scale:
-                    if canvas.GetRightMargin() < 0.075:
-                        canvas.SetRightMargin(0.075)
-                    scale.SetX1(1.005)
-                    scale.SetX2(1.035)
+                    if canvas.GetRightMargin() < width:
+                        canvas.SetRightMargin(width)
+                    scale.SetX1NDC(1.-canvas.GetRightMargin())#1.005)
+                    scale.SetX2NDC(1.-(0.65*canvas.GetRightMargin()))#1.035)
+                    scale.SetLabelSize(.015)
                     canvas.Update()
 
 
