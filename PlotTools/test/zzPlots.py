@@ -24,6 +24,8 @@ test = False
 inData = '/data/nawoods/ntuples/uwvvNtuples_data_23aug2016'
 sampleIDMC = '/data/nawoods/ntuples/uwvvNtuples_data_23aug2016'
 
+puWeightFile = 'puWeight_69200_23aug2016.root'
+
 outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz'
 if test:
     outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/test'
@@ -154,8 +156,8 @@ for c in channels:
 
 puWeight = WeightStringMaker('puWeight')
 with root_open(_path.join(environ['zzt'], 'data', 'pileup', 
-                          'pileup_MC_80x_271036-276811_69200.root')) as f:
-    strPU = puWeight.makeWeightStringFromHist(f.puweight, 'nTruePU')
+                          puWeightFile)) as f:
+    strPU = puWeight.makeWeightStringFromHist(f.puScaleFactor, 'nTruePU')
 
 mcWeight = {
     'eeee' : 'e1EffScaleFactor * e2EffScaleFactor * e3EffScaleFactor * e4EffScaleFactor * {}'.format(strPU),

@@ -52,12 +52,13 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+*.txt
+
 # ROOT files
 *.root
-# but do track root files in data
+# but do track root and txt files in data
 !data/*/*.root
-
-*.txt
+!data/*/*.txt
 
 *ipynb_checkpoints*
 recipe/vpython
