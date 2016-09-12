@@ -317,6 +317,11 @@ class NtupleSample(_SampleBase):
         return self.ntuple
 
 
+    def __iter__(self):
+        for row in self.ntuple:
+            yield row
+
+
 
 class MCSample(NtupleSample):
     def __init__(self, name, channel, dataIn, initFromMetadata=False, intLumi=1000, *args, **kwargs):

@@ -179,6 +179,20 @@ class SampleGroup(_SampleBase):
             s.applyWeight(w, reset)
 
 
+    def __iter__(self):
+        for s in self._samples:
+            yield s
+
+
+    def keys(self):
+        return self._samples.keys()
+
+
+    def values(self):
+        return self._samples.values()
+
+
+
 class SampleStack(_SampleBase):
     '''
     A sample group where the samples are plotted in a stack
@@ -279,9 +293,13 @@ class SampleStack(_SampleBase):
         else:
             binGetter = Hist.GetMinimumBin
 
-        # lazy way to prevent data hist from reaching sampleInfo query
         key = lambda h: (h.GetBinContent(binGetter(h)))
 
         hists.sort(key=key)
 
         return hists
+
+
+    def __iter__(self):
+        for s in self._samples:
+            yield s
