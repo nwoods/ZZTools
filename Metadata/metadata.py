@@ -94,6 +94,17 @@ sampleInfo["ZZTo4L"] = {
     'kFactor' : '1.1', 
     }
 
+sampleInfo["ZZTo4L_amcatnlo"] = {
+    'xsec' : 1.191,
+    'prettyName' : 'q#bar{q} #rightarrow ZZ, Z#gamma*', 
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#99ccff', 
+        'linecolor' : '#000099',
+        },
+    'kFactor' : '1.1', 
+    }
+
 sampleInfo["WZTo3LNu"] = {
     'xsec' : 4.42965,
     'prettyName' : '\\text{WZ + Jets}',
