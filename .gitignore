@@ -59,6 +59,7 @@ docs/_build/
 # but do track root and txt files in data
 !data/*/*.root
 !data/*/*.txt
+RooUnfold*
 
 *ipynb_checkpoints*
 recipe/vpython
