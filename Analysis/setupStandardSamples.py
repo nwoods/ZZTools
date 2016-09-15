@@ -194,11 +194,6 @@ def standardZZSamples(dataDir, mcDir, resultType, puWeightFile, fakeRateFile,
         ggZZByChan3P1F[c].applyWeight(crWeight[c])
         ggZZByChan3P1F[c].applyWeight('-1.')
 
-        print c
-        print qqZZByChan[c].weight
-        for n,s in ggZZByChan[c].itersamples():
-            print n, s.weight
-        print ''
 
     ### Make the stack and data points we'll actually use
     
