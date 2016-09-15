@@ -208,7 +208,7 @@ class NtupleSample(_SampleBase):
             for ib in xrange(1,len(h)+1):
                 w = h.GetBinWidth(ib)
                 h.SetBinContent(ib, h.GetBinContent(ib) * binUnit / w)
-                h.SetBinError(ib, h.GetBinContent(ib) * sqrt(binUnit / w))
+                h.SetBinError(ib, h.GetBinError(ib) * sqrt(binUnit / w))
             h.sumw2()
 
         if postprocess:
