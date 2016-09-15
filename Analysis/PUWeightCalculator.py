@@ -14,6 +14,11 @@ Nate Woods, U. Wisconsin
 
 '''
 
+import logging
+from rootpy import log as rlog; rlog = rlog["/PUWeightCalculator"]
+# don't show most silly ROOT messages
+logging.basicConfig(level=logging.WARNING)
+rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 
 from rootpy.io import root_open
 from rootpy.plotting import Hist
@@ -21,9 +26,9 @@ from rootpy import asrootpy
 from os import path, environ
 
 
-outputFileName = 'puWeight_69200_23aug2016.root'
+outputFileName = 'puWeight_69200_08sep2016.root'
 mcDistFileName = 'mix_2016_25ns_SpringMC_PUScenarioV1_PoissonOOTPU.txt'
-dataDistFileTemplate = 'puDistData_{}_23aug2016.root'
+dataDistFileTemplate = 'puDistData_{}_08sep2016.root'
 dataDistFileName = dataDistFileTemplate.format(69200)
 dataDistFileNameDn = dataDistFileTemplate.format(66017)
 dataDistFileNameUp = dataDistFileTemplate.format(72383)
