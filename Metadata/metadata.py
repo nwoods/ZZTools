@@ -94,7 +94,7 @@ sampleInfo["ZZTo4L"] = {
     'kFactor' : '1.1', 
     }
 
-sampleInfo["ZZTo4L_amcatnlo"] = {
+sampleInfo["ZZTo4L-amcatnlo"] = {
     'xsec' : 1.191,
     'prettyName' : 'q#bar{q} #rightarrow ZZ, Z#gamma*', 
     'isSignal' : True,
