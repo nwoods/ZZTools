@@ -18,22 +18,29 @@ from Analysis import standardZZSamples
 
 from os import environ
 from os import path as _path
+from os import makedirs as _mkdir
 
 
 
-inData = 'uwvvNtuples_data_23aug2016'
-inMC = 'uwvvNtuples_mc_23aug2016'
+inData = 'uwvvNtuples_data_08sep2016'
+inMC = 'uwvvNtuples_mc_08sep2016'
 
-puWeightFile = 'puWeight_69200_23aug2016'
-fakeRateFile = 'fakeRate_24aug2016'
+puWeightFile = 'puWeight_69200_08sep2016'
+fakeRateFile = 'fakeRate_08sep2016'
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz'
+ana = 'z4l' #'smp'
+
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_{}'.format(ana)
+try:
+    _mkdir(outdir)
+except OSError: # already exists
+    pass
 
 style = _Style()
 
-lumi = 12900.
+lumi = 15937.
 
-data, stack = standardZZSamples(inData, inMC, 'smp', puWeightFile, 
+data, stack = standardZZSamples(inData, inMC, ana, puWeightFile, 
                                 fakeRateFile, lumi)
 
 ### Set up variable specific info
@@ -52,13 +59,16 @@ units = {
     }
 
 binning4l = {
-    'Mass'  : [35, 250., 2000.],
-    'Pt'    : [40, 0., 200.],
+    'Mass'  : [26, 150., 700.],#[35, 250., 2000.],
+    'Pt'    : [20.*i for i in range(4)] + [100., 140., 200., 300.], #[40, 0., 200.],
     'Eta'   : [16, -5., 5.],
     'Phi'   : [12, -3.15, 3.15],
     'nvtx'  : [40, 0., 40.],
     'nJets' : [6, -0.5, 5.5],
     }
+
+if ana == 'z4l':
+    binning4l['Mass'] = [20, 80., 100.]
 
 for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
     for varName, binning in binning4l.iteritems():
@@ -85,7 +95,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
                                                      xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
                                                      ytitle='Events')
         # blinding box
-        if varName == 'Mass':
+        if varName == 'Mass' and binning4l['Mass'][-1] > 700.:
             box = TBox(max(xmin,700.), ymin, min(binning4l['Mass'][-1], xmax), ymax)
             box.SetFillColor(1)
             box.SetFillStyle(3002)
@@ -105,6 +115,9 @@ binning2l = {
     'Eta' : [48,-6.,6.],
     'Phi' : [24, -3.15,3.15],
     }
+
+if ana != 'smp':
+    binning2l['Mass'] = [60, 0., 120.]
 
 ze1VarTemp = 'e1_e2_{var}'
 ze2VarTemp = 'e3_e4_{var}'
