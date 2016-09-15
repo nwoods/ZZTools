@@ -192,6 +192,14 @@ class SampleGroup(_SampleBase):
         return self._samples.values()
 
 
+    def itersamples(self):
+        for x in self._samples.iteritems():
+            yield x
+
+
+    def __getitem__(self, x):
+        return self._samples[x]
+
 
 class SampleStack(_SampleBase):
     '''
@@ -303,3 +311,7 @@ class SampleStack(_SampleBase):
     def __iter__(self):
         for s in self._samples:
             yield s
+
+
+    def __getitem__(self, n):
+        return self._samples[n]
