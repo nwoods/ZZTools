@@ -113,7 +113,7 @@ def standardZZSamples(dataDir, mcDir, resultType, puWeightFile, fakeRateFile,
         samplesByEra = {}
         samplesByEra2P2F = {}
         samplesByEra3P1F = {}
-        for era in ['B','C','D']:
+        for era in ['B','C','D','E']:
             samplesByEra['2016{}'.format(era)] = _Data('data2016{}_{}'.format(era, c), c, 
                                                             dataFileTemp.format(era)
                                                             )
