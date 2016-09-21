@@ -63,7 +63,7 @@ RooUnfold*
 
 *ipynb_checkpoints*
 recipe/vpython
-ipynb
+*.ipynb
 
 # EMACS temporary files
 *#*

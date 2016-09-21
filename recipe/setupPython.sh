@@ -11,9 +11,11 @@ fi
 
 export vpython="$zzt"/recipe/vpython
 
-python "$zzt"/recipe/virtualenv/virtualenv.py "$vpython"
-
-source "$vpython"/bin/activate
-
-pip install -U pip
-pip install -U rootpy
+# python "$zzt"/recipe/virtualenv/virtualenv.py "$vpython"
+# 
+# source "$vpython"/bin/activate
+# 
+# pip install -U pip
+# pip install -U rootpy
+pip install -U ipython
+pip install -U jupyter
