@@ -27,14 +27,14 @@ if test:
 
 style = _Style()
 
-lumi = 12900.
+lumi = 15937.
 
 channels = ['ee','mm']
 
 puWeight = WeightStringMaker('puWeight')
 fPU = root_open(_path.join(environ['zzt'], 'data', 'pileup', 
-                           'pileup_MC_80x_271036-276811_69200.root'))
-hPU = fPU.puweight
+                           'puWeight_69200_08sep2016.root'))
+hPU = fPU.puScaleFactor
 strPU = puWeight.makeWeightStringFromHist(hPU, 'nTruePU')
 
 mcWeight = {
@@ -45,13 +45,13 @@ mcWeight = {
 if test:
     dyByChan = {
         c : MCSample('DYJets', c, 
-                     '/data/nawoods/ntuples/singleZ_mc_test/DYJets*.root', 
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_test/DYJets*.root', 
                      True, lumi) for c in channels
         }
 else:
     dyByChan = {
         c : MCSample('DYJets', c, 
-                     '/data/nawoods/ntuples/singleZ_mc_11aug2016/results/DYJets*.root', 
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_08sep2016/results/DYJets*.root', 
                      True, lumi) for c in channels
         }
 
@@ -60,13 +60,13 @@ dy = SampleGroup('DYJets', 'z', dyByChan, True)
 if test:
     ttByChan = {
         c : MCSample('TTJets', c, 
-                     '/data/nawoods/ntuples/singleZ_mc_test/TTJets*.root', 
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_test/TTJets*.root', 
                      True, lumi) for c in channels
         }
 else:
     ttByChan = {
         c : MCSample('TTJets', c, 
-                     '/data/nawoods/ntuples/singleZ_mc_11aug2016/results/TTJets*.root', 
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_08sep2016/results/TTJets*.root', 
                      True, lumi) for c in channels
         }
 
@@ -80,18 +80,21 @@ for c in channels:
     samplesByEra = {}
     if test:
         samplesByEra['test'] = DataSample('test', c, 
-                                          '/data/nawoods/ntuples/singleZ_data_test/*.root',
+                                          '/data/nawoods/ntuples/uwvvSingleZ_data_test/*.root',
                                           )
     else:
-        for era in ['b','c','d']:
-            samplesByEra['2016{}'.format(era)] = DataSample('data2016{}_{}'.format(era, c), c, 
-                                                            '/data/nawoods/ntuples/singleZ_data2016{}_11aug2016/results/*.root'.format(era)
+        for era in ['B','C','D','E']:
+            samplesByEra['2016{}'.format(era)] = DataSample('2016{}'.format(era), c, 
+                                                            '/data/nawoods/ntuples/uwvvSingleZ_data_08sep2016/results/Run2016{}*.root'.format(era)
                                                             )
 
 
     dataByChan[c] = SampleGroup('data_{}'.format(c), c, samplesByEra)
+    dataByChan[c].format(drawstyle='PE', legendstyle='LPE', color='black')
+
 
 data = SampleGroup('Data', 'z', dataByChan)
+data.format(drawstyle='PE', legendstyle='LPE', color='black')
 
 
 units = {
