@@ -11,7 +11,7 @@ sampleInfo['TTJets'] = {
     }
 
 sampleInfo['DYJets'] = {
-    'xsec' : 6104.,
+    'xsec' : 5765.4, #5943.2, #6104.,
     'shortName' : 'DYJets',
     'prettyName' : '\\text{Z + Jets}',
     'isSignal' : False,
