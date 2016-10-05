@@ -4,8 +4,11 @@ from rootpy.plotting import Legend as _Legend
 from rootpy.plotting import HistStack as _HistStack
 from rootpy.plotting import Pad as _Pad
 from rootpy.plotting import Graph as _Graph
+from rootpy.plotting.utils import get_band as _band
 from rootpy.ROOT import TLine as _Line
 
+from numbers import Number
+from math import sqrt
 
 _defaultLegParams = {
     'entryheight' : 0.03,
@@ -115,3 +118,41 @@ def fixRatioAxes(mainXAxis, mainYAxis, ratioXAxis, ratioYAxis,
     mainXAxis.SetTitleOffset(999)
 
 
+def makeErrorBand(hMean, errUp, errDn=None):
+    '''
+    Make a hatched black band to represent error bars around hMean.
+
+    errUp and errDn are taken to be systematic errors, to be added in 
+    quadrature to the statistical error bars already on hMean. If they are
+    floats, they are taken to be the fractional error on
+    all bins. If they are histograms, the value of their bins is taken to be 
+    the absolute error on the corresponding bin of hMean.
+
+    If errDn is not specified, errors are taken to be symmetric.
+    '''
+    hUp = hMean.clone()
+    hDn = hMean.clone()
+    if isinstance(errUp, Number):
+        if errDn is None:
+            errDn = errUp
+
+        for bMean, bUp, bDn in zip(hMean, hUp, hDn):
+            bUp.value = bMean.value + sqrt(bMean.error**2 + (errUp * bMean.value)**2)
+            bDn.value = max(bMean.value - sqrt(bMean.error**2 + (errDn * bMean.value)**2), 0.)
+    else:
+        if errDn is None:
+            errDn = errUp.clone()
+
+        for bMean, bUp, bDn, bErrUp, bErrDn in zip(hMean, hUp, 
+                                                   hDn, errUp, errDn):
+            bUp.value = bMean.value + sqrt(bMean.error**2 + bErrUp.value**2)
+            bDn.value = max(bMean.value - sqrt(bMean.error**2 + bErrDn.value**2), 0.)
+
+    err = _band(hDn, hUp, hMean)
+    err.fillstyle = 'x'
+    err.drawstyle = '2'
+    err.fillcolor = 'black'
+    err.title = 'Stat #oplus syst'
+    err.legendstyle = 'F'
+
+    return err
