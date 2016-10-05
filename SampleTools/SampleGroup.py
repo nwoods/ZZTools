@@ -173,10 +173,16 @@ class SampleGroup(_SampleBase):
 
     def applyWeight(self, w, reset=False):
         '''
-        Apply weight w to all samples in the group.
+        Apply weight w to samples in the group.
+        If w is a dict, each value is taken to be the weight for the sample in
+        the group with the same key. Otherwise, w is applied to all samples.
         '''
-        for s in self._samples.values():
-            s.applyWeight(w, reset)
+        if isinstance(w, dict):
+            for name, wt in w.iteritems():
+                self[name].applyWeight(wt, reset)
+        else:
+            for s in self.values():
+                s.applyWeight(w, reset)
 
 
     def __iter__(self):
@@ -216,7 +222,7 @@ class SampleStack(_SampleBase):
 
 
     def storeInputs(self, inputs):
-        self._samples = [s for s in inputs]
+        self._samples = inputs[:]
 
 
     def addSample(self, sample):
@@ -315,3 +321,12 @@ class SampleStack(_SampleBase):
 
     def __getitem__(self, n):
         return self._samples[n]
+
+
+    def getSamplesForChannel(self, channel):
+        '''
+        Get a list of all samples in the stack for one channel.
+        All samples in the stack must be groups which include a sample for 
+        this channel.
+        '''
+        return [s[channel] for s in self]

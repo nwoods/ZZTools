@@ -195,7 +195,7 @@ class NtupleSample(_SampleBase):
             "Invalid plotting parameters! Variable: {}, selection: {}, weight: {}.".format(var,selection,weight)
 
         for v, s, w in zip(var, selection, weight):
-            w = combineWeights(w, self.weight)
+            w = combineWeights(w, self.fullWeight())
 
             s = combineWeights(w, s)
 
@@ -254,7 +254,7 @@ class NtupleSample(_SampleBase):
         for vx, vy, s, w in zip(varX, varY, selection, weight):
             v = '{}:{}'.format(vx,vy)
 
-            w = combineWeights(w, self.weight)
+            w = combineWeights(w, self.fullWeight())
 
             s = combineWeights(w, s)
 
@@ -281,16 +281,26 @@ class NtupleSample(_SampleBase):
         if reset:
             self.weight = str(w)
         else:
-            self.weight = combineWeights(self._weight, w)
+            self.weight = combineWeights(self.weight, w)
 
     @property
     def weight(self):
-        return combineWeights(self._weight, self.implicitWeight())
+        '''
+        Get the weight not including the automatically set weights (cross 
+        section etc.). I.e., only the weights set by the user.
+        '''
+        return self._weight
     @weight.setter
     def weight(self, w):
         if not isinstance(w, str):
             w = str(w)
         self._weight = w
+    def fullWeight(self):
+        '''
+        Get the weight including the automatically set weights (cross 
+        section etc.).
+        '''
+        return combineWeights(self.weight, self.implicitWeight())
 
     def applyCut(self, cut='', name=''):
         '''
