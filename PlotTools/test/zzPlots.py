@@ -41,8 +41,12 @@ style = _Style()
 
 lumi = 15937.
 
-data, stack = standardZZSamples(inData, inMC, ana, puWeightFile, 
-                                fakeRateFile, lumi)
+amcatnlo=True
+if amcatnlo:
+    outdir += '_amcatnlo'
+
+data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile, 
+                                fakeRateFile, lumi, amcatnlo=amcatnlo)
 
 # count events
 tot = OrderedDict()
@@ -107,13 +111,16 @@ units = {
     }
 
 binning4l = {
-    'Mass'  : [26, 150., 700.],#[35, 250., 2000.],
-    'Pt'    : [20.*i for i in range(4)] + [100., 140., 200., 300.], #[40, 0., 200.],
+    'Mass'  : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.], #[26, 150., 700.],#[35, 250., 2000.],
+    'Pt'    : [20.*i for i in range(4)] + [100., 140., 200., 300.],#[20.*i for i in range(4)] + [100., 140., 200., 300.], #[40, 0., 200.],
     'Eta'   : [16, -5., 5.],
     'Phi'   : [12, -3.15, 3.15],
     'nvtx'  : [40, 0., 40.],
     'nJets' : [6, -0.5, 5.5],
     }
+
+if amcatnlo:
+    binning4l = {'Mass' : binning4l['Mass'], 'Pt' : binning4l['Pt']}
 
 if ana == 'z4l':
     binning4l['Mass'] = [20, 80., 100.]
@@ -130,7 +137,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
         # blinding
         dataSelection = ''
         if varName == 'Mass':
-            dataSelection = 'Mass < 700.'
+            dataSelection = 'Mass < 800.'
 
         hStack = stack.makeHist(var, '', binning, postprocess=True)
         dataPts = data.makeHist(var, dataSelection, binning, poissonErrors=True)
@@ -143,8 +150,8 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
                                                      xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
                                                      ytitle='Events')
         # blinding box
-        if varName == 'Mass' and binning4l['Mass'][-1] > 700.:
-            box = TBox(max(xmin,700.), ymin, min(binning4l['Mass'][-1], xmax), ymax)
+        if varName == 'Mass' and binning4l['Mass'][-1] > 800.:
+            box = TBox(max(xmin,800.), ymin, min(binning4l['Mass'][-1], xmax), ymax)
             box.SetFillColor(1)
             box.SetFillStyle(3002)
             box.Draw("same")
@@ -166,6 +173,9 @@ binning2l = {
 
 if ana != 'smp':
     binning2l['Mass'] = [60, 0., 120.]
+
+if amcatnlo:
+    binning2l = {}
 
 ze1VarTemp = 'e1_e2_{var}'
 ze2VarTemp = 'e3_e4_{var}'
@@ -246,6 +256,9 @@ binning1l = {
     'PVDZ' : [20, -.2, .2],
     'SIP3D' : [20, 0., 5.],
     }
+
+if amcatnlo:
+    binning1l = {}
 
 ze1LepVarTemp = ['e1{var}','e2{var}']
 ze2LepVarTemp = ['e3{var}','e4{var}']
