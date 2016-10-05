@@ -7,16 +7,18 @@ rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 
 from rootpy import asrootpy
 from rootpy.io import root_open
-from rootpy.plotting import Canvas, Legend, Hist, Hist2D
+from rootpy.plotting import Canvas, Legend, Hist, Hist2D, HistStack
 from rootpy.plotting.utils import draw
-from rootpy.ROOT import RooUnfoldResponse, cout, TDecompSVD
+from rootpy.ROOT import cout, TDecompSVD
 from rootpy.ROOT import RooUnfoldBayes as RooUnfoldIter # it's frequentist!
 
 from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
 from PlotTools import PlotStyle as _Style
-from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes
+from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes, makeErrorBand
 from Utilities import WeightStringMaker
-from Analysis.setupStandardSamples import standardZZSamples, genZZSamples
+from Analysis.setupStandardSamples import *
+from Analysis.unfoldingHelpers import getResponse
+from Analysis.weightHelpers import puWeight, baseMCWeight
 from Metadata.metadata import sampleInfo
 
 from os.path import join as _join
@@ -37,33 +39,37 @@ style = _Style()
 
 lumi = 15937.
 
+nIter = 8
+
 channels = ['eeee','eemm', 'mmmm']
 
-data, stack = standardZZSamples(inData, inMC, 'smp', puWeightFile, 
-                                fakeRateFile, lumi)
-true = genZZSamples(inMC, 'smp', lumi)
+variables = {
+    'pt' : 'Pt',
+    #'nJets' : 'nJets',
+    'mass' : 'Mass',
+    }
 
-fakeDataFile = _join('/data/nawoods/ntuples', inMC, 'results_smp', 
-                     'ZZTo4L-amcatnlo*.root')
-fakeData = SampleGroup('ZZTo4L-amcatnlo', 'zz', {
-        c : MCSample('ZZTo4L-amcatnlo', c, 
-                     fakeDataFile, True, lumi) for c in channels
-        }, True)
-for c in channels:
-    fakeData[c].applyWeight(stack[2][c]._weight)
+binning = {
+    'pt' : [20.*i for i in range(4)] + [100., 140., 200., 300.],
+    'nJets' : [6,-0.5,5.5],
+    'mass' : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.],
+    }
 
-fakeDataTruth = SampleGroup('ZZTo4L-amcatnlo', 'zzGen', {
-        c : MCSample('ZZTo4L-amcatnlo', c+'Gen', 
-                     fakeDataFile, True, lumi) for c in channels
-        }, True)
+xTitle = {
+    'pt' : '4\\ell p_T',
+    'nJets' : '# jets',
+    'mass' : 'm_{4\\ell}',
+    }
 
-# the PU weight function was created during standardZZSamples(); get it.
+# Making PU weight strings makes compiled functions; get them
+puWeightStr = puWeight(puWeightFile, '')
 from rootpy.ROOT import puWeight0 as puWt
+puWeightStrUp = puWeight(puWeightFile, 'up')
+from rootpy.ROOT import puWeight1 as puWtUp
+puWeightStrDn = puWeight(puWeightFile, 'dn')
+from rootpy.ROOT import puWeight2 as puWtDn
+fPUWt = {'':puWt,'up':puWtUp,'dn':puWtDn}
 
-binning = [20.*i for i in range(4)] + [100., 140., 200., 300.] #[15, 0., 300.]
-response = {}
-unfolders = {}
-hUnfolded = {}
 
 def normalizeBins(h):
     binUnit = min(h.GetBinWidth(b) for b in range(1,len(h)+1))
@@ -76,160 +82,358 @@ def normalizeBins(h):
     h.sumw2()
 
 
-hTot = {}
-genPt = {}
-for c in channels:
-    chanGenPt = {}
+true = genZZSamples('zz', inMC, 'smp', lumi)
+reco = zzStackMCOnly('zz', inMC, 'smp', puWeightFile, lumi)
+recoByChan = {c:SampleStack('stack', c, reco.getSamplesForChannel(c)) for c in channels}
+bkg = standardZZBkg('zz', inData, inMC, 'smp', puWeightFile,
+                    fakeRateFile, lumi)
+data = standardZZData('zz', inData, 'smp')
 
-    for name, sample in true[c].itersamples():
-        sampleGenPt = {}
+altReco = zzStackMCOnly('zz', inMC, 'smp', puWeightFile, lumi, amcatnlo=True)
+altRecoByChan = {c:SampleStack('stack', c, altReco.getSamplesForChannel(c)) for c in channels}
+altTrue = genZZSamples('zz', inMC, 'smp', lumi, amcatnlo=True)
 
-        for row in sample:
-            sampleGenPt[(row.run,row.lumi,row.evt)] = row.Pt
 
-        chanGenPt[name] = sampleGenPt
+for varName, var in variables.iteritems():
+    hTot = {}
+    for chan in channels:
 
-    genPt[c] = chanGenPt
+        # regular weight, no systematics. Apply just in case.
+        nominalWeight = baseMCWeight(chan, puWeightFile)
+        recoByChan[chan].applyWeight(nominalWeight, True)
 
-    hReco = sum(stack.makeHist({c:'Pt'}, '', binning, perUnitWidth=False).hists)
+        response = getResponse(chan, true[chan], recoByChan[chan], bkg[chan], var, 
+                               binning[varName], puWt)
 
-    if len(binning) == 3:
-        hResponse = Hist2D(*(binning+binning))
-    else:
-        hResponse = Hist2D(binning, binning)
+        svd = TDecompSVD(response.Mresponse())
+        sig = svd.GetSig()
+        try:
+            condition = sig.Max() / max(0., sig.Min())
+        except ZeroDivisionError:
+            condition = float('inf')
+        print ''
+        print '{}: {}'.format(chan, varName)
+        print 'condition: {}'.format(condition)
+        print ''
 
-    stackMC = {}
-    for sample in stack:
-        if sample.name in ['Z+X', 'bkg']:
-            hBkg = sample[c].makeHist('Pt', '', binning, perUnitWidth=False)
-            continue
-        s = sample[c]
-        if isinstance(s, SampleGroup):
-            for name, ss in s.itersamples():
-                stackMC[ss.name] = ss
-        else:
-            stackMC[s.name] = s
+        hBkg = bkg[chan].makeHist(var, '', binning[varName], 
+                                  perUnitWidth=False)
+        hData = data[chan].makeHist(var, '', binning[varName], 
+                                    perUnitWidth=False)
+        hData -= hBkg
 
-    for name, sample in stackMC.iteritems():
-        xsec = sample.xsec
-        sumW = sample.sumW
-        for row in sample:
-            evtID = (row.run, row.lumi, row.evt)
-            weight = puWt(row.nTruePU) * row.genWeight * xsec * lumi / sumW
-            try:
-                hResponse.Fill(row.Pt, chanGenPt[name][evtID], weight)
-            except KeyError:
-                pass
+        unfolder = RooUnfoldIter(response, hData, nIter)
+        
+        #print chan
+        #unfolders[chan].PrintTable(cout)
 
-    hTrue = true[c].makeHist('Pt', '', binning, perUnitWidth=False)
+        hUnfolded = asrootpy(unfolder.Hreco())
 
-    response[c] = RooUnfoldResponse(hReco, hTrue, hResponse)
+        
+        ### Unfold amc@NLO "data" as a sanity check
+        hAlt = sum(altRecoByChan[chan].makeHist(var, '', 
+                                                binning[varName], 
+                                                perUnitWidth=False).hists)
+        unfolderAlt = RooUnfoldIter(response, hAlt, nIter)
+        hUnfoldedAlt = asrootpy(unfolderAlt.Hreco())
 
-    svd = TDecompSVD(response[c].Mresponse())
-    sig = svd.GetSig()
+        #### represent systematic errors as histograms where the bin content
+        #### is the systematic error from that source
+        hErr = {'up':{},'dn':{}}
 
-    hData = data[c].makeHist('Pt', '', binning, perUnitWidth=False)
-    hData -= hBkg
-    unfolders[c] = RooUnfoldIter(response[c], hData, 8)
 
-    #print c
-    #unfolders[c].PrintTable(cout)
+        # PU reweight uncertainty
+        for sys in ['up','dn']:
+            wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys)
+            recoByChan[chan].applyWeight(wtStr, True)
 
-    hUnfolded[c] = asrootpy(unfolders[c].Hreco())
-    hUnfolded[c].color = 'black'
-    hUnfolded[c].drawstyle = 'PE'
-    hUnfolded[c].legendstyle = 'LPE'
-    hUnfolded[c].title = 'Unfolded data'
-    if 'unfolded' not in hTot:
-        hTot['unfolded'] = hUnfolded[c].empty_clone()
-    hTot['unfolded'] += hUnfolded[c]
-    normalizeBins(hUnfolded[c])
+            res = getResponse(chan, true[chan], recoByChan[chan], bkg[chan], var,
+                              binning[varName], fPUWt[sys])
+            unf = RooUnfoldIter(res, hData, nIter)
+            hUnf = asrootpy(unf.Hreco())
+            hErr[sys]['pu'] = hUnf - hUnfolded
+            hErr[sys]['pu'].title = "PU"
+            hErr[sys]['pu'].fillstyle = 'solid'
+            hErr[sys]['pu'].drawstyle = "hist"
+            hErr[sys]['pu'].color = "green"
+            hErr[sys]['pu'].legendstyle = 'F'
 
-    hFake = fakeData[c].makeHist('Pt', '', binning, perUnitWidth=False)
-    fakeUnfolder = RooUnfoldIter(response[c], hFake, 8)
-    hUnfoldedFake = asrootpy(fakeUnfolder.Hreco())
-    hUnfoldedFake.color = 'red'
-    hUnfoldedFake.title = 'Unfolded aMC@NLO'
-    hUnfoldedFake.drawstyle = 'PE'
-    hUnfoldedFake.legendstyle = 'LPE'
-    if 'unfoldedFake' not in hTot:
-        hTot['unfoldedFake'] = hUnfoldedFake.empty_clone()
-    hTot['unfoldedFake'] += hUnfoldedFake
-    normalizeBins(hUnfoldedFake)
+        # lepton efficiency uncertainty
+        # for sys in ['up','dn']:
+        #     wtStr = baseMCWeight(chan, puWeightFile, lepSyst=sys)
+        #     recoByChan[chan].applyWeight(wtStr, True)
+        # 
+        #     res = getResponse(chan, true[chan], recoByChan[chan], bkg[chan], var,
+        #                       binning[varName], fPUWt[''], sys)
+        #     unf = RooUnfoldIter(res, hData, nIter)
+        #     hUnf = asrootpy(unf.Hreco())
+        #     hErr[sys]['lep'] = hUnf - hUnfolded
+        #     hErr[sys]['lep'].title = "Lepton eff."
+        #     hErr[sys]['lep'].fillstyle = 'solid'
+        #     hErr[sys]['lep'].drawstyle = "hist"
+        #     hErr[sys]['lep'].color = "blue"
+        #     hErr[sys]['lep'].legendstyle = 'F'
 
-    hTrue.title = 'POWHEG + MCFM'
-    hTrue.drawstyle = 'hist'
+        # unfolding uncertainty by checking difference with alternate generator
+        res = getResponse(chan, altTrue[chan], altRecoByChan[chan], bkg[chan], var,
+                          binning[varName], fPUWt[''])
+        unf = RooUnfoldIter(res, hData, nIter)
+        hUnf = asrootpy(unf.Hreco())
+        hErr['up']['generator'] = hUnf - hUnfolded
+        hErr['up']['generator'].title = "Generator choice"
+        hErr['up']['generator'].fillstyle = 'solid'
+        hErr['up']['generator'].drawstyle = "hist"
+        hErr['up']['generator'].color = "magenta"
+        hErr['up']['generator'].legendstyle = 'F'
+
+        hErr['dn']['generator'] = hErr['up']['generator'].clone()
+        hErr['dn']['generator'].title = "Generator choice"
+        hErr['dn']['generator'].fillstyle = 'solid'
+        hErr['dn']['generator'].drawstyle = "hist"
+        hErr['dn']['generator'].color = "magenta"
+        hErr['dn']['generator'].legendstyle = 'F'
+
+        # qq NLO uncertainty: +/-1.4% (POWHEG, AN-2016-029)
+        # gg LO uncertainty: +18%/-15% (MCFM, AN-2016-029)
+        recoByChan[chan].applyWeight(nominalWeight, True)
+        for s in recoByChan[chan]:
+            if 'GluGlu' in s.name:
+                s.applyWeight('.85')
+            elif 'ZZTo4L' in s.name:
+                s.applyWeight('1.014')
+        for n,s in true[chan].itersamples():
+            if 'GluGlu' in n:
+                s.applyWeight('.85')
+            elif 'ZZTo4L' in n:
+                s.applyWeight('1.014')
+        res = getResponse(chan, true[chan], recoByChan[chan], bkg[chan], var,
+                          binning[varName], fPUWt[''])
+        unf = RooUnfoldIter(res, hData, nIter)
+        hUnf = asrootpy(unf.Hreco())
+        hErr['dn']['xsec'] = hUnf - hUnfolded
+        hErr['dn']['xsec'].title = "Cross section"
+        hErr['dn']['xsec'].fillstyle = 'solid'
+        hErr['dn']['xsec'].drawstyle = "hist"
+        hErr['dn']['xsec'].color = "red"
+        hErr['dn']['xsec'].legendstyle = 'F'
+
+        recoByChan[chan].applyWeight(nominalWeight, True)
+        for s in recoByChan[chan]:
+            if 'GluGlu' in s.name:
+                s.applyWeight('1.18')
+            elif 'ZZTo4L' in s.name:
+                s.applyWeight('0.986')
+        for n,s in true[chan].itersamples():
+            if 'GluGlu' in n:
+                s.applyWeight('1.18', True)
+            elif 'ZZTo4L' in n:
+                s.applyWeight('0.986', True)
+        res = getResponse(chan, true[chan], recoByChan[chan], bkg[chan], var,
+                          binning[varName], fPUWt[''])
+        unf = RooUnfoldIter(res, hData, nIter)
+        hUnf = asrootpy(unf.Hreco())
+        hErr['up']['xsec'] = hUnf - hUnfolded
+        hErr['up']['xsec'].title = "Cross section"
+        hErr['up']['xsec'].fillstyle = 'solid'
+        hErr['up']['xsec'].drawstyle = "hist"
+        hErr['up']['xsec'].color = "red"
+        hErr['up']['xsec'].legendstyle = 'F'
+
+        recoByChan[chan].applyWeight(nominalWeight, True)
+        true[chan].applyWeight('',True)
+
+        # luminosity uncertainty
+        lumiUnc = .062
+        recoByChan[chan].applyWeight(str(1.+lumiUnc))
+        true[chan].applyWeight(str(1.+lumiUnc), True)
+        res = getResponse(chan, true[chan], recoByChan[chan], bkg[chan], var,
+                          binning[varName], fPUWt[''])
+        unf = RooUnfoldIter(res, hData, nIter)
+        hUnf = asrootpy(unf.Hreco())
+        hErr['up']['lumi'] = hUnf - hUnfolded
+        hErr['up']['lumi'].title = "Luminosity"
+        hErr['up']['lumi'].fillstyle = 'solid'
+        hErr['up']['lumi'].drawstyle = "hist"
+        hErr['up']['lumi'].color = "orange"
+        hErr['up']['lumi'].legendstyle = 'F'
+
+        recoByChan[chan].applyWeight(nominalWeight, True)
+        recoByChan[chan].applyWeight(str(1.-lumiUnc))
+        true[chan].applyWeight(str(1.-lumiUnc), True)
+        res = getResponse(chan, true[chan], recoByChan[chan], bkg[chan], var,
+                          binning[varName], fPUWt[''])
+        unf = RooUnfoldIter(res, hData, nIter)
+        hUnf = asrootpy(unf.Hreco())
+        hErr['dn']['lumi'] = hUnf - hUnfolded
+        hErr['dn']['lumi'].title = "Luminosity"
+        hErr['dn']['lumi'].fillstyle = 'solid'
+        hErr['dn']['lumi'].drawstyle = "hist"
+        hErr['dn']['lumi'].color = "orange"
+        hErr['dn']['lumi'].legendstyle = 'F'
+
+        recoByChan[chan].applyWeight(nominalWeight, True)
+        true[chan].applyWeight('',True)
+
+        # Make all error histograms positive (only matters for error plot)
+        for sys in hErr.values():
+            for h in sys.values():
+                for b in h:
+                    b.value = abs(b.value)
+
+        # Make plots of uncertainties (added linearly)
+        cErrUp = Canvas(1000,1000)
+        errStackUp = HistStack(hErr['up'].values(), drawstyle = 'histnoclear')
+        draw(errStackUp, cErrUp, xtitle=xTitle[varName], ytitle="Error (+)",yerror_in_padding=False)
+        leg = makeLegend(cErrUp, *hErr['up'].values())
+        leg.Draw('same')
+        style.setCMSStyle(cErrUp, '', dataType='Preliminary Simulation', intLumi=lumi)
+        cErrUp.Print(_join(plotDir, 'errUp_{}_{}.png'.format(varName, chan)))
+
+        cErrDn = Canvas(1000,1000)
+        errStackDn = HistStack(hErr['dn'].values(), drawstyle = 'histnoclear')
+        draw(errStackDn, cErrDn, xtitle=xTitle[varName], ytitle="Error (-)",yerror_in_padding=False)
+        leg = makeLegend(cErrDn, *hErr['dn'].values())
+        leg.Draw('same')
+        style.setCMSStyle(cErrDn, '', dataType='Preliminary Simulation', intLumi=lumi)
+        cErrDn.Print(_join(plotDir, 'errDown_{}_{}.png'.format(varName, chan)))
+
+
+        ### Get the total uncertainties
+        # this method of assigning up vs down should be revisited
+        hUncUp = hUnfolded.empty_clone()
+        hUncDn = hUnfolded.empty_clone()
+        uncTypes = hErr['up'].keys()
+        for bUncUp, bUncDn, allUncUp, allUncDn in zip(hUncUp, hUncDn, 
+                                                      zip(*(hErr['up'][t] for t in uncTypes)),
+                                                      zip(*(hErr['dn'][t] for t in uncTypes))):
+            for b1,b2 in zip(allUncUp,allUncDn):
+                if b1.value > 0. and b2.value < 0.:
+                    bUncUp.value += b1.value**2
+                    bUncDn.value += b2.value**2
+                elif b2.value > 0. and b1.value < 0.:
+                    bUncUp.value += b2.value**2
+                    bUncDn.value += b1.value**2
+                else:
+                    bUncUp.value += max(b1.value,b2.value,0.)**2
+                    bUncDn.value += min(b1.value,b2.value,0.)**2
+
+            bUncUp.value = sqrt(bUncUp.value)
+            bUncDn.value = sqrt(bUncDn.value)
+                                                      
+
+        errorBand = makeErrorBand(hUnfolded, hUncUp, hUncDn)
+        if 'uncUpSqr' not in hTot:
+            hTot['uncUpSqr'] = hUncUp.empty_clone()
+        for b, bTot in zip(hUncUp, hTot['uncUpSqr']):
+            bTot.value += b.value**2
+        if 'uncDnSqr' not in hTot:
+            hTot['uncDnSqr'] = hUncDn.empty_clone()
+        for b, bTot in zip(hUncDn, hTot['uncDnSqr']):
+            bTot.value += b.value**2
+
+
+        ### plot
+        hUnfolded.color = 'black'
+        hUnfolded.drawstyle = 'PE'
+        hUnfolded.legendstyle = 'LPE'
+        hUnfolded.title = 'Unfolded data + stat. unc.'
+        if 'unfolded' not in hTot:
+            hTot['unfolded'] = hUnfolded.empty_clone()
+        hTot['unfolded'] += hUnfolded
+        normalizeBins(hUnfolded)
+
+        hUnfoldedAlt.color = 'r'
+        hUnfoldedAlt.drawstyle = 'hist'
+        hUnfoldedAlt.fillstyle = 'hollow'
+        hUnfoldedAlt.legendstyle = 'L'
+        hUnfoldedAlt.title = 'Unfolded fullsim aMC@NLO+MCFM'
+        if 'unfoldedAlt' not in hTot:
+            hTot['unfoldedAlt'] = hUnfoldedAlt.empty_clone()
+        hTot['unfoldedAlt'] += hUnfoldedAlt
+        normalizeBins(hUnfoldedAlt)
+
+        hTrue = true[chan].makeHist(var, '', binning[varName])
+        hTrue.color = 'blue'
+        hTrue.drawstyle = 'hist'
+        hTrue.fillstyle = 'hollow'
+        hTrue.legendstyle = 'L'
+        hTrue.title = 'POWHEG (training sample)'
+
+        hTrueAlt = altTrue[chan].makeHist(var, '', binning[varName])
+        hTrueAlt.color = 'magenta'
+        hTrueAlt.drawstyle = 'hist'
+        hTrueAlt.fillstyle = 'hollow'
+        hTrueAlt.legendstyle = 'L'
+        hTrueAlt.title = 'aMC@NLO'
+
+        cUnf = Canvas(1000,1000)
+        draw([hTrue, hTrueAlt, hUnfoldedAlt, hUnfolded, errorBand], cUnf, 
+             xtitle=xTitle[varName], ytitle='Events',yerror_in_padding=False)
+        leg = makeLegend(cUnf, hUnfolded, errorBand, hUnfoldedAlt, hTrue, 
+                         hTrueAlt, textsize=.023, leftmargin=0.3)
+        leg.Draw("same")
+
+        style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
+        cUnf.Print(_join(plotDir, "unfold_{}_{}.png".format(varName, chan)))
+
+        cRes = Canvas(1000,1000)
+        hRes = asrootpy(response.Hresponse())
+        hRes.drawstyle = 'colztext'
+        hRes.draw()
+        style.setCMSStyle(cRes, '', dataType='Preliminary Simulation', intLumi=lumi)
+        cRes.Print(_join(plotDir, "response_{}_{}.png".format(varName, chan)))
+
+        cCov = Canvas(1000,1000)
+        covariance = unfolder.Ereco(2) # TMatrixD
+        covariance.Draw("colztext")
+        style.setCMSStyle(cCov, '', dataType='Preliminary', intLumi=lumi)
+        cCov.Print(_join(plotDir, "covariance_{}_{}.png".format(varName, chan)))
+        
+
+    hTot['unfolded'].color = 'black'
+    hTot['unfolded'].drawstyle = 'PE'
+    hTot['unfolded'].legendstyle = 'LPE'
+    hTot['unfolded'].title = 'Unfolded data + stat. unc.'
+    normalizeBins(hTot['unfolded'])
+
+    hTot['unfoldedAlt'].color = 'r'
+    hTot['unfoldedAlt'].drawstyle = 'hist'
+    hTot['unfoldedAlt'].fillstyle = 'hollow'
+    hTot['unfoldedAlt'].legendstyle = 'L'
+    hTot['unfoldedAlt'].title = 'Unfolded fullsim aMC@NLO+MCFM'
+    normalizeBins(hTot['unfoldedAlt'])
+
+    hTrue = true.makeHist(var, '', binning[varName])
     hTrue.color = 'blue'
-    hTrue.legendstyle = 'L'
+    hTrue.drawstyle = 'hist'
     hTrue.fillstyle = 'hollow'
-    if 'true' not in hTot:
-        hTot['true'] = hTrue.empty_clone()
-    hTot['true'] += hTrue
-    normalizeBins(hTrue)
+    hTrue.legendstyle = 'L'
+    hTrue.title = 'POWHEG (training sample)'
 
-    hFakeTruth = fakeDataTruth[c].makeHist('Pt', '', binning, 
-                                           perUnitWidth=False)
-    hFakeTruth.title = 'aMC@NLO'
-    hFakeTruth.drawstyle = 'hist'
-    hFakeTruth.color = 'orange'
-    hFakeTruth.legendstyle = 'L'
-    hFakeTruth.fillstyle = 'hollow'
-    if 'fakeTruth' not in hTot:
-        hTot['fakeTruth'] = hFakeTruth.empty_clone()
-    hTot['fakeTruth'] += hFakeTruth
-    normalizeBins(hFakeTruth)
+    hTrueAlt = altTrue.makeHist(var, '', binning[varName])
+    hTrueAlt.color = 'magenta'
+    hTrueAlt.drawstyle = 'hist'
+    hTrueAlt.fillstyle = 'hollow'
+    hTrueAlt.legendstyle = 'L'
+    hTrueAlt.title = 'aMC@NLO'
 
-    cUnf = Canvas(1000,1200)
+    hUncUp = hTot['uncUpSqr'].clone()
+    for b in hUncUp:
+        b.value = sqrt(b.value)
+    hUncDn = hTot['uncDnSqr'].clone()
+    for b in hUncDn:
+        b.value = sqrt(b.value)
 
-    draw([hTrue, hFakeTruth, hUnfoldedFake, hUnfolded[c]], cUnf, xtitle='4\\ell p_T', ytitle='Events / 20 GeV')
-    leg = makeLegend(cUnf, hUnfoldedFake, hFakeTruth, hUnfolded[c], hTrue, 
-                     textsize=.023)
+    errorBand = makeErrorBand(hTot['unfolded'], hUncUp, hUncDn)
+
+    cUnf = Canvas(1000,1000)
+    draw([hTrue, hTrueAlt, hTot['unfoldedAlt'], hTot['unfolded'], errorBand], 
+         cUnf, xtitle=xTitle[varName], ytitle='Events',yerror_in_padding=False)
+    leg = makeLegend(cUnf, hTot['unfolded'], errorBand, hTot['unfoldedAlt'], hTrue, 
+                     hTrueAlt, textsize=.023, leftmargin=0.3)
     leg.Draw("same")
 
     style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
-    cUnf.Print(_join(plotDir, "unfold_Pt_{}.png".format(c)))
-
-    cRes = Canvas(1000,1000)
-    hRes = asrootpy(response[c].Hresponse())
-    hRes.drawstyle = 'colztext'
-    hRes.draw()
-    style.setCMSStyle(cRes, '', dataType='Preliminary Simulation', intLumi=lumi)
-    cRes.Print(_join(plotDir, "response_Pt_{}.png".format(c)))
+    cUnf.Print(_join(plotDir, "unfold_{}.png".format(varName)))
 
 
-cUnf = Canvas(1000,1200)
-
-hTot['unfolded'].color = 'black'
-hTot['unfolded'].drawstyle = 'PE'
-hTot['unfolded'].legendstyle = 'LPE'
-hTot['unfolded'].title = 'Unfolded data'
-
-hTot['unfoldedFake'].color = 'red'
-hTot['unfoldedFake'].title = 'Unfolded aMC@NLO'
-hTot['unfoldedFake'].drawstyle = 'PE'
-hTot['unfoldedFake'].legendstyle = 'LPE'
- 
-hTot['true'].title = 'POWHEG + MCFM'
-hTot['true'].drawstyle = 'hist'
-hTot['true'].color = 'blue'
-hTot['true'].legendstyle = 'L'
-hTot['true'].fillstyle = 'hollow'
-
-hTot['fakeTruth'].title = 'aMC@NLO'
-hTot['fakeTruth'].drawstyle = 'hist'
-hTot['fakeTruth'].color = 'orange'
-hTot['fakeTruth'].legendstyle = 'L'
-hTot['fakeTruth'].fillstyle = 'hollow'
-
-for n,h in hTot.iteritems():
-    normalizeBins(h)
-
-draw([hTot['true'], hTot['fakeTruth'], hTot['unfoldedFake'], 
-      hTot['unfolded']], cUnf, xtitle='4\\ell p_T', ytitle='Events / 20 GeV')
-leg = makeLegend(cUnf, hTot['unfoldedFake'], hTot['fakeTruth'], 
-                 hTot['unfolded'], hTot['true'], 
-                 textsize=.023)
-leg.Draw("same")
-    
-style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
-cUnf.Print(_join(plotDir, "unfold_Pt.png"))
