@@ -35,14 +35,14 @@ def leptonEfficiencyWeights(channel, systematic=''):
         return out[channels[0]]
 
     return out
-    
 
-_puStrs = {}
+
+_puFuns = {}
 def puWeight(weightFile, systematic=''):
-    global _puStrs
+    global _puFuns
 
     try:
-        return _puStrs[weightFile + '_' + systematic]
+        return _puFuns[weightFile + '_' + systematic]
     except KeyError:
         pass
 
@@ -62,17 +62,18 @@ def puWeight(weightFile, systematic=''):
     puWeight = _Weight('puWeight')
     with _open(weightFileName) as f:
         wtStr = puWeight.makeWeightStringFromHist(f.Get(sfName), 'nTruePU')
-    _puStrs[weightFile + '_' + systematic] = wtStr
-    return wtStr
+    wtFunc = puWeight.getWeightFunction(-1)
+    _puFuns[weightFile + '_' + systematic] = wtStr, wtFunc
+    return wtStr, wtFunc
 
 
 def baseMCWeight(channel, puWeightFile, lepSyst='', puSyst=''):
     lepWeights = leptonEfficiencyWeights(channel, lepSyst)
-    puWt = puWeight(puWeightFile, puSyst)
+    puWtStr, puWtFun = puWeight(puWeightFile, puSyst)
 
     if isinstance(lepWeights, str):
-        return '{} * {}'.format(lepWeights, puWt)
+        return '{} * {}'.format(lepWeights, puWtStr)
 
     return {
-        c : '{} * {}'.format(w,puWt) for c,w in lepWeights.iteritems()
+        c : '{} * {}'.format(w,puWtStr) for c,w in lepWeights.iteritems()
         }

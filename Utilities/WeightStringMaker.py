@@ -40,6 +40,7 @@ class WeightStringMaker(object):
 
     _counter = 0
     _hists = []
+    _functions = []
 
     def __init__(self, fName='weightFun'):
         self.fName = fName
@@ -48,7 +49,7 @@ class WeightStringMaker(object):
             #include "TH1.h"
             #include "TROOT.h"
             #include <iostream>
-            
+
             double {}{{0}}({{1}})
             {{{{
               TH1* h = (TH1*)gROOT->Get("{{2}}");
@@ -62,14 +63,14 @@ class WeightStringMaker(object):
 
     def makeWeightStringFromHist(self, h, *variables, **kwargs):
         '''
-        Return a string that weights an event by the value of histogram h in 
+        Return a string that weights an event by the value of histogram h in
         the bin that would be filled by variables.
         '''
         # make a copy so we can change directory, save it in global scope
         hCopy = h.clone()
         hCopy.SetDirectory(gROOT)
         self._hists.append(hCopy)
-        
+
         iName = "{0}{1}".format(self.fName, self._counter)
 
         _comp.register_code(
@@ -79,11 +80,16 @@ class WeightStringMaker(object):
                                  ', '.join("x%d"%i for i in range(len(variables)))),
             [iName,])
         out = '{0}({1})'.format(iName, ', '.join(variables))
-        
-        # force system to compile code now
-        arglebargle = getattr(_comp, iName)
+
+        # Save function. Also forces system to compile code now
+        self._functions.append(getattr(_comp, iName))
 
         self._counter += 1
-        
+
         return out
 
+    def getWeightFunction(self, i):
+        '''
+        Return a function object for the ith weight function made.
+        '''
+        return self._functions[i]
