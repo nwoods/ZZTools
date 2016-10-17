@@ -37,7 +37,7 @@ def _baseSamples(sample):
 
 def _makeScaleFactorFunction(channel, syst=''):
     objects = _mapObjects(channel)
-    
+
     if syst.lower() == 'up':
         return lambda row: reduce(_times,(getattr(row, ob+'EffScaleFactor')+getattr(row, ob+'EffScaleFactorError') for ob in objects))
     if syst.lower() in ['dn','down']:
@@ -46,7 +46,8 @@ def _makeScaleFactorFunction(channel, syst=''):
 
 _genVars = {}
 
-def getResponse(channel, truth, mc, bkg, var, binning, fPUWeight, lepSyst=''):
+def getResponse(channel, truth, mc, bkg, var, binning, fPUWeight, lepSyst='',
+                altVar='', selectionStr='', selectionFunction=None):
     '''
     Get the unfolding response matrix as a RooUnfoldResponse object.
     channel (str): single channel to use (matters for lepton scale factors)
@@ -57,39 +58,50 @@ def getResponse(channel, truth, mc, bkg, var, binning, fPUWeight, lepSyst=''):
     fPUWeight (callable): function for calculating pileup weight from nTruePU
     lepSyst (str): if 'up' or 'dn'/'down', will shift the lepton efficiency
         scale factors up/down by 1 sigma
+    altVar (str): If non-empty, background and truth ntuples use this instead
+        of var (for systematic shifts and other variables that only make sense
+        for MC reco)
+    selectionStr (str): selection to apply when using draw strings
+    selectionFunction (callable or None): function that takes an ntuple row
+        and returns a boolean to make the same selection as selectionStr,
+        or None to apply no selection
     '''
     # cache gen vars because they're slow to collect and don't change much
     global _genVars
 
     try:
         varDict = _genVars[var]
-        print "Already have something for variable {}".format(var)
     except KeyError:
         varDict = {}
         _genVars[var] = varDict
     try:
         channelDict = varDict[channel]
-        print "Already have something there for channel {}".format(channel)
     except KeyError:
         channelDict = {}
         varDict[channel] = channelDict
+
+    if not altVar:
+        altVar = var
+
+    if selectionFunction is None:
+        selectionFunction = lambda *args: True
 
     genVar = {}
     for name, sample in truth.itersamples():
         try:
             genVar[name] = channelDict[name]
-            print 'Reusing gen events for gen {}, in {} sample {}!'.format(var,channel,name)
         except KeyError:
             sampleGenVar = {}
 
             for row in sample:
-                sampleGenVar[(row.run,row.lumi,row.evt)] = getattr(row, var)
+                if selectionFunction(row):
+                    sampleGenVar[(row.run,row.lumi,row.evt)] = getattr(row, altVar)
 
             genVar[name] = sampleGenVar
             channelDict[name] = genVar[name]
 
-    hReco = sum(mc.makeHist(var, '', binning, perUnitWidth=False).hists)
-    hReco += bkg.makeHist(var, '', binning, perUnitWidth=False)
+    hReco = sum(mc.makeHist(var, selectionStr, binning, perUnitWidth=False).hists)
+    hReco += bkg.makeHist(altVar, selectionStr, binning, perUnitWidth=False)
 
     if len(binning) == 3:
         hResponse = _Hist2D(*(binning+binning))
@@ -104,14 +116,15 @@ def getResponse(channel, truth, mc, bkg, var, binning, fPUWeight, lepSyst=''):
         name = sample.name
         wConst = sample.xsec*sample.intLumi/sample.sumW
         for row in sample:
-            evtID = (row.run, row.lumi, row.evt)
-            weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst
-            try:
-                hResponse.Fill(getattr(row, var), genVar[name][evtID], weight)
-            except KeyError:
-                pass
+            if selectionFunction(row):
+                evtID = (row.run, row.lumi, row.evt)
+                weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst
+                try:
+                    hResponse.Fill(getattr(row, var), genVar[name][evtID], weight)
+                except KeyError:
+                    pass
 
-    hTrue = truth.makeHist(var, '', binning, perUnitWidth=False)
+    hTrue = truth.makeHist(altVar, selectionStr, binning, perUnitWidth=False)
 
     return _Response(hReco, hTrue, hResponse)
 
