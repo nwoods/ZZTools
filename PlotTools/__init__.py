@@ -20,7 +20,7 @@ _defaultLegParams = {
     }
 def makeLegend(pad, *objects, **params):
     '''
-    Make a legend initialized with parameters params, containing objects, 
+    Make a legend initialized with parameters params, containing objects,
     on pad.
     '''
     legParams = _defaultLegParams.copy()
@@ -68,7 +68,7 @@ def makeRatio(numerator, denominator):
     except AttributeError:
         pass
     num = _Graph(hNum)
-    
+
     if isinstance(denominator, _HistStack):
         for h in denominator.hists:
             h.sumw2()
@@ -97,12 +97,12 @@ def makeRatio(numerator, denominator):
     unity.SetLineStyle(7)
 
     return ratio, unity
-    
+
 def fixRatioAxes(mainXAxis, mainYAxis, ratioXAxis, ratioYAxis,
                  mainPadHeight, ratioPadHeight):
     '''
     Remove the x axis title and labels from the main pad and recreate them by
-    modifying the ratio plot axes. 
+    modifying the ratio plot axes.
     Resizes the y axis title and labels so they're the same size
     on both (the size they are on the main pad).
     '''
@@ -122,10 +122,10 @@ def makeErrorBand(hMean, errUp, errDn=None):
     '''
     Make a hatched black band to represent error bars around hMean.
 
-    errUp and errDn are taken to be systematic errors, to be added in 
+    errUp and errDn are taken to be systematic errors, to be added in
     quadrature to the statistical error bars already on hMean. If they are
     floats, they are taken to be the fractional error on
-    all bins. If they are histograms, the value of their bins is taken to be 
+    all bins. If they are histograms, the value of their bins is taken to be
     the absolute error on the corresponding bin of hMean.
 
     If errDn is not specified, errors are taken to be symmetric.
@@ -143,10 +143,14 @@ def makeErrorBand(hMean, errUp, errDn=None):
         if errDn is None:
             errDn = errUp.clone()
 
-        for bMean, bUp, bDn, bErrUp, bErrDn in zip(hMean, hUp, 
+        for bMean, bUp, bDn, bErrUp, bErrDn in zip(hMean, hUp,
                                                    hDn, errUp, errDn):
             bUp.value = bMean.value + sqrt(bMean.error**2 + bErrUp.value**2)
             bDn.value = max(bMean.value - sqrt(bMean.error**2 + bErrDn.value**2), 0.)
+
+    for bMean, bUp, bDn in zip(hMean, hUp, hDn):
+        if (bUp.value < bMean.value or bDn.value > bMean.value) and not bMean.overflow:
+            print "problem in bin {} ({:.2f} +{:.2f}/-{:.2f})".format(bMean.idx, bMean.value, bUp.value, bDn.value)
 
     err = _band(hDn, hUp, hMean)
     err.fillstyle = 'x'
