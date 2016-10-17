@@ -10,15 +10,15 @@ from Metadata.nameMap import nameMap
 if __name__ == '__main__':
     parser = _Args(description=("Move groups of files, renaming them in a "
                                 "consistent way."))
-    
+
     parser.add_argument('id', type=str, nargs=1,
                         help='ID of samples, e.g. "08SEP2016_0"')
     parser.add_argument('newID', type=str, nargs='?',
                         help='New ID for samples in ntuple directory, if different')
 
     args = parser.parse_args()
-    
-    
+
+
     oldID = args.id[0]
     if not args.newID:
         newID = oldID.lower()
@@ -60,7 +60,13 @@ if __name__ == '__main__':
             else:
                 mcGroups[sample] = groups[nt][sample]
 
-        moveAndRename(_join('/data/nawoods/ntuples', '{}_data_{}'.format(ntupleType, newID)),
-                      **dataGroups)
-        moveAndRename(_join('/data/nawoods/ntuples', '{}_mc_{}'.format(ntupleType, newID)),
-                      **mcGroups)
+        if len(dataGroups):
+            moveAndRename(_join('/data/nawoods/ntuples', '{}_data_{}'.format(ntupleType, newID)),
+                          **dataGroups)
+        if len(mcGroups):
+            moveAndRename(_join('/data/nawoods/ntuples', '{}_mc_{}'.format(ntupleType, newID)),
+                          **mcGroups)
+
+        if not (len(dataGroups) or len(mcGroups)):
+            print "No samples found for group {}, nothing filed".format(nt)
+
