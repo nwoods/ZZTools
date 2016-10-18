@@ -21,12 +21,12 @@ class SampleGroup(_SampleBase):
     '''
     A sample group where the samples are simply added together.
     '''
-    def __init__(self, name, channel, samplesIn, initFromMetadata=False, 
+    def __init__(self, name, channel, samplesIn, initFromMetadata=False,
                  *args, **kwargs):
         '''
         samplesIn should be a dict where each sample has an identifying key.
         '''
-        super(SampleGroup, self).__init__(name, channel, samplesIn, 
+        super(SampleGroup, self).__init__(name, channel, samplesIn,
                                           initFromMetadata, *args, **kwargs)
 
 
@@ -43,6 +43,8 @@ class SampleGroup(_SampleBase):
 
         self._format.update(info.get('format', {}))
 
+        self.isSignal = info.get('isSignal',False)
+
 
     def storeInputs(self, inputs):
         self._samples = {k:s for k,s in inputs.iteritems()}
@@ -52,14 +54,14 @@ class SampleGroup(_SampleBase):
         self._samples[sampleName] = sample
 
 
-    def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, 
+    def makeHist(self, var, selection, binning, weight='', perUnitWidth=True,
                  poissonErrors=False, postprocess=False, **kwargs):
         '''
         If var, selection, and/or weight are dictionaries, they will be used to
-        add histograms from the sample of the same key. If they are strings or 
-        appropriate iterables, they will be used to add histograms from all 
+        add histograms from the sample of the same key. If they are strings or
+        appropriate iterables, they will be used to add histograms from all
         samples.
-        If poissonErrors evaluates to True, all samples are required to be 
+        If poissonErrors evaluates to True, all samples are required to be
         data samples, and a TGraphAsymmErrors is returned instead of a Hist
         '''
         if isinstance(var, dict):
@@ -82,7 +84,7 @@ class SampleGroup(_SampleBase):
             assert all(isinstance(self._samples[s], _DataSample) or isinstance(self._samples[s], SampleGroup) for s in samplesToUse), \
                 "Poisson errors only make sense with data."
             h = sum(self._samples[s].makeHist(var[s], selection[s], binning,
-                                              weight[s], perUnitWidth, 
+                                              weight[s], perUnitWidth,
                                               poissonErrors=False,
                                               postprocess=postprocess,
                                               **kwargs) for s in samplesToUse)
@@ -113,12 +115,12 @@ class SampleGroup(_SampleBase):
         return h
 
 
-    def makeHist2(self, varX, varY, selection, binningX, binningY, 
+    def makeHist2(self, varX, varY, selection, binningX, binningY,
                   weight='', postprocess=False, **kwargs):
         '''
-        If var[XY], selection, and/or weight are dictionaries, they will be 
-        used to add histograms from the sample of the same key. If they are 
-        strings or appropriate iterables, they will be used to add histograms 
+        If var[XY], selection, and/or weight are dictionaries, they will be
+        used to add histograms from the sample of the same key. If they are
+        strings or appropriate iterables, they will be used to add histograms
         from all samples.
         '''
         if isinstance(varX, dict):
@@ -156,9 +158,9 @@ class SampleGroup(_SampleBase):
         h = Hist2D(*binning, type='D', title=self.prettyName, **self._format)
 
         for s in samplesToUse:
-            h += self._samples[s].makeHist2(varX[s], varY[s], selection[s], 
-                                            binningX, binningY, weight[s], 
-                                            postprocess=postprocess, 
+            h += self._samples[s].makeHist2(varX[s], varY[s], selection[s],
+                                            binningX, binningY, weight[s],
+                                            postprocess=postprocess,
                                             **kwargs)
 
         if postprocess:
@@ -215,8 +217,8 @@ class SampleStack(_SampleBase):
         '''
         samplesIn should be an iterable of samples
         '''
-        super(SampleStack, self).__init__(name, channel, samplesIn, 
-                                          initFromMetadata=False, 
+        super(SampleStack, self).__init__(name, channel, samplesIn,
+                                          initFromMetadata=False,
                                           *args, **kwargs)
         self._format['drawstyle'] = 'histnoclear'
 
@@ -229,14 +231,14 @@ class SampleStack(_SampleBase):
         self._samples.append(sample)
 
 
-    def makeHist(self, var, selection, binning, weight='', perUnitWidth=True, 
+    def makeHist(self, var, selection, binning, weight='', perUnitWidth=True,
                  postprocess=False, *extraHists, **kwargs):
         sortByMax = kwargs.pop('sortByMax', True)
 
         sig = []
         bkg = []
         for s in self._samples:
-            h = s.makeHist(var, selection, binning, weight, 
+            h = s.makeHist(var, selection, binning, weight,
                            perUnitWidth, postprocess=postprocess, **kwargs)
             try:
                 isSignal = s.isSignal
@@ -258,14 +260,14 @@ class SampleStack(_SampleBase):
         return stack
 
 
-    def makeHist2(self, varX, varY, selection, binningX, binningY, 
+    def makeHist2(self, varX, varY, selection, binningX, binningY,
                   weight='', postprocess=False, *extraHists, **kwargs):
         sortByMax = kwargs.pop('sortByMax', True)
 
         sig = []
         bkg = []
         for s in self._samples:
-            h = s.makeHist2(varX, varY, selection, binningX, binningY, weight, 
+            h = s.makeHist2(varX, varY, selection, binningX, binningY, weight,
                             postprocess=postprocess, **kwargs)
             try:
                 isSignal = s.isSignal
@@ -326,7 +328,7 @@ class SampleStack(_SampleBase):
     def getSamplesForChannel(self, channel):
         '''
         Get a list of all samples in the stack for one channel.
-        All samples in the stack must be groups which include a sample for 
+        All samples in the stack must be groups which include a sample for
         this channel.
         '''
         return [s[channel] for s in self]
