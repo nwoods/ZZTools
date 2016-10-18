@@ -23,8 +23,8 @@ from collections import OrderedDict
 from math import sqrt
 
 
-inData = 'uwvvNtuples_data_08sep2016'
-inMC = 'uwvvNtuples_mc_08sep2016'
+inData = 'uwvvNtuples_data_12oct2016'
+inMC = 'uwvvNtuples_mc_12oct2016'
 
 puWeightFile = 'puWeight_69200_08sep2016'
 fakeRateFile = 'fakeRate_08sep2016'
@@ -41,11 +41,11 @@ style = _Style()
 
 lumi = 15937.
 
-amcatnlo=True
+amcatnlo=False
 if amcatnlo:
     outdir += '_amcatnlo'
 
-data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile, 
+data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile,
                                 fakeRateFile, lumi, amcatnlo=amcatnlo)
 
 # count events
@@ -77,7 +77,7 @@ for c in ['eeee','eemm','mmmm']:
         totErrSqr['expected'] = 0.
     tot['expected'] += expected
     totErrSqr['expected'] += expErrSqr
-    
+
     hData = data[c].makeHist('1.', '', [1,0.,2.])
     dataErr = Double(0)
     yieldData = hData.IntegralAndError(0, hData.GetNbinsX(), dataErr)
@@ -141,13 +141,13 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
         hStack = stack.makeHist(var, '', binning, postprocess=True)
         dataPts = data.makeHist(var, dataSelection, binning, poissonErrors=True)
-        
+
         c = Canvas(1000,1000)
 
         leg = makeLegend(c, hStack, dataPts)
 
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c, 
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
+                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
                                                      ytitle='Events')
         # blinding box
         if varName == 'Mass' and binning4l['Mass'][-1] > 800.:
@@ -230,7 +230,7 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
 
         hStack = stack.makeHist(var, selections2l[z], binning2l[varName], postprocess=True)
         dataPts = data.makeHist(var, selections2l[z], binning2l[varName], poissonErrors=True)
-        
+
         # for ratio
         dataHist = data.makeHist(var, '', binning2l[varName])
 
@@ -238,8 +238,8 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
 
         leg = makeLegend(c, hStack, dataPts)
 
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c, 
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
+                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
                                                      ytitle='Events')
         leg.Draw("same")
 
@@ -307,7 +307,7 @@ for lep in varTemplates1l:
 
         hStack = stack.makeHist(var, selections1l[lep], binning1l[varName], postprocess=True)
         dataPts = data.makeHist(var, selections1l[lep], binning1l[varName], poissonErrors=True)
-        
+
         # for ratio
         dataHist = data.makeHist(var, selections1l[lep], binning1l[varName])
 
@@ -315,8 +315,8 @@ for lep in varTemplates1l:
 
         leg = makeLegend(c, hStack, dataPts)
 
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c, 
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
+                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
                                                      ytitle='Leptons')
         leg.Draw("same")
 
