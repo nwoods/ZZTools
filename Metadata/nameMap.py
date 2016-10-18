@@ -34,12 +34,13 @@ nameMap.add("ZZTo4L-amcatnlo", "ZZTo4L_13TeV-amcatnloFXFX-pythia8")
 nameMap.add("ZZTo4L", "ZZTo4L_13TeV_powheg_pythia8")
 nameMap.add("ggHZZ", "GluGluHToZZTo4L_M125_13TeV_powheg2_JHUgenV6_pythia8")
 nameMap.add("ggHZZ-minloHJJ", "GluGluHToZZTo4L_M125_13TeV_powheg2_minloHJJ_JHUgenV6_pythia8")
+nameMap.add("ZZJJTo4L_EWK", "ZZJJTo4L_EWK_13TeV-madgraph-pythia8")
 
 for fs in ['4e', '4mu', '4tau', '2e2mu', '2e2tau', '2mu2tau']:
-    nameMap.add("GluGluZZTo{}".format(fs), 
+    nameMap.add("GluGluZZTo{}".format(fs),
                 "GluGluToContinToZZTo{}_13TeV_MCFM701_pythia8".format(fs))
 
 for width in ['0', '0p1', '0p2', '0p3']:
     for mass in [750, 800, 1200, 2000, 3000, 4000]:
-        nameMap.add("Grav2PB_width{}_M{}".format(width, mass), 
+        nameMap.add("Grav2PB_width{}_M{}".format(width, mass),
                     "Graviton2PBToZZTo4L_width{}_M-{}_13TeV-JHUgenV6-pythia8".format(width, mass))

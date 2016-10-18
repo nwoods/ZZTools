@@ -39,18 +39,18 @@ def _ensureNonneg(h):
 
 
 
-def standardZZMC(channel, inDir, sampleName, resultType, puWeightFile, lumi, 
+def standardZZMC(channel, inDir, sampleName, resultType, puWeightFile, lumi,
                  efficiencySyst='', puSyst=''):
     channels = _parseChannels(channel)
 
     mcWeight = _baseMCWeight(channel, puWeightFile, efficiencySyst, puSyst)
 
     mcFiles = _path.join('/data/nawoods/ntuples', inDir, # if inDir is absolute, first argument is ignored
-                         'results_{}'.format(resultType), 
+                         'results_{}'.format(resultType),
                          '{}_*.root'.format(sampleName))
 
     byChan = {
-        c : _MC(sampleName, c, 
+        c : _MC(sampleName, c,
                 mcFiles, True, lumi) for c in channels
         }
 
@@ -88,8 +88,8 @@ def standardZZData(channel, inDir, resultType):
     return data
 
 
-def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi, 
-                  efficiencySyst='', puSyst='', amcatnlo=False, 
+def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
+                  efficiencySyst='', puSyst='', amcatnlo=False,
                   **extraSamples):
     qqZZSampleName = 'ZZTo4L'
     if amcatnlo:
@@ -105,12 +105,17 @@ def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
     ggZZByChan = {}
     for c in channels:
         ggZZByFS = {
-            fs : standardZZMC(c, inDir, 'GluGluZZTo{}'.format(fs), 
-                              resultType, puWeightFile, lumi, 
-                              efficiencySyst, 
+            fs : standardZZMC(c, inDir, 'GluGluZZTo{}'.format(fs),
+                              resultType, puWeightFile, lumi,
+                              efficiencySyst,
                               puSyst) for fs in ['4e', '4mu', '2e2mu']
             }
         ggZZByChan[c] = _Group('GluGluZZ', c, ggZZByFS, True)
+
+    ewkZZByChan = {
+        c : standardZZMC(c, inDir, 'ZZJJTo4L_EWK', resultType, puWeightFile,
+                         lumi, efficiencySyst, puSyst) for c in channels
+        }
 
     otherSamplesByChan = {
         name : {
@@ -122,25 +127,27 @@ def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
     if len(channels) == 1:
         qqZZ = qqZZByChan[channels[0]]
         ggZZ = ggZZByChan[channels[0]]
+        ewkZZ = ewkByChan[channels[0]]
         otherMC = [s[channels[0]] for s in otherSamplesByChan.values()]
     else:
         qqZZ = _Group(qqZZSampleName, channel, qqZZByChan, True)
         ggZZ = _Group('GluGluZZ', channel, ggZZByChan, True)
+        ewkZZ = _Group('ZZJJTo4L_EWK', channel, ewkZZByChan, True)
         otherMC = [_Group(n, channel, s, True) for n,s in otherSamplesByChan.iteritems()]
 
-    return _Stack('stack', channel, [qqZZ, ggZZ]+otherMC)
+    return _Stack('stack', channel, [qqZZ, ggZZ, ewkZZ]+otherMC)
 
 
 def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
-                  fakeRateFile, lumi, efficiencySyst='', puSyst='', 
+                  fakeRateFile, lumi, efficiencySyst='', puSyst='',
                   fakeRateSyst='', **extraSamples):
     channels = _parseChannels(channel)
 
     data2P2F = standardZZData(channel, dataDir, resultType+'_2P2F')
     data3P1F = standardZZData(channel, dataDir, resultType+'_3P1F')
-    mc2P2F = zzStackMCOnly(channel, mcDir, resultType+'_2P2F', puWeightFile, 
+    mc2P2F = zzStackMCOnly(channel, mcDir, resultType+'_2P2F', puWeightFile,
                            lumi, efficiencySyst, puSyst)
-    mc3P1F = zzStackMCOnly(channel, mcDir, resultType+'_3P1F', puWeightFile, 
+    mc3P1F = zzStackMCOnly(channel, mcDir, resultType+'_3P1F', puWeightFile,
                            lumi, efficiencySyst, puSyst)
 
     if  '.root' not in fakeRateFile:
@@ -170,9 +177,9 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
     zmCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrM.format(lep='{lep1}'),
                                       fr2=fakeFactorStrM.format(lep='{lep2}'))
     crWeight = {
-        'eeee' : zeCRWeight.format(lep1='e1',lep2='e2') + ' * ' + zeCRWeight.format(lep1='e3',lep2='e4'), 
-        'eemm' : zeCRWeight.format(lep1='e1',lep2='e2') + ' * ' + zmCRWeight.format(lep1='m1',lep2='m2'), 
-        'mmmm' : zmCRWeight.format(lep1='m1',lep2='m2') + ' * ' + zmCRWeight.format(lep1='m3',lep2='m4'), 
+        'eeee' : zeCRWeight.format(lep1='e1',lep2='e2') + ' * ' + zeCRWeight.format(lep1='e3',lep2='e4'),
+        'eemm' : zeCRWeight.format(lep1='e1',lep2='e2') + ' * ' + zmCRWeight.format(lep1='m1',lep2='m2'),
+        'mmmm' : zmCRWeight.format(lep1='m1',lep2='m2') + ' * ' + zmCRWeight.format(lep1='m3',lep2='m4'),
         }
 
     if len(channels) == 1:
@@ -197,52 +204,52 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
         ggZZ3P1F = {channels[0] : ggZZ3P1F}
 
     bkgByChan = {
-        c : _Group('Z+X', c, {'2P2F':data2P2F[c], 
-                              '3P1F':data3P1F[c], 
-                              'qqZZ2P2F':qqZZ2P2F[c], 
-                              'qqZZ3P1F':qqZZ3P1F[c], 
-                              'ggZZ2P2F':ggZZ2P2F[c], 
+        c : _Group('Z+X', c, {'2P2F':data2P2F[c],
+                              '3P1F':data3P1F[c],
+                              'qqZZ2P2F':qqZZ2P2F[c],
+                              'qqZZ3P1F':qqZZ3P1F[c],
+                              'ggZZ2P2F':ggZZ2P2F[c],
                               'ggZZ3P1F':ggZZ3P1F[c]
                               }
                         ) for c in channels
         }
-    
+
     if len(channels) == 1:
         bkg = bkgByChan[channels[0]]
     else:
         bkg = _Group('Z+X', channel, bkgByChan, True)
-    
+
     # don't allow negative backgrounds
     bkg.setPostprocessor(_ensureNonneg)
 
     return bkg
 
 
-def standardZZStack(channel, dataDir, mcDir, resultType, puWeightFile, 
-                    fakeRateFile, lumi, efficiencySyst='', puSyst='', 
+def standardZZStack(channel, dataDir, mcDir, resultType, puWeightFile,
+                    fakeRateFile, lumi, efficiencySyst='', puSyst='',
                     fakeRateSyst='', amcatnlo=False, **extraSamples):
-    stack = zzStackMCOnly(channel, mcDir, resultType, puWeightFile, lumi, 
+    stack = zzStackMCOnly(channel, mcDir, resultType, puWeightFile, lumi,
                           efficiencySyst, puSyst, amcatnlo)
-    bkg = standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile, 
+    bkg = standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                         fakeRateFile, lumi, efficiencySyst, puSyst, fakeRateSyst)
 
     stack.addSample(bkg)
     return stack
 
 
-def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile, 
-                      fakeRateFile, lumi, efficiencySyst='', puSyst='', 
+def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
+                      fakeRateFile, lumi, efficiencySyst='', puSyst='',
                       fakeRateSyst='', amcatnlo=False, **extraSamples):
     '''
-    Return dataSampleGroup, bkgAndMCStack for data files in 
+    Return dataSampleGroup, bkgAndMCStack for data files in
     [dataDir]/results_[resultType] and MC in [mcDir]/results[resultType],
-    using pileup weights from data/pileup/[puWeightFile]. 
+    using pileup weights from data/pileup/[puWeightFile].
     If the data and MC directories start with /data/nawoods/ntuples, this can
-    be omitted. 
-    Background is constructed from samples in 
-    [dataDir]/results_[resultType]_2P2F and ..._3P1F, using fake factor from 
+    be omitted.
+    Background is constructed from samples in
+    [dataDir]/results_[resultType]_2P2F and ..._3P1F, using fake factor from
     data/fakeRate/[puWeightFile].
-    MC scaled to integrated luminosity lumi. 
+    MC scaled to integrated luminosity lumi.
 
     If applyWeights is False, PU weights and data/MC scale factors are not used
 
@@ -252,15 +259,15 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
     If amcatnlo is True, the aMC@NLO qq->ZZ sample will be used instead of the
     standard POWHEG sample.
 
-    To put extra histograms in the stack, add extra keyword arguments of the 
-    for sampleName='fileGlob*.root'. The files are assumed to be in the MC 
+    To put extra histograms in the stack, add extra keyword arguments of the
+    for sampleName='fileGlob*.root'. The files are assumed to be in the MC
     directory.
     '''
     data = standardZZData(channel, dataDir, resultType)
 
-    stack = standardZZStack(channel, dataDir, mcDir, resultType, 
+    stack = standardZZStack(channel, dataDir, mcDir, resultType,
                             puWeightFile, fakeRateFile,
-                            lumi, efficiencySyst, puSyst, fakeRateSyst, 
+                            lumi, efficiencySyst, puSyst, fakeRateSyst,
                             amcatnlo, **extraSamples)
 
     return data, stack
@@ -270,11 +277,11 @@ def standardZZGen(channel, inDir, sampleName, resultType, lumi):
     channels = _parseChannels(channel)
 
     files = _path.join('/data/nawoods/ntuples', inDir, # if inDir is absolute, first argument is ignored
-                       'results_{}'.format(resultType), 
+                       'results_{}'.format(resultType),
                        '{}_*.root'.format(sampleName))
 
     byChan = {
-        c : _MC(sampleName, c+'Gen', 
+        c : _MC(sampleName, c+'Gen',
                 files, True, lumi) for c in channels
         }
 
@@ -295,8 +302,8 @@ def genZZSamples(channel, fileDir, resultType, lumi, amcatnlo=False):
 
     for c in channels:
         theseSamples = {}
-        theseSamples[qqZZSampleName] = standardZZGen(c, fileDir,  
-                                                     qqZZSampleName, 'smp', 
+        theseSamples[qqZZSampleName] = standardZZGen(c, fileDir,
+                                                     qqZZSampleName, 'smp',
                                                      lumi)
 
         for fs in ['4e', '4mu', '2e2mu']:
@@ -304,8 +311,12 @@ def genZZSamples(channel, fileDir, resultType, lumi, amcatnlo=False):
             theseSamples[sample] = standardZZGen(c, fileDir, sample, 'smp',
                                                  lumi)
 
+        theseSamples['ZZJJTo4L_EWK'] = standardZZGen(c, fileDir,
+                                                     'ZZJJTo4L_EWK', 'smp',
+                                                     lumi)
+
         samplesByChan[c] = _Group("GenZZ", c+'Gen', theseSamples, False)
-    
+
     if len(channels) == 1:
         return samplesByChan[channels[0]]
 

@@ -85,24 +85,24 @@ sampleInfo['GluGluZZTo2mu2tau'] = {
 
 sampleInfo["ZZTo4L"] = {
     'xsec' : 1.256,
-    'prettyName' : 'q#bar{q} #rightarrow ZZ, Z#gamma*', 
+    'prettyName' : 'q#bar{q} #rightarrow ZZ, Z#gamma*',
     'isSignal' : True,
     'format' : {
-        'fillcolor' : '#99ccff', 
+        'fillcolor' : '#99ccff',
         'linecolor' : '#000099',
         },
-    'kFactor' : '1.1', 
+    'kFactor' : '1.1',
     }
 
 sampleInfo["ZZTo4L-amcatnlo"] = {
     'xsec' : 1.191,
-    'prettyName' : 'q#bar{q} #rightarrow ZZ, Z#gamma*', 
+    'prettyName' : 'q#bar{q} #rightarrow ZZ, Z#gamma*',
     'isSignal' : True,
     'format' : {
-        'fillcolor' : '#99ccff', 
+        'fillcolor' : '#99ccff',
         'linecolor' : '#000099',
         },
-    'kFactor' : '1.1', 
+    'kFactor' : '1.1',
     }
 
 sampleInfo["WZTo3LNu"] = {
@@ -114,24 +114,33 @@ sampleInfo["WZTo3LNu"] = {
         },
     }
 
+sampleInfo["ZZJJTo4L_EWK"] = {
+    'xsec' : 0.0004404,
+    'prettyName' : 'ZZ + jets EWK',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#bbeeff',
+        'linecolor' : '#000099',
+        },
+    }
 
 
 groupInfo = {}
 
 groupInfo['GluGluZZ'] = {
     'isSignal' : True,
-    'prettyName' : 'gg #rightarrow ZZ, Z#gamma*', 
+    'prettyName' : 'gg #rightarrow ZZ, Z#gamma*',
     'format' : {
-        'fillcolor' : '#4b78ff', 
+        'fillcolor' : '#4b78ff',
         'linecolor' : '#000099',
         },
     }
 
 groupInfo['ggZZ2l2tau'] = {
     'isSignal' : False,
-    'prettyName' : 'gg \\rightarrow ZZ, Z\\gamma* \\rightarrow 2\\ell 2\\tau', 
+    'prettyName' : 'gg \\rightarrow ZZ, Z\\gamma* \\rightarrow 2\\ell 2\\tau',
     'format' : {
-        'color' : 'darkgray', 
+        'color' : 'darkgray',
         },
     }
 
