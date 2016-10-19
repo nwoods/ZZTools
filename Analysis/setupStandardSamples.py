@@ -140,7 +140,7 @@ def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
 
 def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                   fakeRateFile, lumi, efficiencySyst='', puSyst='',
-                  fakeRateSyst='', **extraSamples):
+                  eFakeRateSyst='', mFakeRateSyst='', **extraSamples):
     channels = _parseChannels(channel)
 
     data2P2F = standardZZData(channel, dataDir, resultType+'_2P2F')
@@ -157,11 +157,13 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                           fakeRateFile)) as f:
         fakeFactorStrE = wCR.makeWeightStringFromHist(f.fakeFactor_e, 'abs({lep}Eta)', '{lep}Pt')
         fakeFactorStrM = wCR.makeWeightStringFromHist(f.fakeFactor_m, 'abs({lep}Eta)', '{lep}Pt')
-        if fakeRateSyst.lower() == 'up':
+        if eFakeRateSyst.lower() == 'up':
             fakeFactorStrE = '1.4 * {}'.format(fakeFactorStrE)
-            fakeFactorStrM = '1.4 * {}'.format(fakeFactorStrM)
-        elif fakeRateSyst.lower() in ['dn', 'down']:
+        elif eFakeRateSyst.lower() in ['dn', 'down']:
             fakeFactorStrE = '0.6 * {}'.format(fakeFactorStrE)
+        if mFakeRateSyst.lower() == 'up':
+            fakeFactorStrM = '1.4 * {}'.format(fakeFactorStrM)
+        elif mFakeRateSyst.lower() in ['dn', 'down']:
             fakeFactorStrM = '0.6 * {}'.format(fakeFactorStrM)
 
     # CR samples weighted by fake factor
