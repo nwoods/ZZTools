@@ -32,26 +32,27 @@ lumi = 15937.
 channels = ['ee','mm']
 
 puWeight = WeightStringMaker('puWeight')
-fPU = root_open(_path.join(environ['zzt'], 'data', 'pileup', 
+fPU = root_open(_path.join(environ['zzt'], 'data', 'pileup',
                            'puWeight_69200_08sep2016.root'))
 hPU = fPU.puScaleFactor
 strPU = puWeight.makeWeightStringFromHist(hPU, 'nTruePU')
 
 mcWeight = {
-    'ee' : 'e1EffScaleFactor * e2EffScaleFactor * {}'.format(strPU),
+    'ee' : ('e1EffScaleFactor * e2EffScaleFactor * e1TrkRecoEffScaleFactor * '
+            'e2TrkRecoEffScaleFactor * {}').format(strPU),
     'mm' : 'm1EffScaleFactor * m2EffScaleFactor * {}'.format(strPU),
     }
 
 if test:
     dyByChan = {
-        c : MCSample('DYJets', c, 
-                     '/data/nawoods/ntuples/uwvvSingleZ_mc_test/DYJets*.root', 
+        c : MCSample('DYJets', c,
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_test/DYJets*.root',
                      True, lumi) for c in channels
         }
 else:
     dyByChan = {
-        c : MCSample('DYJets', c, 
-                     '/data/nawoods/ntuples/uwvvSingleZ_mc_08sep2016/results/DYJets*.root', 
+        c : MCSample('DYJets', c,
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_08sep2016/results/DYJets*.root',
                      True, lumi) for c in channels
         }
 
@@ -59,14 +60,14 @@ dy = SampleGroup('DYJets', 'z', dyByChan, True)
 
 if test:
     ttByChan = {
-        c : MCSample('TTJets', c, 
-                     '/data/nawoods/ntuples/uwvvSingleZ_mc_test/TTJets*.root', 
+        c : MCSample('TTJets', c,
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_test/TTJets*.root',
                      True, lumi) for c in channels
         }
 else:
     ttByChan = {
-        c : MCSample('TTJets', c, 
-                     '/data/nawoods/ntuples/uwvvSingleZ_mc_08sep2016/results/TTJets*.root', 
+        c : MCSample('TTJets', c,
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_08sep2016/results/TTJets*.root',
                      True, lumi) for c in channels
         }
 
@@ -79,12 +80,12 @@ dataByChan = {}
 for c in channels:
     samplesByEra = {}
     if test:
-        samplesByEra['test'] = DataSample('test', c, 
+        samplesByEra['test'] = DataSample('test', c,
                                           '/data/nawoods/ntuples/uwvvSingleZ_data_test/*.root',
                                           )
     else:
         for era in ['B','C','D','E']:
-            samplesByEra['2016{}'.format(era)] = DataSample('2016{}'.format(era), c, 
+            samplesByEra['2016{}'.format(era)] = DataSample('2016{}'.format(era), c,
                                                             '/data/nawoods/ntuples/uwvvSingleZ_data_08sep2016/results/Run2016{}*.root'.format(era)
                                                             )
 
@@ -155,7 +156,7 @@ for chan in ['z', 'ze', 'zm']:
 
         hStack = stack.makeHist(var, '', binning2l[varName], mcWeight)
         dataPts = data.makeHist(var, '', binning2l[varName], poissonErrors=True)
-        
+
         # for ratio
         dataHist = data.makeHist(var, '', binning2l[varName])
 
@@ -169,14 +170,14 @@ for chan in ['z', 'ze', 'zm']:
         pad1, pad2 = addPadBelow(c, .23)
 
         pad1.cd()
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], pad1, 
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], pad1,
+                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
                                                      ytitle='Events')
         leg.Draw("same")
 
         pad2.cd()
         ratio, unity = makeRatio(dataHist, hStack)
-        (ratioX, ratioY), ratioLimits = draw(ratio, pad2, ytitle='Data / MC', 
+        (ratioX, ratioY), ratioLimits = draw(ratio, pad2, ytitle='Data / MC',
                                              xlimits=(xmin,xmax),
                                              ylimits=(0.7,1.3), ydivisions=5)
         unity.Draw("same")
@@ -210,14 +211,14 @@ for chan in ['l', 'e', 'm']:
         pad1, pad2 = addPadBelow(c, .23)
 
         pad1.cd()
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], pad1, 
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''), 
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], pad1,
+                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
                                                      ytitle='Leptons')
         leg.Draw("same")
 
         pad2.cd()
         ratio, unity = makeRatio(dataHist, hStack)
-        (ratioX, ratioY), ratioLimits = draw(ratio, pad2, ytitle='Data / MC', 
+        (ratioX, ratioY), ratioLimits = draw(ratio, pad2, ytitle='Data / MC',
                                              xlimits=(xmin,xmax),
                                              ylimits=(0.7,1.3), ydivisions=5)
         unity.Draw("same")
@@ -230,4 +231,4 @@ for chan in ['l', 'e', 'm']:
 
         style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
         c.Print('{}/{}{}.png'.format(outdir, chan, varName))
-                       
+
