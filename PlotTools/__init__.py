@@ -14,7 +14,7 @@ _defaultLegParams = {
     'entryheight' : 0.03,
     'entrysep' : 0.01,
     'leftmargin' : 0.5,
-    'topmargin' : 0.05,
+    'topmargin' : 0.08,
     'rightmargin' : 0.05,
     'textsize' : 0.033,
     }
@@ -22,8 +22,10 @@ def makeLegend(pad, *objects, **params):
     '''
     Make a legend initialized with parameters params, containing objects,
     on pad.
+    If 'solid' is in params and evaluates True, the legend will be opaque.
     '''
     legParams = _defaultLegParams.copy()
+    solid = params.pop('solid', False)
     legParams.update(params)
 
     obs = []
@@ -35,7 +37,11 @@ def makeLegend(pad, *objects, **params):
         else:
             obs.append(ob)
 
-    return _Legend(obs[::-1], pad, **legParams)
+    out = _Legend(obs[::-1], pad, **legParams)
+    if solid:
+        out.SetFillStyle(1001)
+
+    return out
 
 def addPadBelow(p, height, bottomMargin=0.3, topMargin=0.085):
     '''
