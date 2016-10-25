@@ -95,19 +95,35 @@ for n,t in tot.iteritems():
     print '    {}: {} +/- {}'.format(n,t,sqrt(totErrSqr[n]))
 
 
+objNames = {
+    'zz' : 'ZZ',
+    'eeee' : '4e',
+    'eemm' : '2e2\\mu',
+    'mmmm' : '4\\mu',
+    'z' : 'Z',
+    'z1' : 'Z_{1}',
+    'z2' : 'Z_{2}',
+    'ze' : 'Z \\rightarrow e^{+}e^{-}',
+    'zm' : 'Z \\rightarrow \\mu^{+}\\mu^{-}',
+    'l1' : '\\ell_{1}',
+    'l' : '\\ell',
+    'e' : 'e',
+    'm' : '\\mu',
+    }
+
 ### Set up variable specific info
 
-units = {
-    'Mass' : 'GeV',
-    'Eta' : '',
-    'Phi' : '',
-    'Pt' : 'GeV',
-    'nJets' : '',
-    'Iso' : '',
-    'PVDXY' : 'cm',
-    'PVDZ' : 'cm',
-    'nvtx' : '',
-    'SIP3D' : '',
+xTitles = {
+    'Mass' : 'm_{{{obj}}} \\, (\\text{{GeV}})',
+    'Eta' : '\\eta_{{{obj}}}',
+    'Phi' : '\\phi_{{{obj}}}',
+    'Pt' : '{obj} \\, p_{{T}} \\, (\\text{{GeV}})',
+    'nJets' : 'N_{{jets}} \\, ({obj} \\, \\text{{events}})',
+    'Iso' : 'R_{{Iso}} \\, ({obj})',
+    'PVDXY' : '\\Delta_{{xy}} \\, ({obj}) \\, (\\text{{cm}})',
+    'PVDZ' : '\\Delta_{{z}} \\, ({obj}) \\, (\\text{{cm}})',
+    'nvtx' : 'N_{{vtx}} \\, ({obj} \\, \\text{{events}})',
+    'SIP3D' : 'SIP_{{3D}} \\, ({obj})',
     }
 
 binning4l = {
@@ -147,7 +163,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
         leg = makeLegend(c, hStack, dataPts)
 
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
+                                                     xtitle=xTitles[varName].format(obj=objNames[chan]),
                                                      ytitle='Events')
         # blinding box
         if varName == 'Mass' and binning4l['Mass'][-1] > 800.:
@@ -239,7 +255,7 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
         leg = makeLegend(c, hStack, dataPts)
 
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
+                                                     xtitle=xTitles[varName].format(obj=objNames[z]),
                                                      ytitle='Events')
         leg.Draw("same")
 
@@ -316,7 +332,7 @@ for lep in varTemplates1l:
         leg = makeLegend(c, hStack, dataPts)
 
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
+                                                     xtitle=xTitles[varName].format(obj=objNames[lep]),
                                                      ytitle='Leptons')
         leg.Draw("same")
 

@@ -98,19 +98,6 @@ data = SampleGroup('Data', 'z', dataByChan)
 data.format(drawstyle='PE', legendstyle='LPE', color='black')
 
 
-units = {
-    'Mass' : 'GeV',
-    'Eta' : '',
-    'Phi' : '',
-    'Pt' : 'GeV',
-    'nJets' : '',
-    'Iso' : '',
-    'PVDXY' : 'cm',
-    'PVDZ' : 'cm',
-    'nvtx' : '',
-    'SIP3D' : '',
-    }
-
 binning2l = {
     'Mass' : [60, 60., 120.],
     'Pt' : [60, 0., 300.],
@@ -128,6 +115,34 @@ binning1l = {
     'PVDZ' : [20, -.2, .2],
     'SIP3D' : [20, 0., 5.],
     }
+
+xTitles = {
+    'Mass' : 'm_{{{obj}}} \\, (\\text{{GeV}})',
+    'Eta' : '\\eta_{{{obj}}}',
+    'Phi' : '\\phi_{{{obj}}}',
+    'Pt' : '{obj} \\, p_{{T}} \\, (\\text{{GeV}})',
+    'nJets' : 'N_{{\\text{{jets}}}} \\, (\\text{{single-}}{obj} \\, \\text{{events}})',
+    'Iso' : 'R_{{\\text{{Iso}}}} \\, ({obj})',
+    'PVDXY' : '#Delta_{{xy}} \\, ({obj}) \\, (\\text{{cm}})',
+    'PVDZ' : '#Delta_{{z}} ({obj}) \\, (\\text{{cm}})',
+    'nvtx' : 'N_{{vtx}} \\, (\\text{{single-}}{obj} \, \\text{{events}})',
+    'SIP3D' : 'SIP_{{3D}} \\, ({obj})',
+    }
+
+objectNames = {
+    'z' : 'Z',
+    'ze' : 'Z \\rightarrow e^{+}e^{-}',
+    'zm' : 'Z \\rightarrow \\mu^{+}\\mu^{-}',
+    'l' : '\\ell',
+    'e' : 'e',
+    'm' : '\\mu',
+    }
+
+legParams = {v:{} for v in xTitles}
+legParams['Eta'] = {'topmargin':.25,'leftmargin':.3,'rightmargin':.3}
+legParams['Phi'] = {'topmargin':.25,'leftmargin':.3,'rightmargin':.3}
+
+
 
 vars2l = {}
 vars2l['ze'] = {v : {'ee':v} for v in binning2l}
@@ -165,13 +180,13 @@ for chan in ['z', 'ze', 'zm']:
 
         c = Canvas(1000,1000)
 
-        leg = makeLegend(c, hStack, dataPts)
+        leg = makeLegend(c, hStack, dataPts, solid=True, **legParams[varName])
 
         pad1, pad2 = addPadBelow(c, .23)
 
         pad1.cd()
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], pad1,
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
+                                                     xtitle=xTitles[varName].format(obj=objectNames[chan]),
                                                      ytitle='Events')
         leg.Draw("same")
 
@@ -206,13 +221,13 @@ for chan in ['l', 'e', 'm']:
 
         c = Canvas(1000,1200)
 
-        leg = makeLegend(c, hStack, dataPts)
+        leg = makeLegend(c, hStack, dataPts, solid=True, **legParams[varName])
 
         pad1, pad2 = addPadBelow(c, .23)
 
         pad1.cd()
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], pad1,
-                                                     xtitle='{}'.format(varName)+(' ({})'.format(units[varName]) if units[varName] else ''),
+                                                     xtitle=xTitles[varName].format(obj=objectNames[chan]),
                                                      ytitle='Leptons')
         leg.Draw("same")
 
