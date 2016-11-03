@@ -7,6 +7,14 @@ Nate Woods, U. Wisconsin
 '''
 
 
+import logging
+from rootpy import log as rlog; rlog = rlog["/helpers"]
+# don't show most silly ROOT messages
+logging.basicConfig(level=logging.WARNING)
+rlog["/rootpy.compiled"].setLevel(rlog.WARNING)
+
+import rootpy.compiled as _rootComp
+
 
 def makeNumberPretty(n, maxDigits=10):
     '''
@@ -25,7 +33,7 @@ def makeNumberPretty(n, maxDigits=10):
         m *= 10
         if int(m) == m:
             break
-    
+
     preFormat = "%%.%df"%nDecimals
     return preFormat%n
 
@@ -67,20 +75,20 @@ def mapObjects(channel):
     except KeyError:
         nObjects = {}
         objects = []
-    
+
         for obj in channel:
             if obj not in nObjects:
                 nObjects[obj] = 1
             else:
                 nObjects[obj] += 1
-    
+
         for obj, num in nObjects.iteritems():
             if num == 1:
                 objects.append(obj)
             else:
                 for i in range(num):
                     objects.append(obj+str(i+1))
-        
+
         objects.sort()
 
         _zzhelpers_object_maps_[channel] = objects
@@ -98,7 +106,7 @@ def dictFromJSONFile(fName):
 def combineWeights(*wts, **kwargs):
     '''
     Combine all non-null items in wts into a string that multiplies them all
-    together (' * ' between items), unless certain keyword arguments 
+    together (' * ' between items), unless certain keyword arguments
     are present:
     kwargs['selections'] evaluates to True -> join with ' && ' instead of ' * '
     kwargs['joinwith'] can be used to replace ' * ' with an arbitrary string
@@ -112,3 +120,80 @@ def combineWeights(*wts, **kwargs):
     joiner = '){}('.format(kwargs.get('joinwith', joiner))
     return '('+joiner.join(goodWeights)+')'
 
+
+identityFunction = lambda *args, **kwargs: True
+
+
+Z_MASS = 91.1876
+
+
+_strDeltaPhi = ''
+_fDeltaPhi = None
+_strDeltaR = ''
+_fDeltaR = None
+
+def _setupDeltaR():
+    global _strDeltaPhi
+    global _fDeltaPhi
+    global _strDeltaR
+    global _fDeltaR
+
+    if _strDeltaR and _fDeltaR is not None:
+        return
+
+    _rootComp.register_code(
+        '''
+        #include<cmath> // std::sqrt
+
+        float _f_Delta_Phi(float phi1, float phi2)
+        {
+          const float pi = 3.14159265;
+          float out = phi1 - phi2;
+          while(out > pi)
+            out -= 2. * pi;
+          while(out < -1. * pi)
+            out += 2. * pi;
+
+          return out;
+        }
+
+        float _f_Delta_R(float eta1, float phi1, float eta2, float phi2)
+        {
+          float dPhi = _f_Delta_Phi(phi1, phi2);
+          float dEta = eta1 - eta2;
+          return std::sqrt(dPhi * dPhi + dEta * dEta);
+        }
+        ''', ['_f_Delta_Phi', '_f_Delta_R'])
+
+    _strDeltaPhi = '_f_Delta_Phi'
+    _fDeltaPhi = _rootComp._f_Delta_Phi
+    _strDeltaR = '_f_Delta_R'
+    _fDeltaR = _rootComp._f_Delta_R
+
+
+def deltaPhiFunction():
+    if _fDeltaPhi is None:
+        _setupDeltaR()
+
+    return _fDeltaPhi
+
+
+def deltaPhiString():
+    if not _strDeltaPhi:
+        _setupDeltaR()
+
+    return _strDeltaPhi
+
+
+def deltaRFunction():
+    if _fDeltaR is None:
+        _setupDeltaR()
+
+    return _fDeltaR
+
+
+def deltaRString():
+    if not _strDeltaR:
+        _setupDeltaR()
+
+    return _strDeltaR
