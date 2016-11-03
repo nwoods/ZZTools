@@ -127,7 +127,7 @@ def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
     if len(channels) == 1:
         qqZZ = qqZZByChan[channels[0]]
         ggZZ = ggZZByChan[channels[0]]
-        ewkZZ = ewkByChan[channels[0]]
+        ewkZZ = ewkZZByChan[channels[0]]
         otherMC = [s[channels[0]] for s in otherSamplesByChan.values()]
     else:
         qqZZ = _Group(qqZZSampleName, channel, qqZZByChan, True)
