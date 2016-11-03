@@ -13,7 +13,7 @@ from rootpy.ROOT import TBox, Double
 from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
 from PlotTools import PlotStyle as _Style
 from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes
-from Utilities import WeightStringMaker
+from Utilities import WeightStringMaker, deltaRString, deltaPhiString
 from Analysis import standardZZSamples
 
 from os import environ
@@ -118,12 +118,20 @@ xTitles = {
     'Eta' : '\\eta_{{{obj}}}',
     'Phi' : '\\phi_{{{obj}}}',
     'Pt' : '{obj} \\, p_{{T}} \\, (\\text{{GeV}})',
-    'nJets' : 'N_{{jets}} \\, ({obj} \\, \\text{{events}})',
+    'nJets' : 'N_{\\text{jets}}',
     'Iso' : 'R_{{Iso}} \\, ({obj})',
     'PVDXY' : '\\Delta_{{xy}} \\, ({obj}) \\, (\\text{{cm}})',
     'PVDZ' : '\\Delta_{{z}} \\, ({obj}) \\, (\\text{{cm}})',
-    'nvtx' : 'N_{{vtx}} \\, ({obj} \\, \\text{{events}})',
+    'nvtx' : 'N_{\\text{vtx}}',
     'SIP3D' : 'SIP_{{3D}} \\, ({obj})',
+    'jet1Pt' : 'p_T^\\text{j1} \\, \\text{(GeV)}',
+    'jet1Eta' : '\\eta_\\text{j1}',
+    'jet2Pt' : 'p_T^\\text{j2} \\, \\text{(GeV)}',
+    'jet2Eta' : '\\eta_\\text{j2}',
+    'mjj' : 'm_\\text{jj} \\, \\text{(GeV)}',
+    'deltaEtajj' : '|\\Delta \\eta_{\\text{jj}}}|',
+    'deltaPhiZZ' : '\\Delta \\phi (\\text{Z}_1, \\text{Z}_2)',
+    'deltaRZZ' : '\\Delta \\text{R} (\\text{Z}_1, \\text{Z}_2)',
     }
 
 binning4l = {
@@ -133,7 +141,31 @@ binning4l = {
     'Phi'   : [12, -3.15, 3.15],
     'nvtx'  : [40, 0., 40.],
     'nJets' : [6, -0.5, 5.5],
+    'jet1Pt' : [0., 50., 100., 200., 300., 500.],
+    #'jet1Eta' : [0., 1.5, 3., 4.7],
+    'jet2Pt' : [30., 100., 200., 500.],
+    #'jet2Eta' : [0., 1.5, 3., 4.7],
+    'mjj' : [0., 100., 300., 800.],
+    'deltaEtajj' : [6, 0.,6.],
+    'deltaPhiZZ' : [0., 1.5] + [2.+.25*i for i in range(6)],
+    'deltaRZZ' : [6, 0., 6.],
     }
+
+vars4l = {v:v for v in binning4l}
+# vars4l['jet1Eta'] = 'abs({})'.format(vars4l['jet1Eta'])
+# vars4l['jet2Eta'] = 'abs({})'.format(vars4l['jet2Eta'])
+vars4l = {v:{c:vars4l[v] for c in ['eeee','eemm','mmmm']} for v in vars4l}
+vars4l['deltaPhiZZ'] = {
+    'eeee' : '{}(e1_e2_Phi, e3_e4_Phi)'.format(deltaPhiString()),
+    'eemm' : '{}(e1_e2_Phi, m1_m2_Phi)'.format(deltaPhiString()),
+    'mmmm' : '{}(m1_m2_Phi, m3_m4_Phi)'.format(deltaPhiString()),
+    }
+vars4l['deltaRZZ'] = {
+    'eeee' : '{}(e1_e2_Eta, e1_e2_Phi, e3_e4_Eta, e3_e4_Phi)'.format(deltaRString()),
+    'eemm' : '{}(e1_e2_Eta, e1_e2_Phi, m1_m2_Eta, m1_m2_Phi)'.format(deltaRString()),
+    'mmmm' : '{}(m1_m2_Eta, m1_m2_Phi, m3_m4_Eta, m3_m4_Phi)'.format(deltaRString()),
+    }
+
 
 if amcatnlo:
     binning4l = {'Mass' : binning4l['Mass'], 'Pt' : binning4l['Pt']}
@@ -145,10 +177,9 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
     for varName, binning in binning4l.iteritems():
         print "Plotting {} {}".format(chan, varName)
 
-        if chan == 'zz':
-            var = varName
-        else:
-            var = {chan:varName}
+        var = vars4l[varName]
+        if chan != 'zz':
+            var = {chan:var[chan]}
 
         # blinding
         dataSelection = ''
@@ -162,8 +193,12 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
         leg = makeLegend(c, hStack, dataPts)
 
+        xTitle = xTitles[varName]
+        if 'obj' in xTitle:
+            xTitle = xTitle.format(obj=objNames[chan])
+
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
-                                                     xtitle=xTitles[varName].format(obj=objNames[chan]),
+                                                     xtitle=xTitle,
                                                      ytitle='Events')
         # blinding box
         if varName == 'Mass' and binning4l['Mass'][-1] > 800.:
@@ -182,7 +217,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
 binning2l = {
     'Mass' : [60, 60., 120.],
-    'Pt' : [60, 0., 300.],
+    'Pt' : [i * 25. for i in range(7)] + [200., 300.],
     'Eta' : [48,-6.,6.],
     'Phi' : [24, -3.15,3.15],
     }
@@ -254,8 +289,12 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
 
         leg = makeLegend(c, hStack, dataPts)
 
+        xTitle = xTitles[varName]
+        if '{obj}' in xTitle:
+            xTitle = xTitle.format(obj=objNames[z])
+
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
-                                                     xtitle=xTitles[varName].format(obj=objNames[z]),
+                                                     xtitle=xTitle,
                                                      ytitle='Events')
         leg.Draw("same")
 
@@ -331,8 +370,12 @@ for lep in varTemplates1l:
 
         leg = makeLegend(c, hStack, dataPts)
 
+        xTitle = xTitles[varName]
+        if '{obj}' in xTitle:
+            xTitle = xTitle.format(obj=objNames[lep])
+
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
-                                                     xtitle=xTitles[varName].format(obj=objNames[lep]),
+                                                     xtitle=xTitle,
                                                      ytitle='Leptons')
         leg.Draw("same")
 

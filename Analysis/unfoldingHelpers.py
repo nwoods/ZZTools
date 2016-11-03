@@ -1,6 +1,7 @@
 from SampleTools import SampleGroup as _Group
 from SampleTools import SampleStack as _Stack
 from Utilities import mapObjects as _mapObjects
+from Utilities import identityFunction as _identityFunction
 
 from rootpy.ROOT import RooUnfoldResponse as _Response
 from rootpy.plotting import Hist2D as _Hist2D
@@ -46,34 +47,50 @@ def _makeScaleFactorFunction(channel, syst=''):
 
 _genVars = {}
 
-def getResponse(channel, truth, mc, bkg, var, binning, fPUWeight, lepSyst='',
-                altVar='', selectionStr='', selectionFunction=None):
+def getResponse(channel, truth, mc, bkg, var, varFunction, binning, fPUWeight,
+                lepSyst='', altVar='', selectionStr='',
+                selectionFunction=_identityFunction,
+                selectionStrAlt='', varFunctionAlt=None,
+                selectionFunctionAlt=None):
     '''
     Get the unfolding response matrix as a RooUnfoldResponse object.
     channel (str): single channel to use (matters for lepton scale factors)
     truth (SampleGroup): gen-level information
     stack (SampleStack): MC+background stack
-    var (str): distribution to unfold
+    var (str or iterable of str): distribution to unfold
+    varFunction (callable): function that takes an ntuple row and returns the
+        same quantity as var
     binning (list): binning for var
     fPUWeight (callable): function for calculating pileup weight from nTruePU
     lepSyst (str): if 'up' or 'dn'/'down', will shift the lepton efficiency
         scale factors up/down by 1 sigma
-    altVar (str): If non-empty, background and truth ntuples use this instead
-        of var (for systematic shifts and other variables that only make sense
-        for MC reco)
-    selectionStr (str): selection to apply when using draw strings
-    selectionFunction (callable or None): function that takes an ntuple row
-        and returns a boolean to make the same selection as selectionStr,
-        or None to apply no selection
+    altVar (str or iterable of str): If non-empty, background and truth
+        ntuples use this instead of var (for systematic shifts and other
+        variables that only make sense for MC reco)
+    selectionStr (str or iterable of str): selection to apply when using draw
+        strings
+    selectionFunction (callable): function that takes an ntuple row
+        and returns a boolean to select the same events as selectionStr
+    selectionStrAlt (str or iterable or str): Selection string for background
+        and truth
+    varFunctionAlt (callable or None): function corresponding to altVar
+    selectionFunctionAlt (callable or None): function corresponding to
+        selectionStrAlt
     '''
     # cache gen vars because they're slow to collect and don't change much
     global _genVars
 
+    # variables given as lists need a name for the cache
+    if not isinstance(var, str) and hasattr(var, '__iter__'):
+        varName = ''.join(var)
+    else:
+        varName = var
+
     try:
-        varDict = _genVars[var]
+        varDict = _genVars[varName]
     except KeyError:
         varDict = {}
-        _genVars[var] = varDict
+        _genVars[varName] = varDict
     try:
         channelDict = varDict[channel]
     except KeyError:
@@ -83,8 +100,10 @@ def getResponse(channel, truth, mc, bkg, var, binning, fPUWeight, lepSyst='',
     if not altVar:
         altVar = var
 
-    if selectionFunction is None:
-        selectionFunction = lambda *args: True
+    if varFunctionAlt is None:
+        varFunctionAlt = varFunction
+    if selectionFunctionAlt is None:
+        selectionFunctionAlt = selectionFunction
 
     genVar = {}
     for name, sample in truth.itersamples():
@@ -94,14 +113,14 @@ def getResponse(channel, truth, mc, bkg, var, binning, fPUWeight, lepSyst='',
             sampleGenVar = {}
 
             for row in sample:
-                if selectionFunction(row):
-                    sampleGenVar[(row.run,row.lumi,row.evt)] = getattr(row, altVar)
+                if selectionFunctionAlt(row):
+                    sampleGenVar[(row.run,row.lumi,row.evt)] = varFunctionAlt(row)
 
             genVar[name] = sampleGenVar
             channelDict[name] = genVar[name]
 
     hReco = sum(mc.makeHist(var, selectionStr, binning, perUnitWidth=False).hists)
-    hReco += bkg.makeHist(altVar, selectionStr, binning, perUnitWidth=False)
+    hReco += bkg.makeHist(altVar, selectionStrAlt, binning, perUnitWidth=False)
 
     if len(binning) == 3:
         hResponse = _Hist2D(*(binning+binning))
@@ -120,11 +139,12 @@ def getResponse(channel, truth, mc, bkg, var, binning, fPUWeight, lepSyst='',
                 evtID = (row.run, row.lumi, row.evt)
                 weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst
                 try:
-                    hResponse.Fill(getattr(row, var), genVar[name][evtID], weight)
+                    hResponse.Fill(varFunction(row), genVar[name][evtID],
+                                   weight)
                 except KeyError:
                     pass
 
-    hTrue = truth.makeHist(altVar, selectionStr, binning, perUnitWidth=False)
+    hTrue = truth.makeHist(altVar, selectionStrAlt, binning, perUnitWidth=False)
 
     return _Response(hReco, hTrue, hResponse)
 
