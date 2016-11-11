@@ -40,10 +40,11 @@ def _ensureNonneg(h):
 
 
 def standardZZMC(channel, inDir, sampleName, resultType, puWeightFile, lumi,
-                 efficiencySyst='', puSyst=''):
+                 eEfficiencySyst='', mEfficiencySyst='', puSyst=''):
     channels = _parseChannels(channel)
 
-    mcWeight = _baseMCWeight(channel, puWeightFile, efficiencySyst, puSyst)
+    mcWeight = _baseMCWeight(channel, puWeightFile, eEfficiencySyst,
+                             mEfficiencySyst, puSyst)
 
     mcFiles = _path.join('/data/nawoods/ntuples', inDir, # if inDir is absolute, first argument is ignored
                          'results_{}'.format(resultType),
@@ -89,8 +90,8 @@ def standardZZData(channel, inDir, resultType):
 
 
 def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
-                  efficiencySyst='', puSyst='', amcatnlo=False,
-                  **extraSamples):
+                  eEfficiencySyst='', mEfficiencySyst='', puSyst='',
+                  amcatnlo=False, **extraSamples):
     qqZZSampleName = 'ZZTo4L'
     if amcatnlo:
         qqZZSampleName += '-amcatnlo'
@@ -99,7 +100,8 @@ def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
 
     qqZZByChan = {
         c : standardZZMC(c, inDir, qqZZSampleName, resultType, puWeightFile,
-                         lumi, efficiencySyst, puSyst) for c in channels
+                         lumi, eEfficiencySyst, mEfficiencySyst,
+                         puSyst) for c in channels
         }
 
     ggZZByChan = {}
@@ -107,20 +109,22 @@ def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
         ggZZByFS = {
             fs : standardZZMC(c, inDir, 'GluGluZZTo{}'.format(fs),
                               resultType, puWeightFile, lumi,
-                              efficiencySyst,
+                              eEfficiencySyst, mEfficiencySyst,
                               puSyst) for fs in ['4e', '4mu', '2e2mu']
             }
         ggZZByChan[c] = _Group('GluGluZZ', c, ggZZByFS, True)
 
     ewkZZByChan = {
         c : standardZZMC(c, inDir, 'ZZJJTo4L_EWK', resultType, puWeightFile,
-                         lumi, efficiencySyst, puSyst) for c in channels
+                         lumi, eEfficiencySyst, mEfficiencySyst,
+                         puSyst) for c in channels
         }
 
     otherSamplesByChan = {
         name : {
             c : standardZZMC(c, inDir, name, resultType, puWeightFile, lumi,
-                             efficiencySyst, puSyst) for c in channels
+                             eEfficiencySyst, mEfficiencySyst,
+                             puSyst) for c in channels
             } for name, files in extraSamples.iteritems()
         }
 
@@ -139,16 +143,17 @@ def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
 
 
 def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
-                  fakeRateFile, lumi, efficiencySyst='', puSyst='',
-                  eFakeRateSyst='', mFakeRateSyst='', **extraSamples):
+                  fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
+                  puSyst='', eFakeRateSyst='', mFakeRateSyst='',
+                  **extraSamples):
     channels = _parseChannels(channel)
 
     data2P2F = standardZZData(channel, dataDir, resultType+'_2P2F')
     data3P1F = standardZZData(channel, dataDir, resultType+'_3P1F')
     mc2P2F = zzStackMCOnly(channel, mcDir, resultType+'_2P2F', puWeightFile,
-                           lumi, efficiencySyst, puSyst)
+                           lumi, eEfficiencySyst, mEfficiencySyst, puSyst)
     mc3P1F = zzStackMCOnly(channel, mcDir, resultType+'_3P1F', puWeightFile,
-                           lumi, efficiencySyst, puSyst)
+                           lumi, eEfficiencySyst, mEfficiencySyst, puSyst)
 
     if  '.root' not in fakeRateFile:
         fakeRateFile = fakeRateFile + '.root'
@@ -229,20 +234,23 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
 
 
 def standardZZStack(channel, dataDir, mcDir, resultType, puWeightFile,
-                    fakeRateFile, lumi, efficiencySyst='', puSyst='',
-                    fakeRateSyst='', amcatnlo=False, **extraSamples):
+                    fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
+                    puSyst='', eFakeRateSyst='', mFakeRateSyst='',
+                    amcatnlo=False, **extraSamples):
     stack = zzStackMCOnly(channel, mcDir, resultType, puWeightFile, lumi,
-                          efficiencySyst, puSyst, amcatnlo)
+                          eEfficiencySyst, mEfficiencySyst, puSyst, amcatnlo)
     bkg = standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
-                        fakeRateFile, lumi, efficiencySyst, puSyst, fakeRateSyst)
+                        fakeRateFile, lumi, eEfficiencySyst, mEfficiencySyst,
+                        puSyst, eFakeRateSyst, mFakeRateSyst)
 
     stack.addSample(bkg)
     return stack
 
 
 def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
-                      fakeRateFile, lumi, efficiencySyst='', puSyst='',
-                      fakeRateSyst='', amcatnlo=False, **extraSamples):
+                      fakeRateFile, lumi, eEfficiencySyst='',
+                      mEfficiencySyst='', puSyst='', eFakeRateSyst='',
+                      mFakeRateSyst='', amcatnlo=False, **extraSamples):
     '''
     Return dataSampleGroup, bkgAndMCStack for data files in
     [dataDir]/results_[resultType] and MC in [mcDir]/results[resultType],
@@ -270,8 +278,9 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
 
     stack = standardZZStack(channel, dataDir, mcDir, resultType,
                             puWeightFile, fakeRateFile,
-                            lumi, efficiencySyst, puSyst, fakeRateSyst,
-                            amcatnlo, **extraSamples)
+                            lumi, eEfficiencySyst, mEfficiencySyst, puSyst,
+                            eFakeRateSyst, mFakeRateSyst, amcatnlo,
+                            **extraSamples)
 
     return data, stack
 

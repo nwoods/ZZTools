@@ -16,19 +16,25 @@ from os import environ as _env
 from os import path as _path
 
 
-def leptonEfficiencyWeights(channel, systematic=''):
+def leptonEfficiencyWeights(channel, eSystematic='', mSystematic=''):
     channels = _parseChannels(channel)
 
-    sfTemp = '{lep}EffScaleFactor'
-    if systematic.lower() == 'up':
-        sfTemp = '({0} + {0}Error)'.format(sfTemp)
-    elif systematic.lower() in ['dn', 'down']:
-        sfTemp = '({0} - {0}Error)'.format(sfTemp)
-    elif systematic:
-        raise ValueError("Unknown lepton efficiency systematic {}".format(systematic))
+    sfTemp = {'e':'{lep}EffScaleFactor','m':'{lep}EffScaleFactor'}
+    if eSystematic.lower() == 'up':
+        sfTemp['e'] = '({0} + {0}Error)'.format(sfTemp['e'])
+    elif eSystematic.lower() in ['dn', 'down']:
+        sfTemp['e'] = '({0} - {0}Error)'.format(sfTemp['e'])
+    elif eSystematic:
+        raise ValueError("Unknown electron efficiency systematic {}".format(eSystematic))
+    if mSystematic.lower() == 'up':
+        sfTemp['m'] = '({0} + {0}Error)'.format(sfTemp['m'])
+    elif mSystematic.lower() in ['dn', 'down']:
+        sfTemp['m'] = '({0} - {0}Error)'.format(sfTemp['m'])
+    elif mSystematic:
+        raise ValueError("Unknown muon efficiency systematic {}".format(mSystematic))
 
     out = {
-        c : ' * '.join([sfTemp.format(lep=obj) for obj in _mapObjects(c)]) for c in channels
+        c : ' * '.join([sfTemp[obj[0]].format(lep=obj) for obj in _mapObjects(c)]) for c in channels
         }
 
     if len(channels) == 1:
@@ -67,8 +73,8 @@ def puWeight(weightFile, systematic=''):
     return wtStr, wtFunc
 
 
-def baseMCWeight(channel, puWeightFile, lepSyst='', puSyst=''):
-    lepWeights = leptonEfficiencyWeights(channel, lepSyst)
+def baseMCWeight(channel, puWeightFile, eSyst='', mSyst='', puSyst=''):
+    lepWeights = leptonEfficiencyWeights(channel, eSyst, mSyst)
     puWtStr, puWtFun = puWeight(puWeightFile, puSyst)
 
     if isinstance(lepWeights, str):

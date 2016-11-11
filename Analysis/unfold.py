@@ -407,31 +407,36 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
                 hErr[sys]['pu'].legendstyle = 'F'
 
             # lepton efficiency uncertainty
-            for sys in ['up','dn']:
-                hUnf = _compatibleHistOrNone(systSaveDir, 'lep_'+sys, hFrame)
-                if hUnf is None or redo:
-                    wtStr = baseMCWeight(chan, puWeightFile, lepSyst=sys)
-                    reco[chan].applyWeight(wtStr, True)
+            for lep in ['e','m']:
+                if lep not in chan:
+                    continue
 
-                    res = getResponse(chan, true[chan], reco[chan], bkg[chan], var,
-                                      fVar, binning, fPUWt[''], sys,
-                                      selectionStr=sel,
-                                      selectionFunction=fSel)
-                    unf = RooUnfoldIter(res, hData, nIter)
+                for sys in ['up','dn']:
+                    hUnf = _compatibleHistOrNone(systSaveDir, lep+'Eff_'+sys, hFrame)
+                    if hUnf is None or redo:
+                        wtArg = {lep+'Syst':sys}
+                        wtStr = baseMCWeight(chan, puWeightFile, **wtArg)
+                        reco[chan].applyWeight(wtStr, True)
 
-                    systSaveDir.cd()
-                    hUnf = asrootpy(unf.Hreco())
-                    hUnf.SetName('lep_'+sys)
-                    hUnf.write()
+                        res = getResponse(chan, true[chan], reco[chan], bkg[chan], var,
+                                          fVar, binning, fPUWt[''], sys,
+                                          selectionStr=sel,
+                                          selectionFunction=fSel)
+                        unf = RooUnfoldIter(res, hData, nIter)
 
-                    reco[chan].applyWeight(nominalWeight, True)
+                        systSaveDir.cd()
+                        hUnf = asrootpy(unf.Hreco())
+                        hUnf.SetName(lep+'Eff_'+sys)
+                        hUnf.write()
 
-                hErr[sys]['lep'] = hUnf - hUnfolded
-                hErr[sys]['lep'].title = "Lepton eff."
-                hErr[sys]['lep'].fillstyle = 'solid'
-                hErr[sys]['lep'].drawstyle = "hist"
-                hErr[sys]['lep'].color = "blue"
-                hErr[sys]['lep'].legendstyle = 'F'
+                        reco[chan].applyWeight(nominalWeight, True)
+
+                    hErr[sys]['lep'] = hUnf - hUnfolded
+                    hErr[sys]['lep'].title = "{}on eff.".format('Electr' if lep == 'e' else 'Mu')
+                    hErr[sys]['lep'].fillstyle = 'solid'
+                    hErr[sys]['lep'].drawstyle = "hist"
+                    hErr[sys]['lep'].color = ("blue" if lep == 'e' else '#002db3')
+                    hErr[sys]['lep'].legendstyle = 'F'
 
             # unfolding uncertainty by checking difference with alternate generator
             for sys in ['up','dn']:
