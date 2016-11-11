@@ -216,13 +216,14 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                         ) for c in channels
         }
 
+    # don't allow negative backgrounds
+    for b in bkgByChan.values():
+        b.setPostprocessor(_ensureNonneg)
+
     if len(channels) == 1:
         bkg = bkgByChan[channels[0]]
     else:
         bkg = _Group('Z+X', channel, bkgByChan, True)
-
-    # don't allow negative backgrounds
-    bkg.setPostprocessor(_ensureNonneg)
 
     return bkg
 
