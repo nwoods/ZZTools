@@ -209,6 +209,10 @@ class SampleGroup(_SampleBase):
         return self._samples[x]
 
 
+    def __len__(self):
+        return len(self._samples)
+
+
 class SampleStack(_SampleBase):
     '''
     A sample group where the samples are plotted in a stack
@@ -332,3 +336,7 @@ class SampleStack(_SampleBase):
         this channel.
         '''
         return [s[channel] for s in self]
+
+
+    def __len__(self):
+        return len(self._samples)
