@@ -29,6 +29,8 @@ class SampleGroup(_SampleBase):
         super(SampleGroup, self).__init__(name, channel, samplesIn,
                                           initFromMetadata, *args, **kwargs)
 
+        self._recursePostprocessor = False
+
 
     def initFromMetadata(self):
         if self.name in _groups:
@@ -58,11 +60,13 @@ class SampleGroup(_SampleBase):
                  poissonErrors=False, postprocess=False, **kwargs):
         '''
         If var, selection, and/or weight are dictionaries, they will be used to
-        add histograms from the sample of the same key. If they are strings or
-        appropriate iterables, they will be used to add histograms from all
-        samples.
+            add histograms from the sample of the same key. If they are strings
+            or appropriate iterables, they will be used to add histograms from
+            all samples.
         If poissonErrors evaluates to True, all samples are required to be
-        data samples, and a TGraphAsymmErrors is returned instead of a Hist
+            data samples, and a TGraphAsymmErrors is returned instead of a Hist
+        Note: if the postprocessor was added recursively, it is run only here,
+            not on the histograms made by the child samples
         '''
         if isinstance(var, dict):
             samplesToUse = var.keys()
@@ -83,11 +87,12 @@ class SampleGroup(_SampleBase):
         if poissonErrors:
             assert all(isinstance(self._samples[s], _DataSample) or isinstance(self._samples[s], SampleGroup) for s in samplesToUse), \
                 "Poisson errors only make sense with data."
-            h = sum(self._samples[s].makeHist(var[s], selection[s], binning,
-                                              weight[s], perUnitWidth,
-                                              poissonErrors=False,
-                                              postprocess=postprocess,
-                                              **kwargs) for s in samplesToUse)
+            h = sum(
+                self._samples[s].makeHist(var[s], selection[s], binning,
+                                          weight[s], perUnitWidth,
+                                          poissonErrors=False,
+                                          postprocess=(postprocess and not self._recursePostprocessor),
+                                          **kwargs) for s in samplesToUse)
             out = h.poisson_errors()
             out.title = self.prettyName
             for a,b in self._format.iteritems():
@@ -213,6 +218,22 @@ class SampleGroup(_SampleBase):
         return len(self._samples)
 
 
+    def setPostprocessor(self, f, recursive=False):
+        '''
+        If recursive is True, this is also passed down to child samples,
+        though this.makeHist won't use the postprocessor on the children
+        to avoid running it twice.
+        '''
+        super(SampleGroup, self).setPostprocessor(f)
+
+        self._recursePostprocessor = recursive
+
+        if recursive:
+            for s in self._samples.values():
+                s.setPostprocessor(f, True)
+
+
+
 class SampleStack(_SampleBase):
     '''
     A sample group where the samples are plotted in a stack
@@ -226,6 +247,8 @@ class SampleStack(_SampleBase):
                                           *args, **kwargs)
         self._format['drawstyle'] = 'histnoclear'
 
+        self._recursePostprocessor = False
+
 
     def storeInputs(self, inputs):
         self._samples = inputs[:]
@@ -237,13 +260,19 @@ class SampleStack(_SampleBase):
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True,
                  postprocess=False, *extraHists, **kwargs):
+        '''
+        Note: if the postprocessor was added recursively, it is run only here,
+        not on the histograms made by the child samples.
+        '''
         sortByMax = kwargs.pop('sortByMax', True)
 
         sig = []
         bkg = []
         for s in self._samples:
             h = s.makeHist(var, selection, binning, weight,
-                           perUnitWidth, postprocess=postprocess, **kwargs)
+                           perUnitWidth,
+                           postprocess=(postprocess and not self._recursePostprocessor),
+                           **kwargs)
             try:
                 isSignal = s.isSignal
             except AttributeError:
@@ -272,7 +301,8 @@ class SampleStack(_SampleBase):
         bkg = []
         for s in self._samples:
             h = s.makeHist2(varX, varY, selection, binningX, binningY, weight,
-                            postprocess=postprocess, **kwargs)
+                            postprocess=(postprocess and not self._recursePostprocessor),
+                            **kwargs)
             try:
                 isSignal = s.isSignal
             except AttributeError:
@@ -340,3 +370,18 @@ class SampleStack(_SampleBase):
 
     def __len__(self):
         return len(self._samples)
+
+
+    def setPostprocessor(self, f, recursive=False):
+        '''
+        If recursive is True, this is also passed down to child samples,
+        though this.makeHist won't use the postprocessor on the children
+        to avoid running it twice.
+        '''
+        super(SampleStack, self).setPostprocessor(f)
+
+        self._recursePostprocessor = recursive
+
+        if recursive:
+            for s in self:
+                s.setPostprocessor(f, True)

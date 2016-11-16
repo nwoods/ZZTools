@@ -110,7 +110,7 @@ class _SampleBase(object):
     def prettyName(self, name):
         self._prettyName = name
 
-    def setPostprocessor(self, f):
+    def setPostprocessor(self, f, *args):
         '''
         Set a function that is always run on a histogram made by this object.
         '''
