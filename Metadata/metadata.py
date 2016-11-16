@@ -124,6 +124,33 @@ sampleInfo["ZZJJTo4L_EWK"] = {
         },
     }
 
+sampleInfo['ggHZZ'] = {
+    'xsec' : 0.01212,
+    'prettyName' : 'H #rightarrow ZZ',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#ffb2b2',
+        'linecolor' : '#cc0000',
+        },
+    }
+
+sampleInfo['WWZ'] = {
+    'xsec' : 0.1651,
+    'prettyName' : 'WWZ',
+    'isSignal' : False,
+    'format' : {
+        'color' : 'purple',
+        },
+    }
+
+sampleInfo['TTZ'] = {
+    'xsec' : 0.2529,
+    'prettyName' : 't#bar{t}Z',
+    'isSignal' : False,
+    'format' : {
+        'color' : 'pink',
+        },
+    }
 
 groupInfo = {}
 
@@ -152,3 +179,9 @@ groupInfo['Z+X'] = {
         },
     }
 
+groupInfo['irreducible'] = {
+    'isSignal' : False,
+    'format' : {
+        'color' : '#ffcc00',
+        },
+    }

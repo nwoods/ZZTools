@@ -35,6 +35,8 @@ nameMap.add("ZZTo4L", "ZZTo4L_13TeV_powheg_pythia8")
 nameMap.add("ggHZZ", "GluGluHToZZTo4L_M125_13TeV_powheg2_JHUgenV6_pythia8")
 nameMap.add("ggHZZ-minloHJJ", "GluGluHToZZTo4L_M125_13TeV_powheg2_minloHJJ_JHUgenV6_pythia8")
 nameMap.add("ZZJJTo4L_EWK", "ZZJJTo4L_EWK_13TeV-madgraph-pythia8")
+nameMap.add("WWZ", "WWZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8")
+nameMap.add("TTZ", "TTZToLLNuNu_M-10_TuneCUETP8M1_13TeV-amcatnlo-pythia8")
 
 for fs in ['4e', '4mu', '4tau', '2e2mu', '2e2tau', '2mu2tau']:
     nameMap.add("GluGluZZTo{}".format(fs),
