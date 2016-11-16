@@ -29,7 +29,7 @@ inMC = 'uwvvNtuples_mc_12oct2016'
 puWeightFile = 'puWeight_69200_08sep2016'
 fakeRateFile = 'fakeRate_08sep2016'
 
-ana = 'smp'
+ana = 'full'
 
 outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_{}'.format(ana)
 try:
@@ -46,7 +46,8 @@ if amcatnlo:
     outdir += '_amcatnlo'
 
 data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile,
-                                fakeRateFile, lumi, amcatnlo=amcatnlo)
+                                fakeRateFile, lumi, amcatnlo=amcatnlo,
+                                higgs=(ana=='full'))
 
 # count events
 tot = OrderedDict()
@@ -172,6 +173,8 @@ if amcatnlo:
 
 if ana == 'z4l':
     binning4l['Mass'] = [20, 80., 100.]
+elif ana == 'full':
+    binning4l['Mass'] = [25.*i for i in range(17)] + [500.,600.,800.]
 
 for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
     for varName, binning in binning4l.iteritems():
