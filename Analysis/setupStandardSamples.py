@@ -20,7 +20,7 @@ from rootpy.io import root_open as _open
 
 from os import environ as _env
 from os import path as _path
-
+from collections import OrderedDict as _ODict
 
 
 def _ensureNonneg(h):
@@ -91,19 +91,23 @@ def standardZZData(channel, inDir, resultType):
 
 def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
                   eEfficiencySyst='', mEfficiencySyst='', puSyst='',
-                  amcatnlo=False, **extraSamples):
+                  amcatnlo=False, higgs=False, *extraSamples):
     qqZZSampleName = 'ZZTo4L'
     if amcatnlo:
         qqZZSampleName += '-amcatnlo'
 
     channels = _parseChannels(channel)
 
-    qqZZByChan = {
+    samplesByChan = _ODict()
+
+    # qq->ZZ
+    samplesByChan[qqZZSampleName] = {
         c : standardZZMC(c, inDir, qqZZSampleName, resultType, puWeightFile,
                          lumi, eEfficiencySyst, mEfficiencySyst,
                          puSyst) for c in channels
         }
 
+    # gg->ZZ
     ggZZByChan = {}
     for c in channels:
         ggZZByFS = {
@@ -113,39 +117,45 @@ def zzStackMCOnly(channel, inDir, resultType, puWeightFile, lumi,
                               puSyst) for fs in ['4e', '4mu', '2e2mu']
             }
         ggZZByChan[c] = _Group('GluGluZZ', c, ggZZByFS, True)
+    samplesByChan['GluGluZZ'] = ggZZByChan
 
-    ewkZZByChan = {
-        c : standardZZMC(c, inDir, 'ZZJJTo4L_EWK', resultType, puWeightFile,
-                         lumi, eEfficiencySyst, mEfficiencySyst,
-                         puSyst) for c in channels
-        }
+    # EWK ZZ+2jets (if it's not there, just skip it)
+    try:
+        samplesByChan['ZZJJTo4L_EWK'] = {
+            c : standardZZMC(c, inDir, 'ZZJJTo4L_EWK', resultType,
+                             puWeightFile, lumi, eEfficiencySyst,
+                             mEfficiencySyst, puSyst) for c in channels
+            }
+    except IOError:
+        pass
 
-    otherSamplesByChan = {
-        name : {
+    # Higgs if desired
+    if higgs:
+        samplesByChan['ggHZZ'] = {
+            c : standardZZMC(c, inDir, 'ggHZZ', resultType, puWeightFile,
+                             lumi, eEfficiencySyst, mEfficiencySyst,
+                             puSyst) for c in channels
+            }
+
+    # anything else
+    for name in extraSamples:
+        samplesByChan[name] = {
             c : standardZZMC(c, inDir, name, resultType, puWeightFile, lumi,
                              eEfficiencySyst, mEfficiencySyst,
                              puSyst) for c in channels
-            } for name, files in extraSamples.iteritems()
-        }
+            }
 
     if len(channels) == 1:
-        qqZZ = qqZZByChan[channels[0]]
-        ggZZ = ggZZByChan[channels[0]]
-        ewkZZ = ewkZZByChan[channels[0]]
-        otherMC = [s[channels[0]] for s in otherSamplesByChan.values()]
+        samples = [s[channels[0]] for s in samplesByChan.values()]
     else:
-        qqZZ = _Group(qqZZSampleName, channel, qqZZByChan, True)
-        ggZZ = _Group('GluGluZZ', channel, ggZZByChan, True)
-        ewkZZ = _Group('ZZJJTo4L_EWK', channel, ewkZZByChan, True)
-        otherMC = [_Group(n, channel, s, True) for n,s in otherSamplesByChan.iteritems()]
+        samples = [_Group(n, channel, s, True) for n,s in samplesByChan.iteritems()]
 
-    return _Stack('stack', channel, [qqZZ, ggZZ, ewkZZ]+otherMC)
+    return _Stack('stack', channel, samples)
 
 
 def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                   fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
-                  puSyst='', eFakeRateSyst='', mFakeRateSyst='',
-                  **extraSamples):
+                  puSyst='', eFakeRateSyst='', mFakeRateSyst=''):
     channels = _parseChannels(channel)
 
     data2P2F = standardZZData(channel, dataDir, resultType+'_2P2F')
@@ -221,14 +231,12 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                         ) for c in channels
         }
 
-    # don't allow negative backgrounds
-    for b in bkgByChan.values():
-        b.setPostprocessor(_ensureNonneg)
-
     if len(channels) == 1:
         bkg = bkgByChan[channels[0]]
     else:
         bkg = _Group('Z+X', channel, bkgByChan, True)
+
+    bkg.setPostprocessor(_ensureNonneg, True)
 
     return bkg
 
@@ -236,9 +244,10 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
 def standardZZStack(channel, dataDir, mcDir, resultType, puWeightFile,
                     fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
                     puSyst='', eFakeRateSyst='', mFakeRateSyst='',
-                    amcatnlo=False, **extraSamples):
+                    amcatnlo=False, higgs=False, *extraSamples):
     stack = zzStackMCOnly(channel, mcDir, resultType, puWeightFile, lumi,
-                          eEfficiencySyst, mEfficiencySyst, puSyst, amcatnlo)
+                          eEfficiencySyst, mEfficiencySyst, puSyst, amcatnlo,
+                          higgs=higgs, *extraSamples)
     bkg = standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                         fakeRateFile, lumi, eEfficiencySyst, mEfficiencySyst,
                         puSyst, eFakeRateSyst, mFakeRateSyst)
@@ -250,7 +259,8 @@ def standardZZStack(channel, dataDir, mcDir, resultType, puWeightFile,
 def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
                       fakeRateFile, lumi, eEfficiencySyst='',
                       mEfficiencySyst='', puSyst='', eFakeRateSyst='',
-                      mFakeRateSyst='', amcatnlo=False, **extraSamples):
+                      mFakeRateSyst='', amcatnlo=False, higgs=False,
+                      *extraSamples):
     '''
     Return dataSampleGroup, bkgAndMCStack for data files in
     [dataDir]/results_[resultType] and MC in [mcDir]/results[resultType],
@@ -280,7 +290,7 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
                             puWeightFile, fakeRateFile,
                             lumi, eEfficiencySyst, mEfficiencySyst, puSyst,
                             eFakeRateSyst, mFakeRateSyst, amcatnlo,
-                            **extraSamples)
+                            higgs=higgs, *extraSamples)
 
     return data, stack
 
