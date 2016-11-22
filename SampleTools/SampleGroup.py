@@ -89,7 +89,8 @@ class SampleGroup(_SampleBase):
                 "Poisson errors only make sense with data."
             h = sum(
                 self._samples[s].makeHist(var[s], selection[s], binning,
-                                          weight[s], perUnitWidth,
+                                          weight[s],
+                                          perUnitWidth=False,
                                           poissonErrors=False,
                                           postprocess=(postprocess and not self._recursePostprocessor),
                                           **kwargs) for s in samplesToUse)
@@ -97,6 +98,15 @@ class SampleGroup(_SampleBase):
             out.title = self.prettyName
             for a,b in self._format.iteritems():
                 setattr(out,a,b)
+
+            if perUnitWidth:
+                x = out.GetX()
+                y = out.GetY()
+                for i in xrange(out.GetN()):
+                    width = out.GetErrorXlow(i) + out.GetErrorXhigh(i)
+                    out.SetPoint(i, x[i], y[i] / width)
+                    out.SetPointEYlow(i, out.GetErrorYlow(i) / width)
+                    out.SetPointEYhigh(i, out.GetErrorYhigh(i) / width)
 
             if postprocess:
                 self._postprocessor(out)

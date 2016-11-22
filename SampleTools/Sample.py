@@ -204,12 +204,12 @@ class NtupleSample(_SampleBase):
 
         h.sumw2()
 
-        if perUnitWidth and not h.uniform():
-            binUnit = min(h.GetBinWidth(b) for b in range(1,len(h)+1))
+        if perUnitWidth:
+            binUnit = 1 # min(h.GetBinWidth(b) for b in range(1,len(h)+1))
             for ib in xrange(1,len(h)+1):
                 w = h.GetBinWidth(ib)
                 h.SetBinContent(ib, h.GetBinContent(ib) * binUnit / w)
-                h.SetBinError(ib, h.GetBinError(ib) * sqrt(binUnit / w))
+                h.SetBinError(ib, h.GetBinError(ib) * binUnit / w)
             h.sumw2()
 
         if postprocess:
@@ -491,13 +491,27 @@ class DataSample(NtupleSample):
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True,
                  poissonErrors=False, postprocess=False, **kwargs):
         h = super(DataSample, self).makeHist(var, selection, binning, weight,
-                                             perUnitWidth, **kwargs)
+                                             perUnitWidth=(perUnitWidth and not poissonErrors),
+                                             **kwargs)
 
         if poissonErrors:
             pois = h.poisson_errors()
             pois.SetTitle(self.prettyName)
             for a,b in self._format.iteritems():
                 setattr(pois, a, b)
+
+            if perUnitWidth:
+                x = pois.GetX()
+                y = pois.GetY()
+                for i in xrange(pois.GetN()):
+                    width = pois.GetErrorXlow(i) + pois.GetErrorXhigh(i)
+                    pois.SetPoint(i, x[i], y[i] / width)
+                    pois.SetPointEYlow(i, pois.GetErrorYlow(i) / width)
+                    pois.SetPointEYhigh(i, pois.GetErrorYhigh(i) / width)
+
+            if postprocess:
+                self._postprocessor(pois)
+
             return pois
 
         if postprocess:
