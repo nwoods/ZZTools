@@ -33,9 +33,11 @@ def _getYield(sample, errorToo=False):
 
 def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
 
-    reco = {c:zzStackMCOnly(c, inMC, ana, puWeightFile, lumi) for c in _channels}
+    reco = {c:zzStackSignalOnly(c, inMC, ana, puWeightFile, lumi) for c in _channels}
     bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                         fakeRateFile, lumi)
+    irreducible = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi)
+
     bkgSyst = {
         'eup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                               fakeRateFile, lumi, eFakeRateSyst='up'),
@@ -50,26 +52,38 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
     data = standardZZData('zz', inData, ana)
 
     recoSyst = {}
+    irreducibleSyst = {}
     for syst in ['eScaleUp', 'eScaleDn', 'eRhoResUp',
                  'eRhoResDn', 'ePhiResUp']:
         recoSyst[syst.lower()] = {
-            c:zzStackMCOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
+            c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
                             ana, puWeightFile, lumi)
             for c in ['eeee','eemm']
             }
+        irreducibleSyst[syst.lower()] = zzIrreducibleBkg('eeee,eemm',
+                                                         inMC.replace('mc_','mc_{}_'.format(syst)),
+                                                         ana, puWeightFile,
+                                                         lumi)
     for syst in ['mClosureUp','mClosureDn']:
         recoSyst[syst.lower()] = {
-            c:zzStackMCOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
-                            ana, puWeightFile, lumi)
+            c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
+                                ana, puWeightFile, lumi)
             for c in ['eemm','mmmm']
             }
+        irreducibleSyst[syst.lower()] = zzIrreducibleBkg('eemm,mmmm',
+                                                         inMC.replace('mc_','mc_{}_'.format(syst)),
+                                                         ana, puWeightFile,
+                                                         lumi)
 
     sigYield = {c:0. for c in _channels}
     bkgYield = {c:0. for c in _channels}
+    irrYield = {c:0. for c in _channels}
     sigSystSqr = {c:0. for c in _channels}
     bkgSystSqr = {c:0. for c in _channels}
+    irrSystSqr = {c:0. for c in _channels}
     sigStatSqr = {c:0. for c in _channels}
     bkgStatSqr = {c:0. for c in _channels}
+    irrStatSqr = {c:0. for c in _channels}
     nObs = {}
 
     for chan in _channels:
@@ -78,11 +92,14 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
 
         with open(cardNameChan, 'w') as f:
             nSigSamples = len(reco[chan])
-            colWidths = [max(len(s.name)+3, 8) for s in reco[chan]]
+            nBkgSamples = 2
+            nMCSamples = nSigSamples + nBkgSamples - 1
+            names = [s.name for s in reco[chan]] + ['irreducible','fake']
+            colWidths = [max(len(n)+3, 8) for n in names]
 
             lines = []
             lines.append('imax 1  number of channels')
-            lines.append('jmax {}  number of backgrounds plus signals minus 1'.format(nSigSamples))
+            lines.append('jmax {}  number of backgrounds plus signals minus 1'.format(len(names)-1))
             lines.append('kmax *  number of nuisance parameters')
             lines.append('------------')
 
@@ -92,26 +109,33 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
             nObs[chan] = int(hObs.GetEntries())
             lines.append('observation    {}'.format(nObs[chan]))
             lines.append('------------')
-            lines.append('bin                     '+''.join(['1'+' '*(wid-1) for i, wid in zip(range(nSigSamples+1),colWidths+[1])]))
-            lines.append('process                 '+''.join([s.name+' '*(wid-len(s.name)) for s, wid in zip(reco[chan], colWidths)] + ['fake']))
-            lines.append('process                 '+''.join([str(i+1)+' '*(wid-len(str(i+1))) for i,wid in zip(range(-1*nSigSamples, 1), colWidths+[1])]))
+            lines.append('bin                     '+''.join(['1'+' '*(wid-1) for wid in colWidths]))
+            lines.append('process                 '+''.join([n+' '*(wid-len(n)) for n, wid in zip(names, colWidths)]))
+            lines.append('process                 '+''.join([str(i+1)+' '*(wid-len(str(i+1))) for i,wid in zip(range(-1*nSigSamples, nBkgSamples),
+                                                                                                               colWidths)]))
 
-            yields, mcStatErrs = zip(*(_getYield(s,True) for s in reco[chan]))
+            yields, sigStatErrs = zip(*(_getYield(s,True) for s in reco[chan]))
+
+            yields = [y for y in yields]
+            sigStatErrs = [e for e in sigStatErrs]
 
             sigYield[chan] = sum(y for y in yields)
 
             bkgYield[chan], bkgStatErr = _getYield(bkg[chan], True)
             bkgStatSqr[chan] = bkgStatErr ** 2
 
-            yields = [y for y in yields] + [bkgYield[chan]]
+            irrYield[chan], irrStatErr = _getYield(irreducible[chan], True)
+            irrStatSqr[chan] = irrStatErr ** 2
 
-            lines.append('rate                    '+''.join([('{:.3f}'.format(y)+' '*(wid-len('{:.3f}'.format(y)))) if y else '1.e-8'+' '*(wid-5) for y,wid in zip(yields, colWidths+[7])]))
+            yields += [irrYield[chan],bkgYield[chan]]
+
+            lines.append('rate                    '+''.join([('{:.3f}'.format(y)+' '*(wid-len('{:.3f}'.format(y)))) if y else '1.e-8'+' '*(wid-5) for y,wid in zip(yields, colWidths)]))
             lines.append('------------')
 
             errs = {}
 
-            errs['mcStat_'+chan] = [e/y if y else 0 for e,y in zip(mcStatErrs,yields)] + [0]
-            sigStatSqr[chan] = sum(e**2 for e in mcStatErrs)
+            errs['mcStat_'+chan] = [e/y if y else 0 for e,y in zip(sigStatErrs+[irrStatErr],yields[:-1])] + [0]
+            sigStatSqr[chan] = sum(e**2 for e in sigStatErrs)
 
             errs['bkgStat'] = [0.]*len(yields)
             errs['bkgStat'][-1] = bkgStatErr / bkgYield[chan]
@@ -121,16 +145,21 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
             for sys in ['up','dn']:
                 wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys)
                 reco[chan].applyWeight(wtStr, True)
-                yield_puShift[sys] = [_getYield(s) for s in reco[chan]]
+                irreducible[chan].applyWeight(wtStr, True)
+                yield_puShift[sys] = [_getYield(s) for s in reco[chan]]+[_getYield(irreducible[chan])]
                 reco[chan].applyWeight(nominalWeight, True)
+                irreducible[chan].applyWeight(nominalWeight, True)
 
             errs['pu'] = [(abs(y-yUp)+abs(y-yDn))/(2.*y) for y, yUp, yDn in zip(yields[:-1],
                                                                                 yield_puShift['up'],
                                                                                 yield_puShift['dn'])] + [0]
 
-            sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:-1],
-                                                                                         yield_puShift['up'],
-                                                                                         yield_puShift['dn']))
+            sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:nSigSamples],
+                                                                                             yield_puShift['up'][:nSigSamples],
+                                                                                             yield_puShift['dn'][:nSigSamples]))
+
+            irrSystSqr[chan] += ((abs(yields[-2]-yield_puShift['up'][-1])+abs(yields[-2]-yield_puShift['dn'][-1]))/2) ** 2
+
 
             # Lepton efficiency uncertainty
             for lep in ['e','m']:
@@ -141,16 +170,21 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
                     wtOpts = {lep+'Syst':sys}
                     wtStr = baseMCWeight(chan, puWeightFile, **wtOpts)
                     reco[chan].applyWeight(wtStr, True)
-                    yield_lepEff[sys] = [_getYield(s) for s in reco[chan]]
+                    irreducible[chan].applyWeight(wtStr, True)
+                    yield_lepEff[sys] = [_getYield(s) for s in reco[chan]]+[_getYield(irreducible[chan])]
                     reco[chan].applyWeight(nominalWeight, True)
+                    irreducible[chan].applyWeight(nominalWeight, True)
 
                 errs[lep+'Eff'] = [(abs(y-yUp)+abs(y-yDn))/(2.*y) for y, yUp, yDn in zip(yields[:-1],
                                                                                          yield_lepEff['up'],
                                                                                          yield_lepEff['dn'])] + [0]
 
-                sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:-1],
-                                                                                                 yield_lepEff['up'],
-                                                                                                 yield_lepEff['dn']))
+                sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:nSigSamples],
+                                                                                                 yield_lepEff['up'][:nSigSamples],
+                                                                                                 yield_lepEff['dn'][:nSigSamples]))
+
+                irrSystSqr[chan] += ((abs(yields[-2]-yield_lepEff['up'][-1])+abs(yields[-2]-yield_lepEff['dn'][-1]))/2) ** 2
+
 
             # Lepton fake rate uncertainty
             for lep in ['e','m']:
@@ -173,7 +207,9 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
                 yield_eerRho = {}
                 for sys in ['up','dn']:
                     yield_ees[sys] = [_getYield(s) for s in recoSyst['escale'+sys][chan]]
+                    yield_ees[sys] += [_getYield(irreducibleSyst['escale'+sys][chan])]
                     yield_eerRho[sys] = [_getYield(s) for s in recoSyst['erhores'+sys][chan]]
+                    yield_eerRho[sys] += [_getYield(irreducibleSyst['erhores'+sys][chan])]
 
                 errs['eScale'] = [(abs(y-yUp)+abs(y-yDn))/(2.*y) for y, yUp, yDn in zip(yields[:-1],
                                                                                         yield_ees['up'],
@@ -182,41 +218,57 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
                                                                                          yield_eerRho['up'],
                                                                                          yield_eerRho['dn'])] + [0]
 
-                sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:-1],
-                                                                                                 yield_ees['up'],
-                                                                                                 yield_ees['dn']))
-                sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:-1],
-                                                                                                 yield_eerRho['up'],
-                                                                                                 yield_eerRho['dn']))
+                sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:nSigSamples],
+                                                                                                 yield_ees['up'][:nSigSamples],
+                                                                                                 yield_ees['dn'][:nSigSamples]))
+                sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:-1][:nSigSamples],
+                                                                                                 yield_eerRho['up'][:nSigSamples],
+                                                                                                 yield_eerRho['dn'][:nSigSamples]))
+
+                irrSystSqr[chan] += ((abs(yields[-2]-yield_ees['up'][-1])+abs(yields[-2]-yield_ees['dn'][-1]))/2) ** 2
+                irrSystSqr[chan] += ((abs(yields[-2]-yield_eerRho['up'][-1])+abs(yields[-2]-yield_eerRho['dn'][-1]))/2) ** 2
 
                 yield_eerPhi = [_getYield(s) for s in recoSyst['ephiresup'][chan]]
+                yield_eerPhi += [_getYield(irreducibleSyst['ephiresup'][chan])]
                 errs['ePhiRes'] = [abs(y-yUp)/y for y, yUp in zip(yields[:-1],yield_eerPhi)] + [0]
 
-                sigSystSqr[chan] += sum((abs(y-yUp)/y) ** 2. for y, yUp in zip(yields[:-1],yield_eerPhi))
+                sigSystSqr[chan] += sum((abs(y-yUp)/y) ** 2. for y, yUp in zip(yields[:nSigSamples],yield_eerPhi[:nSigSamples]))
+
+                irrSystSqr[chan] += ((abs(yields[-2]-yield_eerPhi[-1])+abs(yields[-2]-yield_eerPhi[-1]))/2) ** 2
+
 
             if 'm' in chan:
                 yield_mEnergy = {}
                 for sys in ['up','dn']:
                     yield_mEnergy[sys] = [_getYield(s) for s in recoSyst['mclosure'+sys][chan]]
+                    yield_mEnergy[sys] += [_getYield(irreducibleSyst['mclosure'+sys][chan])]
 
                 errs['mEnergy'] = [(abs(y-yUp)+abs(y-yDn))/(2.*y) for y, yUp, yDn in zip(yields[:-1],
                                                                                          yield_mEnergy['up'],
                                                                                          yield_mEnergy['dn'])] + [0]
 
-                sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:-1],
-                                                                                                 yield_mEnergy['up'],
-                                                                                                 yield_mEnergy['dn']))
+                sigSystSqr[chan] += sum(((abs(y-yUp)+abs(y-yDn))/2.) ** 2 for y, yUp, yDn in zip(yields[:nSigSamples],
+                                                                                                 yield_mEnergy['up'][:nSigSamples],
+                                                                                                 yield_mEnergy['dn'][:nSigSamples]))
+
+                irrSystSqr[chan] += ((abs(yields[-2]-yield_mEnergy['up'][-1])+abs(yields[-2]-yield_mEnergy['dn'][-1]))/2) ** 2
+
 
             # few more by hand
-            errs['pdf'] = [.01]*(len(yields)-1) + [0]
-            errs['scale'] = [.01]*(len(yields)-1) + [0]
-            errs['met'] = [0]*(len(yields)-1) + [0.01]
-            errs['trigger'] = [.02]*(len(yields)-1) + [0]
+            errs['pdf'] = [.01]*(nMCSamples) + [0]
+            errs['scale'] = [.01]*(nMCSamples) + [0]
+            errs['met'] = [0]*(nMCSamples) + [0.01]
+            errs['trigger'] = [.02]*(nMCSamples) + [0]
 
-            sigSystSqr[chan] += sum((e*y) ** 2 for e,y in zip(errs['pdf'],yields))
-            sigSystSqr[chan] += sum((e*y) ** 2 for e,y in zip(errs['scale'],yields))
-            sigSystSqr[chan] += sum((e*y) ** 2 for e,y in zip(errs['met'],yields))
-            sigSystSqr[chan] += sum((e*y) ** 2 for e,y in zip(errs['trigger'],yields))
+            sigSystSqr[chan] += sum((e*y) ** 2 for e,y in zip(errs['pdf'],yields[:nSigSamples]))
+            sigSystSqr[chan] += sum((e*y) ** 2 for e,y in zip(errs['scale'],yields[:nSigSamples]))
+            sigSystSqr[chan] += sum((e*y) ** 2 for e,y in zip(errs['trigger'],yields[:nSigSamples]))
+
+            bkgSystSqr[chan] += (errs['met'][-1]*yields[-1]) ** 2
+
+            irrSystSqr[chan] += (errs['pdf'][-2]*yields[-2]) ** 2
+            irrSystSqr[chan] += (errs['scale'][-2]*yields[-2]) ** 2
+            irrSystSqr[chan] += (errs['trigger'][-2]*yields[-2]) ** 2
 
 
             # Make the rest of the card
@@ -225,9 +277,8 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
 
             for errName, errors in errs.iteritems():
                 colStrs = ['{:.3f}'.format(1.+e) if e else '-' for e in errors]
-                otherCols = [s+' '*(wid-len(s)) for s, wid in zip(colStrs, colWidths+[8])]
+                otherCols = [s+' '*(wid-len(s)) for s, wid in zip(colStrs, colWidths)]
                 lines.append(''.join([errName,' '*(col1Width-len(errName)),lnN]+otherCols))
-
 
             f.write('\n'.join(lines))
 
@@ -285,14 +336,14 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
         toFormat[chan+'SigStat'] = sqrt(sigStatSqr[chan])
         totStatSqr += sigStatSqr[chan]
         toFormat[chan+'SigSyst'] = sqrt(sigSystSqr[chan])
-        totSystSqr += sigStatSqr[chan]
+        totSystSqr += sigSystSqr[chan]
 
-        toFormat[chan+'Bkg'] = bkgYield[chan]
-        tot += bkgStatSqr[chan]
-        toFormat[chan+'BkgStat'] = sqrt(bkgStatSqr[chan])
-        totStatSqr += bkgStatSqr[chan]
-        toFormat[chan+'BkgSyst'] = sqrt(bkgSystSqr[chan])
-        totSystSqr += bkgSystSqr[chan]
+        toFormat[chan+'Bkg'] = bkgYield[chan] + irrYield[chan]
+        tot += bkgYield[chan] + irrYield[chan]
+        toFormat[chan+'BkgStat'] = sqrt(bkgStatSqr[chan] + irrStatSqr[chan])
+        totStatSqr += bkgStatSqr[chan] + irrStatSqr[chan]
+        toFormat[chan+'BkgSyst'] = sqrt(bkgSystSqr[chan] + irrSystSqr[chan])
+        totSystSqr += bkgSystSqr[chan] + irrSystSqr[chan]
 
         toFormat[chan+'Tot'] = tot
         toFormat[chan+'TotStat'] = sqrt(totStatSqr)
@@ -303,9 +354,9 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
         toFormat['totSig'] += sigYield[chan]
         toFormat['totSigStat'] += sigStatSqr[chan]
         toFormat['totSigSyst'] += sigSystSqr[chan]
-        toFormat['totBkg'] += bkgYield[chan]
-        toFormat['totBkgStat'] += bkgStatSqr[chan]
-        toFormat['totBkgSyst'] += bkgSystSqr[chan]
+        toFormat['totBkg'] += bkgYield[chan] + irrYield[chan]
+        toFormat['totBkgStat'] += bkgStatSqr[chan] + irrStatSqr[chan]
+        toFormat['totBkgSyst'] += bkgSystSqr[chan] + irrSystSqr[chan]
         toFormat['totTot'] += tot
         toFormat['totTotStat'] += totStatSqr
         toFormat['totTotSyst'] += totSystSqr
