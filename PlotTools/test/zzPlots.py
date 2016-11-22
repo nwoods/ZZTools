@@ -23,13 +23,13 @@ from collections import OrderedDict
 from math import sqrt
 
 
-inData = 'uwvvNtuples_data_12oct2016'
-inMC = 'uwvvNtuples_mc_12oct2016'
+inData = 'uwvvNtuples_data_15nov2016' #12oct2016'
+inMC = 'uwvvNtuples_mc_15nov2016' #12oct2016'
 
 puWeightFile = 'puWeight_69200_08sep2016'
 fakeRateFile = 'fakeRate_08sep2016'
 
-ana = 'full'
+ana = 'z4l'
 
 outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_{}'.format(ana)
 try:
@@ -49,51 +49,51 @@ data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile,
                                 fakeRateFile, lumi, amcatnlo=amcatnlo,
                                 higgs=(ana=='full'))
 
-# count events
-tot = OrderedDict()
-totErrSqr = {}
-for c in ['eeee','eemm','mmmm']:
-    print c + ':'
-
-    expected = 0.
-    expErrSqr = 0.
-    for s in stack:
-        h = s[c].makeHist('1.', '', [1,0.,2.])
-        yErr = Double(0)
-        y = h.IntegralAndError(0, h.GetNbinsX(), yErr)
-        if s.name == 'Z+X':
-            yErr = sqrt(yErr ** 2 + (.4 * y) ** 2)
-        print '    {}: {} +/- {}'.format(s.name, y, yErr)
-        if s.name not in tot:
-            tot[s.name] = 0.
-            totErrSqr[s.name] = 0.
-        tot[s.name] += y
-        totErrSqr[s.name] += yErr ** 2
-
-        expected += y
-        expErrSqr += yErr ** 2
-    print '    Total expected: {} +/- {}'.format(expected, sqrt(expErrSqr))
-    if 'expected' not in tot:
-        tot['expected'] = 0.
-        totErrSqr['expected'] = 0.
-    tot['expected'] += expected
-    totErrSqr['expected'] += expErrSqr
-
-    hData = data[c].makeHist('1.', '', [1,0.,2.])
-    dataErr = Double(0)
-    yieldData = hData.IntegralAndError(0, hData.GetNbinsX(), dataErr)
-    print '    Data: {} +/- {}'.format(yieldData, dataErr)
-    if 'data' not in tot:
-        tot['data'] = 0.
-        totErrSqr['data'] = 0.
-    tot['data'] += yieldData
-    totErrSqr['data'] += dataErr ** 2
-
-    print ''
-
-print 'Total:'
-for n,t in tot.iteritems():
-    print '    {}: {} +/- {}'.format(n,t,sqrt(totErrSqr[n]))
+# # count events
+# tot = OrderedDict()
+# totErrSqr = {}
+# for c in ['eeee','eemm','mmmm']:
+#     print c + ':'
+#
+#     expected = 0.
+#     expErrSqr = 0.
+#     for s in stack:
+#         h = s[c].makeHist('1.', '', [1,0.,2.])
+#         yErr = Double(0)
+#         y = h.IntegralAndError(0, h.GetNbinsX(), yErr)
+#         if s.name == 'Z+X':
+#             yErr = sqrt(yErr ** 2 + (.4 * y) ** 2)
+#         print '    {}: {} +/- {}'.format(s.name, y, yErr)
+#         if s.name not in tot:
+#             tot[s.name] = 0.
+#             totErrSqr[s.name] = 0.
+#         tot[s.name] += y
+#         totErrSqr[s.name] += yErr ** 2
+#
+#         expected += y
+#         expErrSqr += yErr ** 2
+#     print '    Total expected: {} +/- {}'.format(expected, sqrt(expErrSqr))
+#     if 'expected' not in tot:
+#         tot['expected'] = 0.
+#         totErrSqr['expected'] = 0.
+#     tot['expected'] += expected
+#     totErrSqr['expected'] += expErrSqr
+#
+#     hData = data[c].makeHist('1.', '', [1,0.,2.])
+#     dataErr = Double(0)
+#     yieldData = hData.IntegralAndError(0, hData.GetNbinsX(), dataErr)
+#     print '    Data: {} +/- {}'.format(yieldData, dataErr)
+#     if 'data' not in tot:
+#         tot['data'] = 0.
+#         totErrSqr['data'] = 0.
+#     tot['data'] += yieldData
+#     totErrSqr['data'] += dataErr ** 2
+#
+#     print ''
+#
+# print 'Total:'
+# for n,t in tot.iteritems():
+#     print '    {}: {} +/- {}'.format(n,t,sqrt(totErrSqr[n]))
 
 
 objNames = {
@@ -113,6 +113,27 @@ objNames = {
     }
 
 ### Set up variable specific info
+
+units = {
+    'Pt' : 'GeV',
+    'Eta' : '',
+    'Phi' : '',
+    'nJets' : '',
+    'Mass' : 'GeV',
+    'jet1Pt' : 'GeV',
+    'jet1Eta' : '',
+    'jet2Pt' : 'GeV',
+    'jet2Eta' : '',
+    'mjj' : 'GeV',
+    'deltaEtajj' : '',
+    'deltaPhiZZ' : '',
+    'deltaRZZ' : '',
+    'Iso' : '',
+    'PVDXY' : 'cm',
+    'PVDZ' : 'cm',
+    'nvtx' : '',
+    'SIP3D' : '',
+    }
 
 xTitles = {
     'Mass' : 'm_{{{obj}}} \\, (\\text{{GeV}})',
@@ -135,6 +156,17 @@ xTitles = {
     'deltaRZZ' : '\\Delta \\text{R} (\\text{Z}_1, \\text{Z}_2)',
     }
 
+for v,t in xTitles.iteritems():
+    if units[v]:
+        t += ' \\, (\\text{{{{{}}}}})'.format(units[v])
+
+# some distributions need the legend moved
+legParamsLeft = {
+    'leftmargin' : 0.05,
+    'rightmargin' : 0.5,
+    }
+
+
 binning4l = {
     'Mass'  : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.], #[26, 150., 700.],#[35, 250., 2000.],
     'Pt'    : [20.*i for i in range(4)] + [100., 140., 200., 300.],#[20.*i for i in range(4)] + [100., 140., 200., 300.], #[40, 0., 200.],
@@ -142,10 +174,10 @@ binning4l = {
     'Phi'   : [12, -3.15, 3.15],
     'nvtx'  : [40, 0., 40.],
     'nJets' : [6, -0.5, 5.5],
-    'jet1Pt' : [0., 50., 100., 200., 300., 500.],
-    #'jet1Eta' : [0., 1.5, 3., 4.7],
-    'jet2Pt' : [30., 100., 200., 500.],
-    #'jet2Eta' : [0., 1.5, 3., 4.7],
+    # 'jet1Pt' : [0., 50., 100., 200., 300., 500.],
+    # 'jet1Eta' : [0., 1.5, 3., 4.7],
+    # 'jet2Pt' : [30., 100., 200., 500.],
+    # 'jet2Eta' : [0., 1.5, 3., 4.7],
     'mjj' : [0., 100., 300., 800.],
     'deltaEtajj' : [6, 0.,6.],
     'deltaPhiZZ' : [0., 1.5] + [2.+.25*i for i in range(6)],
@@ -187,25 +219,30 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
         # blinding
         dataSelection = ''
         if varName == 'Mass':
-            dataSelection = 'Mass < 800.'
+            dataSelection = 'Mass < 500.'
 
         hStack = stack.makeHist(var, '', binning, postprocess=True)
         dataPts = data.makeHist(var, dataSelection, binning, poissonErrors=True)
 
         c = Canvas(1000,1000)
 
-        leg = makeLegend(c, hStack, dataPts)
+        legParams = {}
+        if ana == 'z4l' and varName == 'Mass' or ana == 'smp' and varName == 'deltaRZZ':
+            legParams = legParamsLeft.copy()
+        leg = makeLegend(c, hStack, dataPts, **legParams)
 
         xTitle = xTitles[varName]
         if 'obj' in xTitle:
             xTitle = xTitle.format(obj=objNames[chan])
 
+        yTitle = 'Events / 1 {}'.format(units[varName])
+
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
                                                      xtitle=xTitle,
-                                                     ytitle='Events')
+                                                     ytitle=yTitle)
         # blinding box
-        if varName == 'Mass' and binning4l['Mass'][-1] > 800.:
-            box = TBox(max(xmin,800.), ymin, min(binning4l['Mass'][-1], xmax), ymax)
+        if varName == 'Mass' and binning4l['Mass'][-1] > 500.:
+            box = TBox(max(xmin,500.), ymin, min(binning4l['Mass'][-1], xmax), ymax)
             box.SetFillColor(1)
             box.SetFillStyle(3002)
             box.Draw("same")
@@ -215,7 +252,6 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
         style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
         c.Print('{}/{}{}.png'.format(outdir, chan, varName))
-
 
 
 binning2l = {
@@ -285,20 +321,46 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
         hStack = stack.makeHist(var, selections2l[z], binning2l[varName], postprocess=True)
         dataPts = data.makeHist(var, selections2l[z], binning2l[varName], poissonErrors=True)
 
+        if varName == 'Pt' and binning2l['Pt'][-1] > 200.:
+            copy = dataPts.clone()
+            x = copy.GetX()
+
+            idx = 0
+            for i in range(copy.GetN()):
+                if x[i] >= 200.:
+                    dataPts.RemovePoint(idx)
+                    continue
+                idx += 1
+
+
         # for ratio
         dataHist = data.makeHist(var, '', binning2l[varName])
 
         c = Canvas(1000,1000)
 
-        leg = makeLegend(c, hStack, dataPts)
+        legParams = {}
+        if ana == 'full' and varName == 'Mass':
+            legParams = legParamsLeft.copy()
+        leg = makeLegend(c, hStack, dataPts, **legParams)
 
         xTitle = xTitles[varName]
         if '{obj}' in xTitle:
             xTitle = xTitle.format(obj=objNames[z])
 
+        yTitle = 'Z bosons / 1 {}'.format(units[varName])
+
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
                                                      xtitle=xTitle,
-                                                     ytitle='Events')
+                                                     ytitle=yTitle)
+
+        # blinding box
+        if varName == 'Pt' and binning2l['Pt'][-1] > 200.:
+            box = TBox(max(xmin,200.), ymin, min(binning2l['Pt'][-1], xmax), ymax)
+            box.SetFillColor(1)
+            box.SetFillStyle(3002)
+            box.Draw("same")
+            leg.SetFillStyle(1001)
+
         leg.Draw("same")
 
         style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
@@ -377,9 +439,11 @@ for lep in varTemplates1l:
         if '{obj}' in xTitle:
             xTitle = xTitle.format(obj=objNames[lep])
 
+        yTitle = 'Leptons / 1 {}'.format(units[varName])
+
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
                                                      xtitle=xTitle,
-                                                     ytitle='Leptons')
+                                                     ytitle=yTitle)
         leg.Draw("same")
 
         style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
