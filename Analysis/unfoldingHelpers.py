@@ -99,6 +99,8 @@ def getResponse(channel, truth, mc, bkg, var, varFunction, binning, fPUWeight,
 
     if not altVar:
         altVar = var
+    if not selectionStrAlt:
+        selectionStrAlt = selectionStr
 
     if varFunctionAlt is None:
         varFunctionAlt = varFunction
