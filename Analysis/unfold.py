@@ -9,7 +9,7 @@ from rootpy import asrootpy
 from rootpy.io import root_open
 from rootpy.plotting import Canvas, Legend, Hist, Hist2D, HistStack
 from rootpy.plotting.utils import draw
-from rootpy.ROOT import cout, TDecompSVD
+from rootpy.ROOT import cout, TDecompSVD, TBox
 from rootpy.ROOT import RooUnfoldBayes as RooUnfoldIter # it's frequentist!
 
 from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
@@ -39,6 +39,12 @@ def _makeReturner(var, doAbs=False):
         return lambda row: abs(getattr(row, newVar))
     else:
         return lambda row: getattr(row, newVar)
+
+def _makeVectorReturner(var, n, doAbs):
+    if doAbs:
+        return lambda row: abs(getattr(row, var).at(n-1))
+
+    return lambda row: getattr(row, var).at(n-1)
 
 def _makeComparator(var, compareTo):
     '''
@@ -127,8 +133,8 @@ _binning = {
     'jet2Eta' : [0., 1.5, 3., 4.7],
     'mjj' : [0., 100., 300., 800.],
     'deltaEtajj' : [6, 0.,6.],
-    'z1Mass' : [12, 60., 120.],
-    'z2Mass' : [12, 60., 120.],
+    'z1Mass' : [60., 80., 84., 86.] + [87.+i for i in range(10)] + [98., 102., 120.], #[12, 60., 120.],
+    'z2Mass' : [60., 75., 83.] + [84.+i for i in range(14)] + [105., 120.],#[12, 60., 120.],
     'z1Pt' : [i * 25. for i in range(7)] + [200., 300.],
     'z2Pt' : [i * 25. for i in range(7)] + [200., 300.],
     'deltaPhiZZ' : [0., 1.5] + [2.+.25*i for i in range(6)],
@@ -136,24 +142,58 @@ _binning = {
     'l1Pt' : [15, 0., 150.],
     }
 
-_xTitle = {
-    'pt' : '4\\ell p_T \\, \\text{(GeV)}',
-    'nJets' : '# jets',
-    'mass' : 'm_{4\\ell} \\, \\text{(GeV)}',
-    'jet1Pt' : 'p_T^\\text{j1} \\, \\text{(GeV)}',
-    'jet1Eta' : '\\eta_\\text{j1}',
-    'jet2Pt' : 'p_T^\\text{j2} \\, \\text{(GeV)}',
-    'jet2Eta' : '\\eta_\\text{j2}',
-    'mjj' : 'm_\\text{jj} \\, \\text{(GeV)}',
-    'deltaEtajj' : '|\\Delta \\eta_{\\text{jj}}|',
-    'z1Mass' : 'm_{\\text{Z}_{1}} \\, \\text{(GeV)}',
-    'z2Mass' : 'm_{\\text{Z}_{2}} \\, \\text{(GeV)}',
-    'z1Pt' : '\\text{Z}_{1} \\, p_T \\, \\text{(GeV)}',
-    'z2Pt' : '\\text{Z}_{2} \\, p_T \\, \\text{(GeV)}',
-    'deltaPhiZZ' : '\\Delta \\phi (\\text{Z}_1, \\text{Z}_2)',
-    'deltaRZZ' : '\\Delta \\text{R} (\\text{Z}_1, \\text{Z}_2)',
-    'l1Pt' : '\\text{Lead. lep. } \\, p_{T} \\, \\text{(GeV)}',
+_units = {
+    'pt' : 'GeV',
+    'nJets' : '',
+    'mass' : 'GeV',
+    'jet1Pt' : 'GeV',
+    'jet1Eta' : '',
+    'jet2Pt' : 'GeV',
+    'jet2Eta' : '',
+    'mjj' : 'GeV',
+    'deltaEtajj' : '',
+    'z1Mass' : 'GeV',
+    'z2Mass' : 'GeV',
+    'z1Pt' : 'GeV',
+    'z2Pt' : 'GeV',
+    'deltaPhiZZ' : '',
+    'deltaRZZ' : '',
+    'l1Pt' : 'GeV',
     }
+
+_prettyVars = {
+    'pt' : 'p_T^{4\\ell}',
+    'nJets' : '# jets',
+    'mass' : 'm_{4\\ell}',
+    'jet1Pt' : 'p_T^\\text{j1}',
+    'jet1Eta' : '\\eta_\\text{j1}',
+    'jet2Pt' : 'p_T^\\text{j2}',
+    'jet2Eta' : '\\eta_\\text{j2}',
+    'mjj' : 'm_\\text{jj}',
+    'deltaEtajj' : '|\\Delta \\eta_{\\text{jj}}|',
+    'z1Mass' : 'm_{\\text{Z}_{1}}',
+    'z2Mass' : 'm_{\\text{Z}_{2}}',
+    'z1Pt' : 'p_T^{\\text{Z}_{1}}',
+    'z2Pt' : 'p_T^{\\text{Z}_{2}}',
+    'deltaPhiZZ' : '\\Delta \\phi_{\\text{Z}_1,\\text{Z}_2}',
+    'deltaRZZ' : '\\Delta \\text{R}_{\\text{Z}_1,\\text{Z}_2}',
+    'l1Pt' : 'p_{T}^{\\ell_1}',
+    }
+
+_xTitle = {}
+_yTitle = {}
+_yTitleTemp = 'd\\sigma_{{\\text{{fid}}}} / d{xvar} {units}'
+for var, prettyVar in _prettyVars.iteritems():
+    xt = prettyVar
+    if _units[var]:
+        xt += ' \\, \\text{{({})}}'.format(_units[var])
+        yt = _yTitleTemp.format(xvar=prettyVar,
+                                units='\\, \\left[ \\text{{pb}} / {unit} \\right]'.format(unit=_units[var]))
+    else:
+        yt = _yTitleTemp.format(xvar=prettyVar, units='')
+
+    _xTitle[var] = xt
+    _yTitle[var] = yt
 
 _selections = {
     'pt' : {c:'' for c in _channels},
@@ -163,16 +203,16 @@ _selections = {
                         'abs(e1_e2_Mass - {0}) > abs(m1_m2_Mass - {0})'.format(Z_MASS)],
                 },
     'z2Mass' : {'eeee':'','mmmm':'',
-                'eemm':['abs(e1_e2_Mass - {0}) > abs(m1_m2_Mass - {0})'.format(Z_MASS),
-                        'abs(e1_e2_Mass - {0}) < abs(m1_m2_Mass - {0})'.format(Z_MASS)],
+                'eemm':['abs(e1_e2_Mass - {0}) < abs(m1_m2_Mass - {0})'.format(Z_MASS),
+                        'abs(e1_e2_Mass - {0}) > abs(m1_m2_Mass - {0})'.format(Z_MASS)],
                 },
     'z1Pt' : {'eeee':'','mmmm':'',
               'eemm':['abs(e1_e2_Mass - {0}) < abs(m1_m2_Mass - {0})'.format(Z_MASS),
                       'abs(e1_e2_Mass - {0}) > abs(m1_m2_Mass - {0})'.format(Z_MASS)],
               },
     'z2Pt' : {'eeee':'','mmmm':'',
-              'eemm':['abs(e1_e2_Mass - {0}) > abs(m1_m2_Mass - {0})'.format(Z_MASS),
-                      'abs(e1_e2_Mass - {0}) < abs(m1_m2_Mass - {0})'.format(Z_MASS)],
+              'eemm':['abs(e1_e2_Mass - {0}) < abs(m1_m2_Mass - {0})'.format(Z_MASS),
+                      'abs(e1_e2_Mass - {0}) > abs(m1_m2_Mass - {0})'.format(Z_MASS)],
               },
     'deltaPhiZZ' : {c:'' for c in _channels},
     'deltaRZZ' : {c:'' for c in _channels},
@@ -192,7 +232,7 @@ _selFunctions = {
 
 # do jet variables separately because we have to deal with systematics
 for sys in ['', '_jerUp', '_jerDown', '_jesUp','_jesDown']:
-    for varName in ['nJets', 'jet1Pt', 'jet1Eta', 'jet2Pt', 'jet2Eta', 'mjj', 'deltaEtajj']:
+    for varName in ['nJets', 'mjj', 'deltaEtajj']:
         doAbs = 'eta' in varName.lower()
 
         varName += sys
@@ -203,16 +243,33 @@ for sys in ['', '_jerUp', '_jerDown', '_jesUp','_jesDown']:
         _variables[varName] = {c:var for c in _channels}
         _varFunctions[varName] = {c:_makeReturner(varName, doAbs) for c in _channels}
 
-        if 'jet1' in varName.lower():
-            _selections[varName] = {c:'nJets{} > 0'.format(sys) for c in _channels}
-            _selFunctions[varName] = _makeComparator('nJets'+sys, 0)
-        elif 'jj' in varName.lower() or 'jet2' in varName.lower():
+        if 'jj' in varName.lower():
             _selections[varName] = {c:'nJets{} > 1'.format(sys) for c in _channels}
             _selFunctions[varName] = _makeComparator('nJets'+sys, 1)
         else:
             _selections[varName] = {c:'' for c in _channels}
             _selFunctions[varName] = identityFunction
 
+    for baseVar in ['jetPt'+sys, 'jetEta'+sys]:
+        for j in [1,2]:
+            doAbs = 'eta' in baseVar.lower()
+
+            var = baseVar+'[{}]'.format(j-1)
+            if doAbs:
+                var = 'abs({})'.format(var)
+            varName = baseVar.replace('jet','jet{}'.format(j))
+
+            _variables[varName] = {c:var for c in _channels}
+            _varFunctions[varName] = {c:_makeVectorReturner(baseVar, j, doAbs) for c in _channels}
+            _selections[varName] = {c:'nJets{} >= {}'.format(sys,j) for c in _channels}
+            _selFunctions[varName] = _makeComparator('nJets'+sys, j-1)
+
+# some variables need to be blinded
+_blind = {
+    'mass' : 500.,
+    'z1Pt' : 200.,
+    'z2Pt' : 200.,
+    }
 
 # list of variables not counting systematic shifts
 _varList = [v for v in _variables if 'Up' not in v and 'Down' not in v]
@@ -244,11 +301,11 @@ _systSaveFileTemplate = _join(_env['zzt'], 'Analysis', 'savedResults',
                               'unfoldSave_{}Iter.root')
 
 def _normalizeBins(h):
-    binUnit = min(h.GetBinWidth(b) for b in range(1,len(h)+1))
+    binUnit = 1 # min(h.GetBinWidth(b) for b in range(1,len(h)+1))
     for ib in xrange(1,len(h)+1):
         w = h.GetBinWidth(ib)
         h.SetBinContent(ib, h.GetBinContent(ib) * binUnit / w)
-        h.SetBinError(ib, h.GetBinError(ib) * sqrt(binUnit / w))
+        h.SetBinError(ib, h.GetBinError(ib) * binUnit / w)
         if h.GetBinError(ib) > h.GetBinContent(ib):
             h.SetBinError(ib, h.GetBinContent(ib))
     h.sumw2()
@@ -265,13 +322,11 @@ def _compatibleHistOrNone(fileOrDir, name, desiredBinning):
 
 
 def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
-         *varNames, **kwargs):
+         systSaveFile, *varNames, **kwargs):
 
     style = _Style()
 
-    systSaveFileName = _systSaveFileTemplate.format(nIter)
-
-    systSaveFile = root_open(systSaveFileName, 'UPDATE')
+    systSaveFile.cd()
 
     channels = _channels
 
@@ -282,7 +337,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
 
     true = genZZSamples('zz', inMC, 'smp', lumi)
-    reco = {c:zzStackMCOnly(c, inMC, 'smp', puWeightFile, lumi) for c in channels}
+    reco = {c:zzStackSignalOnly(c, inMC, 'smp', puWeightFile, lumi) for c in channels}
     bkg = standardZZBkg('zz', inData, inMC, 'smp', puWeightFile,
                         fakeRateFile, lumi)
     bkgSyst = {
@@ -298,20 +353,20 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
     data = standardZZData('zz', inData, 'smp')
 
-    altReco = {c:zzStackMCOnly(c, inMC, 'smp', puWeightFile, lumi, amcatnlo=True) for c in channels}
+    altReco = {c:zzStackSignalOnly(c, inMC, 'smp', puWeightFile, lumi, amcatnlo=True) for c in channels}
     altTrue = genZZSamples('zz', inMC, 'smp', lumi, amcatnlo=True)
 
     recoSyst = {}
     for syst in ['eScaleUp', 'eScaleDn', 'eRhoResUp',
                  'eRhoResDn', 'ePhiResUp']:
         recoSyst[syst] = {
-            c:zzStackMCOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
+            c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
                             'smp', puWeightFile, lumi)
             for c in ['eeee','eemm']
             }
     for syst in ['mClosureUp','mClosureDn']:
         recoSyst[syst] = {
-            c:zzStackMCOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
+            c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
                             'smp', puWeightFile, lumi)
             for c in ['eemm','mmmm']
             }
@@ -792,6 +847,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             leg.Draw('same')
             style.setCMSStyle(cErrUp, '', dataType='Preliminary', intLumi=lumi)
             cErrUp.Print(_join(plotDir, 'errUp_{}_{}.png'.format(varName, chan)))
+            cErrUp.Print(_join(plotDir, 'errUp_{}_{}.C'.format(varName, chan)))
 
             cErrDn = Canvas(1000,1000)
             errStackDn = HistStack(hErr['dn'].values(), drawstyle = 'histnoclear')
@@ -802,6 +858,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             leg.Draw('same')
             style.setCMSStyle(cErrDn, '', dataType='Preliminary', intLumi=lumi)
             cErrDn.Print(_join(plotDir, 'errDown_{}_{}.png'.format(varName, chan)))
+            cErrDn.Print(_join(plotDir, 'errDown_{}_{}.C'.format(varName, chan)))
 
 
             ### plot
@@ -813,6 +870,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
                 hTot['unfolded'] = hUnfolded.empty_clone()
             hTot['unfolded'] += hUnfolded
             _normalizeBins(hUnfolded)
+            hUnfolded /= lumi
 
             hUnfoldedAlt.color = 'r'
             hUnfoldedAlt.drawstyle = 'hist'
@@ -823,53 +881,90 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
                 hTot['unfoldedAlt'] = hUnfoldedAlt.empty_clone()
             hTot['unfoldedAlt'] += hUnfoldedAlt
             _normalizeBins(hUnfoldedAlt)
+            hUnfoldedAlt /= lumi
 
-            hTrue = true[chan].makeHist(var, sel, binning)
+            hTrue = true[chan].makeHist(var, sel, binning, perUnitWidth=True)
             hTrue.color = 'blue'
             hTrue.drawstyle = 'hist'
             hTrue.fillstyle = 'hollow'
             hTrue.legendstyle = 'L'
             hTrue.title = 'POWHEG (true) [training sample]'
+            hTrue /= lumi
 
-            hTrueAlt = altTrue[chan].makeHist(var, sel, binning)
+            hTrueAlt = altTrue[chan].makeHist(var, sel, binning,
+                                              perUnitWidth=True)
             hTrueAlt.color = 'magenta'
             hTrueAlt.drawstyle = 'hist'
             hTrueAlt.fillstyle = 'hollow'
             hTrueAlt.legendstyle = 'L'
             hTrueAlt.title = 'MG5_aMC@NLO (true)'
+            hTrueAlt /= lumi
 
             _normalizeBins(hUncUp)
             _normalizeBins(hUncDn)
+            hUncUp /= lumi
+            hUncDn /= lumi
+
+            if varName in _blind:
+                for b, bUp, bDn in zip(hUnfolded, hUncUp, hUncDn):
+                    if hUnfolded.xaxis.GetBinLowEdge(b.idx) >= _blind[varName]:
+                        b.value = 0
+                        b.error = 0
+                        bUp.value = 0
+                        bUp.error = 0
+                        bDn.value = 0
+                        bDn.error = 0
+
             errorBand = makeErrorBand(hUnfolded, hUncUp, hUncDn)
 
             cUnf = Canvas(1000,1000)
-            draw([hTrue, hTrueAlt, hUnfoldedAlt, hUnfolded, errorBand], cUnf,
-                 xtitle=_xTitle[varName], ytitle='Events',yerror_in_padding=False)
+            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
+                                                          hUnfoldedAlt,
+                                                          hUnfolded,
+                                                          errorBand], cUnf,
+                                                         xtitle=_xTitle[varName],
+                                                         ytitle=_yTitle[varName],
+                                                         yerror_in_padding=False)
+
             leg = makeLegend(cUnf, hTrueAlt, hUnfoldedAlt, hTrue, errorBand,
                              hUnfolded, **_legParams[varName])
+
+            if varName in _blind and _blind[varName] < xmax:
+                box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
+                box.SetFillColor(1)
+                box.SetFillStyle(3002)
+                box.Draw("same")
+                leg.SetFillStyle(1001)
+
             leg.Draw("same")
 
             style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
             cUnf.Print(_join(plotDir, "unfold_{}_{}.png".format(varName, chan)))
+            cUnf.Print(_join(plotDir, "unfold_{}_{}.C".format(varName, chan)))
 
             cRes = Canvas(1000,1000)
             hRes = asrootpy(response.Hresponse())
             hRes.drawstyle = 'colztext'
+            hRes.xaxis.title = '\\text{Reco} '+_xTitle[varName]
+            hRes.yaxis.title = '\\text{True} '+_xTitle[varName]
             hRes.draw()
             style.setCMSStyle(cRes, '', dataType='Preliminary Simulation', intLumi=lumi)
             cRes.Print(_join(plotDir, "response_{}_{}.png".format(varName, chan)))
+            cRes.Print(_join(plotDir, "response_{}_{}.C".format(varName, chan)))
 
             cCov = Canvas(1000,1000)
             covariance = unfolder.Ereco(2) # TMatrixD
             covariance.Draw("colztext")
             style.setCMSStyle(cCov, '', dataType='Preliminary', intLumi=lumi)
             cCov.Print(_join(plotDir, "covariance_{}_{}.png".format(varName, chan)))
+            cCov.Print(_join(plotDir, "covariance_{}_{}.C".format(varName, chan)))
 
         hTot['unfolded'].color = 'black'
         hTot['unfolded'].drawstyle = 'PE'
         hTot['unfolded'].legendstyle = 'LPE'
         hTot['unfolded'].title = 'Unfolded data + stat. unc.'
         _normalizeBins(hTot['unfolded'])
+        hTot['unfolded'] /= lumi
 
         hTot['unfoldedAlt'].color = 'r'
         hTot['unfoldedAlt'].drawstyle = 'hist'
@@ -877,20 +972,25 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         hTot['unfoldedAlt'].legendstyle = 'L'
         hTot['unfoldedAlt'].title = 'Unfolded MG5_aMC@NLO+MCFM'
         _normalizeBins(hTot['unfoldedAlt'])
+        hTot['unfoldedAlt'] /= lumi
 
-        hTrue = true.makeHist(_variables[varName], _selections[varName], binning)
+        hTrue = true.makeHist(_variables[varName], _selections[varName],
+                              binning, perUnitWidth=True)
         hTrue.color = 'blue'
         hTrue.drawstyle = 'hist'
         hTrue.fillstyle = 'hollow'
         hTrue.legendstyle = 'L'
         hTrue.title = 'POWHEG (true) [training sample]'
+        hTrue /= lumi
 
-        hTrueAlt = altTrue.makeHist(_variables[varName], _selections[varName], binning)
+        hTrueAlt = altTrue.makeHist(_variables[varName], _selections[varName],
+                                    binning, perUnitWidth=True)
         hTrueAlt.color = 'magenta'
         hTrueAlt.drawstyle = 'hist'
         hTrueAlt.fillstyle = 'hollow'
         hTrueAlt.legendstyle = 'L'
         hTrueAlt.title = 'MG5_aMC@NLO (true)'
+        hTrueAlt /= lumi
 
         hUncUp = hTot['uncUpSqr'].clone()
         for b in hUncUp:
@@ -901,19 +1001,38 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
         _normalizeBins(hUncUp)
         _normalizeBins(hUncDn)
+        hUncUp /= lumi
+        hUncDn /= lumi
+
+        if varName in _blind:
+            for b, bUp, bDn in zip(hTot['unfolded'], hUncUp, hUncDn):
+                if hUnfolded.xaxis.GetBinLowEdge(b.idx) >= _blind[varName]:
+                    b.value = 0
+                    b.error = 0
+                    bUp.value = 0
+                    bUp.error = 0
+                    bDn.value = 0
+                    bDn.error = 0
+
         errorBand = makeErrorBand(hTot['unfolded'], hUncUp, hUncDn)
 
         cUnf = Canvas(1000,1000)
         draw([hTrue, hTrueAlt, hTot['unfoldedAlt'], errorBand, hTot['unfolded']],
-             cUnf, xtitle=_xTitle[varName], ytitle='Events',yerror_in_padding=False)
+             cUnf, xtitle=_xTitle[varName], ytitle=_yTitle[varName],
+             yerror_in_padding=False)
         leg = makeLegend(cUnf, hTrueAlt, hTot['unfoldedAlt'], hTrue, errorBand,
                          hTot['unfolded'], **_legParams[varName])
+
+        if varName in _blind and _blind[varName] < xmax:
+            box.Draw("same") # reuse box from last channel
+            leg.SetFillStyle(1001)
+
         leg.Draw("same")
 
         style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
         cUnf.Print(_join(plotDir, "unfold_{}.png".format(varName)))
+        cUnf.Print(_join(plotDir, "unfold_{}.C".format(varName)))
 
-    systSaveFile.close()
 
 if __name__ == "__main__":
 
@@ -949,5 +1068,10 @@ if __name__ == "__main__":
                               'all are used ({})').format(', '.join(_varList)))
 
     args=parser.parse_args()
-    main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
-         args.puWeightFile, args.lumi, args.nIter, args.redo, *args.variables)
+
+    systSaveFileName = _systSaveFileTemplate.format(args.nIter)
+
+    with root_open(systSaveFileName, 'UPDATE') as systSaveFile:
+        main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
+             args.puWeightFile, args.lumi, args.nIter, args.redo,
+             systSaveFile, *args.variables)
