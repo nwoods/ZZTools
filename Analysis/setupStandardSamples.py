@@ -322,8 +322,6 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
     data/fakeRate/[puWeightFile].
     MC scaled to integrated luminosity lumi.
 
-    If applyWeights is False, PU weights and data/MC scale factors are not used
-
     efficiencySyst, puSyst, and fakeRateSyst give systematic shifts for those
     things with 'up' or 'down'.
 

@@ -322,7 +322,7 @@ def _compatibleHistOrNone(fileOrDir, name, desiredBinning):
 
 
 def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
-         systSaveFile, *varNames, **kwargs):
+         systSaveFile, amcatnlo=False, *varNames, **kwargs):
 
     style = _Style()
 
@@ -335,9 +335,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
     puWeightStrDn, puWtDn = puWeight(puWeightFile, 'dn')
     fPUWt = {'':puWt,'up':puWtUp,'dn':puWtDn}
 
-
-    true = genZZSamples('zz', inMC, 'smp', lumi)
-    reco = {c:zzStackSignalOnly(c, inMC, 'smp', puWeightFile, lumi) for c in channels}
+    true = genZZSamples('zz', inMC, 'smp', lumi, amcatnlo=amcatnlo)
+    reco = {c:zzStackSignalOnly(c, inMC, 'smp', puWeightFile,
+                                lumi, amcatnlo=amcatnlo) for c in channels}
     bkg = standardZZBkg('zz', inData, inMC, 'smp', puWeightFile,
                         fakeRateFile, lumi)
     bkgSyst = {
@@ -353,21 +353,32 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
     data = standardZZData('zz', inData, 'smp')
 
-    altReco = {c:zzStackSignalOnly(c, inMC, 'smp', puWeightFile, lumi, amcatnlo=True) for c in channels}
-    altTrue = genZZSamples('zz', inMC, 'smp', lumi, amcatnlo=True)
+    altReco = {c:zzStackSignalOnly(c, inMC, 'smp', puWeightFile, lumi,
+                                   amcatnlo=(not amcatnlo)) for c in channels}
+    altTrue = genZZSamples('zz', inMC, 'smp', lumi,
+                           amcatnlo=(not amcatnlo))
+
+    if amcatnlo:
+        signalName = 'MG5_aMC@NLO'
+        signalNameAlt = 'POWHEG'
+    else:
+        signalName = 'POWHEG'
+        signalNameAlt = 'MG5_aMC@NLO'
+    signalName += '+MCFM'
+    signalNameAlt += '+MCFM'
 
     recoSyst = {}
     for syst in ['eScaleUp', 'eScaleDn', 'eRhoResUp',
                  'eRhoResDn', 'ePhiResUp']:
         recoSyst[syst] = {
             c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
-                            'smp', puWeightFile, lumi)
+                                'smp', puWeightFile, lumi, amcatnlo=amcatnlo)
             for c in ['eeee','eemm']
             }
     for syst in ['mClosureUp','mClosureDn']:
         recoSyst[syst] = {
             c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
-                            'smp', puWeightFile, lumi)
+                                'smp', puWeightFile, lumi, amcatnlo=amcatnlo)
             for c in ['eemm','mmmm']
             }
 
@@ -608,6 +619,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
                     hUnf.write()
 
                     reco[chan].applyWeight(nominalWeight, True)
+                    true[chan].applyWeight('', True)
 
                 hErr[sys]['lumi'] = hUnf - hUnfolded
                 hErr[sys]['lumi'].title = "Luminosity"
@@ -876,7 +888,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             hUnfoldedAlt.drawstyle = 'hist'
             hUnfoldedAlt.fillstyle = 'hollow'
             hUnfoldedAlt.legendstyle = 'L'
-            hUnfoldedAlt.title = 'Unfolded MG5_aMC@NLO+MCFM'
+            hUnfoldedAlt.title = 'Unfolded {}'.format(signalNameAlt)
             if 'unfoldedAlt' not in hTot:
                 hTot['unfoldedAlt'] = hUnfoldedAlt.empty_clone()
             hTot['unfoldedAlt'] += hUnfoldedAlt
@@ -888,7 +900,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             hTrue.drawstyle = 'hist'
             hTrue.fillstyle = 'hollow'
             hTrue.legendstyle = 'L'
-            hTrue.title = 'POWHEG (true) [training sample]'
+            hTrue.title = '{} (true) [training sample]'.format(signalName)
             hTrue /= lumi
 
             hTrueAlt = altTrue[chan].makeHist(var, sel, binning,
@@ -897,7 +909,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             hTrueAlt.drawstyle = 'hist'
             hTrueAlt.fillstyle = 'hollow'
             hTrueAlt.legendstyle = 'L'
-            hTrueAlt.title = 'MG5_aMC@NLO (true)'
+            hTrueAlt.title = '{} (true)'.format(signalNameAlt)
             hTrueAlt /= lumi
 
             _normalizeBins(hUncUp)
@@ -970,7 +982,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         hTot['unfoldedAlt'].drawstyle = 'hist'
         hTot['unfoldedAlt'].fillstyle = 'hollow'
         hTot['unfoldedAlt'].legendstyle = 'L'
-        hTot['unfoldedAlt'].title = 'Unfolded MG5_aMC@NLO+MCFM'
+        hTot['unfoldedAlt'].title = 'Unfolded {}'.format(signalNameAlt)
         _normalizeBins(hTot['unfoldedAlt'])
         hTot['unfoldedAlt'] /= lumi
 
@@ -980,7 +992,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         hTrue.drawstyle = 'hist'
         hTrue.fillstyle = 'hollow'
         hTrue.legendstyle = 'L'
-        hTrue.title = 'POWHEG (true) [training sample]'
+        hTrue.title = '{} (true) [training sample]'.format(signalName)
         hTrue /= lumi
 
         hTrueAlt = altTrue.makeHist(_variables[varName], _selections[varName],
@@ -989,7 +1001,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         hTrueAlt.drawstyle = 'hist'
         hTrueAlt.fillstyle = 'hollow'
         hTrueAlt.legendstyle = 'L'
-        hTrueAlt.title = 'MG5_aMC@NLO (true)'
+        hTrueAlt.title = '{} (true)'.format(signalNameAlt)
         hTrueAlt /= lumi
 
         hUncUp = hTot['uncUpSqr'].clone()
@@ -1017,14 +1029,20 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         errorBand = makeErrorBand(hTot['unfolded'], hUncUp, hUncDn)
 
         cUnf = Canvas(1000,1000)
-        draw([hTrue, hTrueAlt, hTot['unfoldedAlt'], errorBand, hTot['unfolded']],
-             cUnf, xtitle=_xTitle[varName], ytitle=_yTitle[varName],
-             yerror_in_padding=False)
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
+                                                      hTot['unfoldedAlt'],
+                                                      errorBand, hTot['unfolded']],
+                                                     cUnf, xtitle=_xTitle[varName],
+                                                     ytitle=_yTitle[varName],
+                                                     yerror_in_padding=False)
         leg = makeLegend(cUnf, hTrueAlt, hTot['unfoldedAlt'], hTrue, errorBand,
                          hTot['unfolded'], **_legParams[varName])
 
         if varName in _blind and _blind[varName] < xmax:
-            box.Draw("same") # reuse box from last channel
+            box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
+            box.SetFillColor(1)
+            box.SetFillStyle(3002)
+            box.Draw("same")
             leg.SetFillStyle(1001)
 
         leg.Draw("same")
@@ -1062,6 +1080,10 @@ if __name__ == "__main__":
                         help='Number of iterations for D\'Agostini method')
     parser.add_argument('--redo', action='store_true',
                         help='Redo everything, ignoring stored results')
+    parser.add_argument('--amcatnlo', action='store_true',
+                        help='Use MadGraph5_aMC@NLO as the primary MC and '
+                        'Powheg as the cross-check, instead of the other way '
+                        'around.')
     parser.add_argument('--variables', type=str, nargs='*',
                         default=_varList,
                         help=('Names of variables to use. If not specified, '
@@ -1070,8 +1092,10 @@ if __name__ == "__main__":
     args=parser.parse_args()
 
     systSaveFileName = _systSaveFileTemplate.format(args.nIter)
+    if args.amcatnlo:
+        systSaveFileName = systSaveFileName.replace('.root','_amcatnlo.root')
 
     with root_open(systSaveFileName, 'UPDATE') as systSaveFile:
         main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
              args.puWeightFile, args.lumi, args.nIter, args.redo,
-             systSaveFile, *args.variables)
+             systSaveFile, args.amcatnlo, *args.variables)
