@@ -95,7 +95,7 @@ sampleInfo["ZZTo4L"] = {
     }
 
 sampleInfo["ZZTo4L-amcatnlo"] = {
-    'xsec' : 1.191,
+    'xsec' : 1.212,
     'prettyName' : 'q#bar{q} #rightarrow ZZ, Z#gamma*',
     'isSignal' : True,
     'format' : {
