@@ -7,7 +7,7 @@ rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 
 from rootpy import asrootpy
 from rootpy.io import root_open
-from rootpy.plotting import Canvas, Legend, Hist, Hist2D, HistStack
+from rootpy.plotting import Canvas, Legend, Hist, Hist2D, HistStack, Graph
 from rootpy.plotting.utils import draw
 from rootpy.ROOT import cout, TDecompSVD, TBox
 from rootpy.ROOT import RooUnfoldBayes as RooUnfoldIter # it's frequentist!
@@ -18,12 +18,16 @@ from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes, makeErro
 from Utilities import WeightStringMaker, identityFunction, Z_MASS, \
     deltaRFunction, deltaRString, deltaPhiFunction, deltaPhiString
 from Analysis.setupStandardSamples import *
-from Analysis.unfoldingHelpers import getResponse
+from Analysis.unfoldingHelpers import getResponse, getResponsePDFErrors, \
+    getResponseScaleErrors, getResponseAlphaSErrors
 from Analysis.weightHelpers import puWeight, baseMCWeight
 from Metadata.metadata import sampleInfo
 
 from os import environ as _env
+from os import makedirs as _mkdir
 from os.path import join as _join
+from os.path import isdir as _isdir
+from os.path import exists as _exists
 from math import sqrt
 
 
@@ -70,9 +74,9 @@ _variables = {
     'z2Pt' : {'eeee':'e3_e4_Pt', 'mmmm':'m3_m4_Pt',
               'eemm':['m1_m2_Pt','e1_e2_Pt']},
     'deltaPhiZZ' : {
-        'eeee' : '{}(e1_e2_Phi, e3_e4_Phi)'.format(deltaPhiString()),
-        'eemm' : '{}(e1_e2_Phi, m1_m2_Phi)'.format(deltaPhiString()),
-        'mmmm' : '{}(m1_m2_Phi, m3_m4_Phi)'.format(deltaPhiString()),
+        'eeee' : 'abs({}(e1_e2_Phi, e3_e4_Phi))'.format(deltaPhiString()),
+        'eemm' : 'abs({}(e1_e2_Phi, m1_m2_Phi))'.format(deltaPhiString()),
+        'mmmm' : 'abs({}(m1_m2_Phi, m3_m4_Phi))'.format(deltaPhiString()),
         },
     'deltaRZZ' : {
         'eeee' : '{}(e1_e2_Eta, e1_e2_Phi, e3_e4_Eta, e3_e4_Phi)'.format(deltaRString()),
@@ -107,9 +111,9 @@ _varFunctions = {
               'eemm':lambda row: row.e1_e2_Pt if abs(row.e1_e2_Mass - Z_MASS) > abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Pt,
               },
     'deltaPhiZZ' : {
-        'eeee' : lambda row: _fDPhi(row.e1_e2_Phi, row.e3_e4_Phi),
-        'eemm' : lambda row: _fDPhi(row.e1_e2_Phi, row.m1_m2_Phi),
-        'mmmm' : lambda row: _fDPhi(row.m1_m2_Phi, row.m3_m4_Phi),
+        'eeee' : lambda row: abs(_fDPhi(row.e1_e2_Phi, row.e3_e4_Phi)),
+        'eemm' : lambda row: abs(_fDPhi(row.e1_e2_Phi, row.m1_m2_Phi)),
+        'mmmm' : lambda row: abs(_fDPhi(row.m1_m2_Phi, row.m3_m4_Phi)),
         },
     'deltaRZZ' : {
         'eeee' : lambda row: _fDR(row.e1_e2_Eta, row.e1_e2_Phi, row.e3_e4_Eta, row.e3_e4_Phi),
@@ -182,13 +186,13 @@ _prettyVars = {
 
 _xTitle = {}
 _yTitle = {}
-_yTitleTemp = 'd\\sigma_{{\\text{{fid}}}} / d{xvar} {units}'
+_yTitleTemp = '\\frac{{1}}{{\\sigma_{{\\text{{fid}}}}}} \\frac{{d\\sigma_{{\\text{{fid}}}}}}{{d{xvar}}} {units}'
 for var, prettyVar in _prettyVars.iteritems():
     xt = prettyVar
     if _units[var]:
         xt += ' \\, \\text{{({})}}'.format(_units[var])
         yt = _yTitleTemp.format(xvar=prettyVar,
-                                units='\\, \\left[ \\text{{pb}} / {unit} \\right]'.format(unit=_units[var]))
+                                units='\\, \\left[ \\frac{{1}}{{\\text{{{unit}}}}} \\right]'.format(unit=_units[var]))
     else:
         yt = _yTitleTemp.format(xvar=prettyVar, units='')
 
@@ -336,8 +340,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
     fPUWt = {'':puWt,'up':puWtUp,'dn':puWtDn}
 
     true = genZZSamples('zz', inMC, 'smp', lumi, amcatnlo=amcatnlo)
-    reco = {c:zzStackSignalOnly(c, inMC, 'smp', puWeightFile,
-                                lumi, amcatnlo=amcatnlo) for c in channels}
+    reco = zzStackSignalOnly('zz', inMC, 'smp', puWeightFile,
+                             lumi, amcatnlo=amcatnlo, asGroup=True)
     bkg = standardZZBkg('zz', inData, inMC, 'smp', puWeightFile,
                         fakeRateFile, lumi)
     bkgSyst = {
@@ -353,8 +357,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
     data = standardZZData('zz', inData, 'smp')
 
-    altReco = {c:zzStackSignalOnly(c, inMC, 'smp', puWeightFile, lumi,
-                                   amcatnlo=(not amcatnlo)) for c in channels}
+    altReco = zzStackSignalOnly('zz', inMC, 'smp', puWeightFile, lumi,
+                                amcatnlo=(not amcatnlo), asGroup=True)
     altTrue = genZZSamples('zz', inMC, 'smp', lumi,
                            amcatnlo=(not amcatnlo))
 
@@ -370,17 +374,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
     recoSyst = {}
     for syst in ['eScaleUp', 'eScaleDn', 'eRhoResUp',
                  'eRhoResDn', 'ePhiResUp']:
-        recoSyst[syst] = {
-            c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
-                                'smp', puWeightFile, lumi, amcatnlo=amcatnlo)
-            for c in ['eeee','eemm']
-            }
+        recoSyst[syst] = zzStackSignalOnly('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
+                                           'smp', puWeightFile, lumi, amcatnlo=amcatnlo,
+                                           asGroup=True)
     for syst in ['mClosureUp','mClosureDn']:
-        recoSyst[syst] = {
-            c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
-                                'smp', puWeightFile, lumi, amcatnlo=amcatnlo)
-            for c in ['eemm','mmmm']
-            }
+        recoSyst[syst] = zzStackSignalOnly('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
+                                           'smp', puWeightFile, lumi, amcatnlo=amcatnlo,
+                                           asGroup=True)
 
     for varName in varNames:
         if not hasattr(systSaveFile, varName):
@@ -390,7 +390,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
         binning = _binning[varName]
 
-        hTot = {}
+        hErr = {}
+        hUnfoldedByChan = {}
+        hUnfoldedAltByChan = {}
         for chan in channels:
             if not hasattr(varDir, chan):
                 d = varDir.mkdir(chan)
@@ -405,6 +407,12 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             # regular weight, no systematics. Apply just in case.
             nominalWeight = baseMCWeight(chan, puWeightFile)
             reco[chan].applyWeight(nominalWeight, True)
+            altReco[chan].applyWeight(nominalWeight, True)
+            for s in recoSyst.values():
+                try:
+                    s[chan].applyWeight(nominalWeight, True)
+                except KeyError:
+                    pass
 
             response = getResponse(chan, true[chan], reco[chan], bkg[chan], var,
                                    fVar, binning, puWt, selectionStr=sel,
@@ -431,18 +439,24 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             #unfolders[chan].PrintTable(cout)
 
             hUnfolded = asrootpy(unfolder.Hreco())
+            hUnfoldedByChan[chan] = hUnfolded.clone()
+
+            hUnfolded /= hUnfolded.Integral(0,hUnfolded.GetNbinsX()+1)
 
             hFrame = hUnfolded.empty_clone()
 
             ### Unfold amc@NLO "data" as a sanity check
-            hAlt = sum(altReco[chan].makeHist(var, sel, binning,
-                                              perUnitWidth=False).hists)
+            hAlt = altReco[chan].makeHist(var, sel, binning,
+                                          perUnitWidth=False)
             unfolderAlt = RooUnfoldIter(response, hAlt, nIter)
             hUnfoldedAlt = asrootpy(unfolderAlt.Hreco())
+            hUnfoldedAltByChan[chan] = hUnfoldedAlt.clone()
+
+            hUnfoldedAlt /= hUnfoldedAlt.Integral(0,hUnfoldedAlt.GetNbinsX()+1)
 
             #### represent systematic errors as histograms where the bin content
             #### is the systematic error from that source
-            hErr = {'up':{},'dn':{}}
+            hErr[chan] = {'up':{},'dn':{}}
 
 
             # PU reweight uncertainty
@@ -460,17 +474,18 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                     systSaveDir.cd()
                     hUnf = asrootpy(unf.Hreco())
+                    hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                     hUnf.SetName('pu_'+sys)
                     hUnf.write()
 
                     reco[chan].applyWeight(nominalWeight, True)
 
-                hErr[sys]['pu'] = hUnf - hUnfolded
-                hErr[sys]['pu'].title = "PU"
-                hErr[sys]['pu'].fillstyle = 'solid'
-                hErr[sys]['pu'].drawstyle = "hist"
-                hErr[sys]['pu'].color = "green"
-                hErr[sys]['pu'].legendstyle = 'F'
+                hErr[chan][sys]['pu'] = hUnf - hUnfolded
+                hErr[chan][sys]['pu'].title = "PU"
+                hErr[chan][sys]['pu'].fillstyle = 'solid'
+                hErr[chan][sys]['pu'].drawstyle = "hist"
+                hErr[chan][sys]['pu'].color = "green"
+                hErr[chan][sys]['pu'].legendstyle = 'F'
 
             # lepton efficiency uncertainty
             for lep in ['e','m']:
@@ -492,108 +507,47 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                         systSaveDir.cd()
                         hUnf = asrootpy(unf.Hreco())
+                        hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                         hUnf.SetName(lep+'Eff_'+sys)
                         hUnf.write()
 
                         reco[chan].applyWeight(nominalWeight, True)
 
-                    hErr[sys]['lep'] = hUnf - hUnfolded
-                    hErr[sys]['lep'].title = "{}on eff.".format('Electr' if lep == 'e' else 'Mu')
-                    hErr[sys]['lep'].fillstyle = 'solid'
-                    hErr[sys]['lep'].drawstyle = "hist"
-                    hErr[sys]['lep'].color = ("blue" if lep == 'e' else '#002db3')
-                    hErr[sys]['lep'].legendstyle = 'F'
+                    hErr[chan][sys][lep+'Eff'] = hUnf - hUnfolded
+                    hErr[chan][sys][lep+'Eff'].title = "{}on eff.".format('Electr' if lep == 'e' else 'Mu')
+                    hErr[chan][sys][lep+'Eff'].fillstyle = 'solid'
+                    hErr[chan][sys][lep+'Eff'].drawstyle = "hist"
+                    hErr[chan][sys][lep+'Eff'].color = ("blue" if lep == 'e' else '#002db3')
+                    hErr[chan][sys][lep+'Eff'].legendstyle = 'F'
 
             # unfolding uncertainty by checking difference with alternate generator
+            hUnf = _compatibleHistOrNone(systSaveDir, 'generator', hFrame)
+            if hUnf is None or redo:
+                res = getResponse(chan, altTrue[chan], altReco[chan], bkg[chan], var,
+                                  fVar, binning, fPUWt[''],
+                                  selectionStr=sel,
+                                  selectionFunction=fSel)
+                unf = RooUnfoldIter(res, hData, nIter)
+
+                systSaveDir.cd()
+                hUnf = asrootpy(unf.Hreco())
+                hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
+                hUnf.SetName('generator')
+                hUnf.write()
+
+            hErr[chan]['up']['generator'] = hUnf - hUnfolded
+            hErr[chan]['dn']['generator'] = hErr[chan]['up']['generator'].clone()
+            # make symmetrical
+            for bUp, bDn in zip(hErr[chan]['up']['generator'],hErr[chan]['dn']['generator']):
+                bUp.value = abs(bUp.value)
+                bDn.value = -1 * abs(bDn.value)
+
             for sys in ['up','dn']:
-                hUnf = _compatibleHistOrNone(systSaveDir, 'generator_'+sys, hFrame)
-                if hUnf is None or redo:
-                    res = getResponse(chan, altTrue[chan], altReco[chan], bkg[chan], var,
-                                      fVar, binning, fPUWt[''],
-                                      selectionStr=sel,
-                                      selectionFunction=fSel)
-                    unf = RooUnfoldIter(res, hData, nIter)
-
-                    systSaveDir.cd()
-                    hUnf = asrootpy(unf.Hreco())
-                    hUnf.SetName('generator_'+sys)
-                    hUnf.write()
-
-                hErr[sys]['generator'] = hUnf - hUnfolded
-                hErr[sys]['generator'].title = "Generator choice"
-                hErr[sys]['generator'].fillstyle = 'solid'
-                hErr[sys]['generator'].drawstyle = "hist"
-                hErr[sys]['generator'].color = "magenta"
-                hErr[sys]['generator'].legendstyle = 'F'
-
-
-            # qq NLO uncertainty: +/-1.4% (POWHEG, AN-2016-029)
-            # gg LO uncertainty: +18%/-15% (MCFM, AN-2016-029)
-            hUnf = _compatibleHistOrNone(systSaveDir, 'xsec_dn', hFrame)
-            if hUnf is None or redo:
-                reco[chan].applyWeight(nominalWeight, True)
-                for s in reco[chan]:
-                    if 'GluGlu' in s.name:
-                        s.applyWeight('.85')
-                    elif 'ZZTo4L' in s.name:
-                        s.applyWeight('1.014')
-                for n,s in true[chan].itersamples():
-                    if 'GluGlu' in n:
-                        s.applyWeight('.85')
-                    elif 'ZZTo4L' in n:
-                        s.applyWeight('1.014')
-                res = getResponse(chan, true[chan], reco[chan], bkg[chan], var,
-                                  fVar, binning, fPUWt[''],
-                                  selectionStr=sel,
-                                  selectionFunction=fSel)
-                unf = RooUnfoldIter(res, hData, nIter)
-
-                systSaveDir.cd()
-                hUnf = asrootpy(unf.Hreco())
-                hUnf.SetName('xsec_dn')
-                hUnf.write()
-
-                reco[chan].applyWeight(nominalWeight, True)
-                true[chan].applyWeight('',True)
-
-            hErr['dn']['xsec'] = hUnf - hUnfolded
-            hErr['dn']['xsec'].title = "Cross section"
-            hErr['dn']['xsec'].fillstyle = 'solid'
-            hErr['dn']['xsec'].drawstyle = "hist"
-            hErr['dn']['xsec'].color = "red"
-            hErr['dn']['xsec'].legendstyle = 'F'
-
-            hUnf = _compatibleHistOrNone(systSaveDir, 'xsec_up', hFrame)
-            if hUnf is None or redo:
-                for s in reco[chan]:
-                    if 'GluGlu' in s.name:
-                        s.applyWeight('1.18')
-                    elif 'ZZTo4L' in s.name:
-                        s.applyWeight('0.986')
-                for n,s in true[chan].itersamples():
-                    if 'GluGlu' in n:
-                        s.applyWeight('1.18', True)
-                    elif 'ZZTo4L' in n:
-                        s.applyWeight('0.986', True)
-                res = getResponse(chan, true[chan], reco[chan], bkg[chan], var,
-                                  fVar, binning, fPUWt[''],
-                                  selectionStr=sel,
-                                  selectionFunction=fSel)
-                unf = RooUnfoldIter(res, hData, nIter)
-                systSaveDir.cd()
-                hUnf = asrootpy(unf.Hreco())
-                hUnf.SetName('xsec_up')
-                hUnf.write()
-
-                reco[chan].applyWeight(nominalWeight, True)
-                true[chan].applyWeight('',True)
-
-            hErr['up']['xsec'] = hUnf - hUnfolded
-            hErr['up']['xsec'].title = "Cross section"
-            hErr['up']['xsec'].fillstyle = 'solid'
-            hErr['up']['xsec'].drawstyle = "hist"
-            hErr['up']['xsec'].color = "red"
-            hErr['up']['xsec'].legendstyle = 'F'
+                hErr[chan][sys]['generator'].title = "Generator choice"
+                hErr[chan][sys]['generator'].fillstyle = 'solid'
+                hErr[chan][sys]['generator'].drawstyle = "hist"
+                hErr[chan][sys]['generator'].color = "magenta"
+                hErr[chan][sys]['generator'].legendstyle = 'F'
 
 
             # luminosity uncertainty
@@ -615,18 +569,19 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                     systSaveDir.cd()
                     hUnf = asrootpy(unf.Hreco())
+                    hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                     hUnf.SetName('lumi_'+sys)
                     hUnf.write()
 
                     reco[chan].applyWeight(nominalWeight, True)
                     true[chan].applyWeight('', True)
 
-                hErr[sys]['lumi'] = hUnf - hUnfolded
-                hErr[sys]['lumi'].title = "Luminosity"
-                hErr[sys]['lumi'].fillstyle = 'solid'
-                hErr[sys]['lumi'].drawstyle = "hist"
-                hErr[sys]['lumi'].color = "orange"
-                hErr[sys]['lumi'].legendstyle = 'F'
+                hErr[chan][sys]['lumi'] = hUnf - hUnfolded
+                hErr[chan][sys]['lumi'].title = "Luminosity"
+                hErr[chan][sys]['lumi'].fillstyle = 'solid'
+                hErr[chan][sys]['lumi'].drawstyle = "hist"
+                hErr[chan][sys]['lumi'].color = "orange"
+                hErr[chan][sys]['lumi'].legendstyle = 'F'
 
 
             # Fake rate uncertainty
@@ -646,19 +601,20 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                         systSaveDir.cd()
                         hUnf = asrootpy(unf.Hreco())
+                        hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                         hUnf.SetName(lep+'FR_'+sys)
                         hUnf.write()
 
-                    hErr[sys][lep+'FR'] = hUnf - hUnfolded
+                    hErr[chan][sys][lep+'FR'] = hUnf - hUnfolded
                     if lep == 'e':
-                        hErr[sys][lep+'FR'].title = "Electron Fake Rate"
-                        hErr[sys][lep+'FR'].color = "#00cc99"
+                        hErr[chan][sys][lep+'FR'].title = "Electron Fake Rate"
+                        hErr[chan][sys][lep+'FR'].color = "#00cc99"
                     elif lep == 'm':
-                        hErr[sys][lep+'FR'].title = "Muon Fake Rate"
-                        hErr[sys][lep+'FR'].color = "#00ff00"
-                    hErr[sys][lep+'FR'].fillstyle = 'solid'
-                    hErr[sys][lep+'FR'].drawstyle = "hist"
-                    hErr[sys][lep+'FR'].legendstyle = 'F'
+                        hErr[chan][sys][lep+'FR'].title = "Muon Fake Rate"
+                        hErr[chan][sys][lep+'FR'].color = "#00ff00"
+                    hErr[chan][sys][lep+'FR'].fillstyle = 'solid'
+                    hErr[chan][sys][lep+'FR'].drawstyle = "hist"
+                    hErr[chan][sys][lep+'FR'].legendstyle = 'F'
 
 
             # Jet energy scale and resolution uncertainties (jet variables only)
@@ -687,19 +643,20 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                             systSaveDir.cd()
                             hUnf = asrootpy(unf.Hreco())
+                            hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                             hUnf.SetName(sys+'_'+shift)
                             hUnf.write()
 
-                        hErr[shift][sys] = hUnf - hUnfolded
-                        hErr[shift][sys].fillstyle = 'solid'
-                        hErr[shift][sys].drawstyle = "hist"
-                        hErr[shift][sys].legendstyle = 'F'
+                        hErr[chan][shift][sys] = hUnf - hUnfolded
+                        hErr[chan][shift][sys].fillstyle = 'solid'
+                        hErr[chan][shift][sys].drawstyle = "hist"
+                        hErr[chan][shift][sys].legendstyle = 'F'
 
 
-                    hErr[shift]['jer'].title = "Jet energy resolution"
-                    hErr[shift]['jer'].color = "cyan"
-                    hErr[shift]['jes'].title = "Jet energy scale"
-                    hErr[shift]['jes'].color = "darkblue"
+                    hErr[chan][shift]['jer'].title = "Jet energy resolution"
+                    hErr[chan][shift]['jer'].color = "cyan"
+                    hErr[chan][shift]['jes'].title = "Jet energy scale"
+                    hErr[chan][shift]['jes'].color = "darkblue"
 
 
             if 'e' in chan:
@@ -717,15 +674,16 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                         systSaveDir.cd()
                         hUnf = asrootpy(unf.Hreco())
+                        hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                         hUnf.SetName('ees_'+sys)
                         hUnf.write()
 
-                    hErr[sys]['ees'] = hUnf - hUnfolded
-                    hErr[sys]['ees'].title = "Electron energy scale"
-                    hErr[sys]['ees'].fillstyle = 'solid'
-                    hErr[sys]['ees'].drawstyle = "hist"
-                    hErr[sys]['ees'].color = "purple"
-                    hErr[sys]['ees'].legendstyle = 'F'
+                    hErr[chan][sys]['ees'] = hUnf - hUnfolded
+                    hErr[chan][sys]['ees'].title = "Electron energy scale"
+                    hErr[chan][sys]['ees'].fillstyle = 'solid'
+                    hErr[chan][sys]['ees'].drawstyle = "hist"
+                    hErr[chan][sys]['ees'].color = "purple"
+                    hErr[chan][sys]['ees'].legendstyle = 'F'
 
                     # EER (rho)
                     hUnf = _compatibleHistOrNone(systSaveDir, 'eerRho_'+sys, hFrame)
@@ -740,15 +698,16 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                         systSaveDir.cd()
                         hUnf = asrootpy(unf.Hreco())
+                        hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                         hUnf.SetName('eerRho_'+sys)
                         hUnf.write()
 
-                    hErr[sys]['eerRho'] = hUnf - hUnfolded
-                    hErr[sys]['eerRho'].title = "Electron energy res. (rho)"
-                    hErr[sys]['eerRho'].fillstyle = 'solid'
-                    hErr[sys]['eerRho'].drawstyle = "hist"
-                    hErr[sys]['eerRho'].color = "lavender"
-                    hErr[sys]['eerRho'].legendstyle = 'F'
+                    hErr[chan][sys]['eerRho'] = hUnf - hUnfolded
+                    hErr[chan][sys]['eerRho'].title = "Electron energy res. (rho)"
+                    hErr[chan][sys]['eerRho'].fillstyle = 'solid'
+                    hErr[chan][sys]['eerRho'].drawstyle = "hist"
+                    hErr[chan][sys]['eerRho'].color = "lavender"
+                    hErr[chan][sys]['eerRho'].legendstyle = 'F'
 
                 # EER (phi)
                 hUnf = _compatibleHistOrNone(systSaveDir, 'eerPhi_up', hFrame)
@@ -763,22 +722,23 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                     systSaveDir.cd()
                     hUnf = asrootpy(unf.Hreco())
+                    hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                     hUnf.SetName('eerPhi_up')
                     hUnf.write()
 
-                hErr['up']['eerPhi'] = hUnf - hUnfolded
-                hErr['up']['eerPhi'].title = "Electron energy res. (phi)"
-                hErr['up']['eerPhi'].fillstyle = 'solid'
-                hErr['up']['eerPhi'].drawstyle = "hist"
-                hErr['up']['eerPhi'].color = "violet"
-                hErr['up']['eerPhi'].legendstyle = 'F'
+                hErr[chan]['up']['eerPhi'] = hUnf - hUnfolded
+                hErr[chan]['up']['eerPhi'].title = "Electron energy res. (phi)"
+                hErr[chan]['up']['eerPhi'].fillstyle = 'solid'
+                hErr[chan]['up']['eerPhi'].drawstyle = "hist"
+                hErr[chan]['up']['eerPhi'].color = "violet"
+                hErr[chan]['up']['eerPhi'].legendstyle = 'F'
 
-                hErr['dn']['eerPhi'] = hErr['up']['eerPhi'].clone()
-                hErr['dn']['eerPhi'].title = "Electron energy res. (phi)"
-                hErr['dn']['eerPhi'].fillstyle = 'solid'
-                hErr['dn']['eerPhi'].drawstyle = "hist"
-                hErr['dn']['eerPhi'].color = "violet"
-                hErr['dn']['eerPhi'].legendstyle = 'F'
+                hErr[chan]['dn']['eerPhi'] = hErr[chan]['up']['eerPhi'].clone()
+                hErr[chan]['dn']['eerPhi'].title = "Electron energy res. (phi)"
+                hErr[chan]['dn']['eerPhi'].fillstyle = 'solid'
+                hErr[chan]['dn']['eerPhi'].drawstyle = "hist"
+                hErr[chan]['dn']['eerPhi'].color = "violet"
+                hErr[chan]['dn']['eerPhi'].legendstyle = 'F'
 
 
             if 'm' in chan:
@@ -796,25 +756,184 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
                         systSaveDir.cd()
                         hUnf = asrootpy(unf.Hreco())
+                        hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
                         hUnf.SetName('mClosure_'+sys)
                         hUnf.write()
 
-                    hErr[sys]['mClosure'] = hUnf - hUnfolded
-                    hErr[sys]['mClosure'].title = "Muon calibration"
-                    hErr[sys]['mClosure'].fillstyle = 'solid'
-                    hErr[sys]['mClosure'].drawstyle = "hist"
-                    hErr[sys]['mClosure'].color = "#c61aff"
-                    hErr[sys]['mClosure'].legendstyle = 'F'
+                    hErr[chan][sys]['mClosure'] = hUnf - hUnfolded
+                    hErr[chan][sys]['mClosure'].title = "Muon calibration"
+                    hErr[chan][sys]['mClosure'].fillstyle = 'solid'
+                    hErr[chan][sys]['mClosure'].drawstyle = "hist"
+                    hErr[chan][sys]['mClosure'].color = "#c61aff"
+                    hErr[chan][sys]['mClosure'].legendstyle = 'F'
+
+
+            # PDF uncertainties
+            hUnfUp = _compatibleHistOrNone(systSaveDir, 'pdf_up', hFrame)
+            hUnfDn = _compatibleHistOrNone(systSaveDir, 'pdf_dn', hFrame)
+            if hUnfUp is None or hUnfDn is None or redo:
+                resDn, resUp = getResponsePDFErrors(chan, true[chan],
+                                                    reco[chan], bkg[chan], var,
+                                                    fVar, binning, fPUWt[''],
+                                                    selectionStr = sel,
+                                                    selectionFunction=fSel)
+                unfUp = RooUnfoldIter(resUp, hData, nIter)
+                unfDn = RooUnfoldIter(resDn, hData, nIter)
+
+                systSaveDir.cd()
+                hUnfUp = asrootpy(unfUp.Hreco())
+                hUnfUp /= hUnfUp.Integral(0,hUnfUp.GetNbinsX()+1)
+                hUnfUp.SetName('pdf_up')
+                hUnfUp.write()
+                hUnfDn = asrootpy(unfDn.Hreco())
+                hUnfDn /= hUnfDn.Integral(0,hUnfDn.GetNbinsX()+1)
+                hUnfDn.SetName('pdf_dn')
+                hUnfDn.write()
+
+            hErr[chan]['up']['pdf'] = hUnfUp - hUnfolded
+            hErr[chan]['up']['pdf'].title = "PDF"
+            hErr[chan]['up']['pdf'].fillstyle = 'solid'
+            hErr[chan]['up']['pdf'].drawstyle = "hist"
+            hErr[chan]['up']['pdf'].color = "#80aaff"
+            hErr[chan]['up']['pdf'].legendstyle = 'F'
+            hErr[chan]['dn']['pdf'] = hUnfDn - hUnfolded
+            hErr[chan]['dn']['pdf'].title = "PDF"
+            hErr[chan]['dn']['pdf'].fillstyle = 'solid'
+            hErr[chan]['dn']['pdf'].drawstyle = "hist"
+            hErr[chan]['dn']['pdf'].color = "#80aaff"
+            hErr[chan]['dn']['pdf'].legendstyle = 'F'
+
+
+            # alpha_s uncertainty
+            hUnf1 = _compatibleHistOrNone(systSaveDir, 'alphas_1', hFrame)
+            hUnf2 = _compatibleHistOrNone(systSaveDir, 'alphas_2', hFrame)
+            if hUnf1 is None or hUnf2 is None or redo:
+                res1, res2 = getResponseAlphaSErrors(chan, true[chan],
+                                                     reco[chan], bkg[chan], var,
+                                                     fVar, binning, fPUWt[''],
+                                                     selectionStr = sel,
+                                                     selectionFunction=fSel)
+                unf1 = RooUnfoldIter(res1, hData, nIter)
+                unf2 = RooUnfoldIter(res2, hData, nIter)
+
+                systSaveDir.cd()
+                hUnf1 = asrootpy(unf1.Hreco())
+                hUnf1 /= hUnf1.Integral(0,hUnf1.GetNbinsX()+1)
+                hUnf1.SetName('alphas_1')
+                hUnf1.write()
+                hUnf2 = asrootpy(unf2.Hreco())
+                hUnf2 /= hUnf2.Integral(0,hUnf2.GetNbinsX()+1)
+                hUnf2.SetName('alphas_2')
+                hUnf2.write()
+
+            # PDF4LHC recommendation
+            hAlphaSErr = (hUnf2 - hUnf1) / 2.
+            # Not sure which is up and which is down, so just do the
+            # absolute value up and down.
+            # Factor of 1.5 comes from slide 14 of
+            # https://indico.cern.ch/event/459797/contributions/1961581/attachments/1181555/1800214/mcaod-Feb15-2016.pdf
+            hErr[chan]['up']['alphas'] = hAlphaSErr.empty_clone()
+            hErr[chan]['dn']['alphas'] = hAlphaSErr.empty_clone()
+            for b, bUp, bDn in zip(hAlphaSErr, hErr[chan]['up']['alphas'], hErr[chan]['dn']['alphas']):
+                absNum = 1.5 * abs(b.value)
+                bUp.value = absNum
+                bDn.value = -1 * absNum
+
+            for sys in ['up','dn']:
+                hErr[chan][sys]['alphas'].title = "#alpha_{s}"
+                hErr[chan][sys]['alphas'].fillstyle = 'solid'
+                hErr[chan][sys]['alphas'].drawstyle = "hist"
+                hErr[chan][sys]['alphas'].color = "#4e72ba"
+                hErr[chan][sys]['alphas'].legendstyle = 'F'
+
+
+            # QCD scale uncertainties
+            hUnfUp = _compatibleHistOrNone(systSaveDir, 'scale_up', hFrame)
+            hUnfDn = _compatibleHistOrNone(systSaveDir, 'scale_dn', hFrame)
+            if hUnfUp is None or hUnfDn is None or redo:
+                res = getResponseScaleErrors(chan, true[chan], reco[chan],
+                                             bkg[chan], var, fVar, binning,
+                                             fPUWt[''], selectionStr = sel,
+                                             selectionFunction=fSel)
+
+                unf = [RooUnfoldIter(r, hData, nIter) for r in res]
+
+                hUnf = [asrootpy(u.Hreco()) for u in unf]
+
+                hUnfUp = hUnfolded.empty_clone()
+                hUnfDn = hUnfolded.empty_clone()
+                for bUp, bDn, allUnfoldedBins in zip(hUnfUp, hUnfDn, zip(*hUnf)):
+                    bUp.value = max(b.value for b in allUnfoldedBins)
+                    bDn.value = min(b.value for b in allUnfoldedBins)
+
+                systSaveDir.cd()
+                hUnfUp.SetName('scale_up')
+                hUnfUp /= hUnfUp.Integral(0,hUnfUp.GetNbinsX()+1)
+                hUnfUp.write()
+                hUnfDn.SetName('scale_dn')
+                hUnfDn /= hUnfDn.Integral(0,hUnfDn.GetNbinsX()+1)
+                hUnfDn.write()
+
+            hErr[chan]['up']['scale'] = hUnfUp - hUnfolded
+            hErr[chan]['up']['scale'].title = "QCD Scale"
+            hErr[chan]['up']['scale'].fillstyle = 'solid'
+            hErr[chan]['up']['scale'].drawstyle = "hist"
+            hErr[chan]['up']['scale'].color = "#800000"
+            hErr[chan]['up']['scale'].legendstyle = 'F'
+            hErr[chan]['dn']['scale'] = hUnfDn - hUnfolded
+            hErr[chan]['dn']['scale'].title = "QCD Scale"
+            hErr[chan]['dn']['scale'].fillstyle = 'solid'
+            hErr[chan]['dn']['scale'].drawstyle = "hist"
+            hErr[chan]['dn']['scale'].color = "#800000"
+            hErr[chan]['dn']['scale'].legendstyle = 'F'
+
+
+            ### Since we have no LHE info for MCFM samples, we just vary the
+            ### normalization uncertainty up and down by the cross section's
+            ### PDF and scale uncertainties
+            # gg LO uncertainty: +18%/-15% (MCFM, AN-2016-029)
+            mcfmUnc = {'up':.18,'dn':-.15}
+            for sys, shift in mcfmUnc.iteritems():
+                hUnf = _compatibleHistOrNone(systSaveDir, 'mcfmxsec_'+sys, hFrame)
+                if hUnf is None or redo:
+                    reco[chan].applyWeight(nominalWeight, True)
+                    for n,s in reco[chan].itersamples():
+                        if 'GluGluZZ' in n:
+                            s.applyWeight(str(1.+shift))
+                    for n,s in true[chan].itersamples():
+                        if 'GluGluZZ' in n:
+                            s.applyWeight(str(1.+shift))
+                    res = getResponse(chan, true[chan], reco[chan], bkg[chan], var,
+                                      fVar, binning, fPUWt[''],
+                                      selectionStr=sel,
+                                      selectionFunction=fSel)
+                    unf = RooUnfoldIter(res, hData, nIter)
+
+                    systSaveDir.cd()
+                    hUnf = asrootpy(unf.Hreco())
+                    hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
+                    hUnf.SetName('mcfmxsec_'+sys)
+                    hUnf.write()
+
+                    reco[chan].applyWeight(nominalWeight, True)
+                    true[chan].applyWeight('',True)
+
+                hErr[chan][sys]['mcfmxsec'] = hUnf - hUnfolded
+                hErr[chan][sys]['mcfmxsec'].title = "MCFM PDF/scale"
+                hErr[chan][sys]['mcfmxsec'].fillstyle = 'solid'
+                hErr[chan][sys]['mcfmxsec'].drawstyle = "hist"
+                hErr[chan][sys]['mcfmxsec'].color = "red"
+                hErr[chan][sys]['mcfmxsec'].legendstyle = 'F'
 
 
             ### Get the total uncertainties
             # this method of assigning up vs down should be revisited
             hUncUp = hUnfolded.empty_clone()
             hUncDn = hUnfolded.empty_clone()
-            uncTypes = hErr['up'].keys()
+            uncTypes = hErr[chan]['up'].keys()
             for bUncUp, bUncDn, allUncUp, allUncDn in zip(hUncUp, hUncDn,
-                                                          zip(*(hErr['up'][t] for t in uncTypes)),
-                                                          zip(*(hErr['dn'][t] for t in uncTypes))):
+                                                          zip(*hErr[chan]['up'].values()),
+                                                          zip(*hErr[chan]['dn'].values())):
                 for b1,b2 in zip(allUncUp,allUncDn):
                     if b1.value > 0. and b2.value < 0.:
                         bUncUp.value += b1.value**2
@@ -826,23 +945,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
                         bUncUp.value += max(b1.value,b2.value,0.)**2
                         bUncDn.value += min(b1.value,b2.value,0.)**2
 
-            # Note: hUncUp and hUncDn are both squared at this point
-
-            if 'uncUpSqr' not in hTot:
-                hTot['uncUpSqr'] = hUncUp.empty_clone()
-            hTot['uncUpSqr'] += hUncUp
-            if 'uncDnSqr' not in hTot:
-                hTot['uncDnSqr'] = hUncDn.empty_clone()
-            hTot['uncDnSqr'] += hUncDn
-
-            for bUp, bDn in zip(hUncUp, hUncDn):
-                bUp.value = sqrt(bUp.value)
-                bDn.value = sqrt(bDn.value)
+                bUncUp.value = sqrt(bUncUp.value)
+                bUncDn.value = sqrt(bUncDn.value)
 
 
-            # Make all error histograms positive (only matters for error plot)
-            # and make uncertainties fractional (as a percent)
-            for sys in hErr.values():
+            # Make all error histograms positive
+            # and make uncertainties fractional (as a percentage)
+            for sys in hErr[chan].values():
                 for h in sys.values():
                     h /= hUnfolded
                     h *= 100.
@@ -851,9 +960,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
             # Make plots of uncertainties (added linearly)
             cErrUp = Canvas(1000,1000)
-            errStackUp = HistStack(hErr['up'].values(), drawstyle = 'histnoclear')
+            errStackUp = HistStack(hErr[chan]['up'].values(), drawstyle = 'histnoclear')
             draw(errStackUp, cErrUp, xtitle=_xTitle[varName], ytitle="+Error (%)",yerror_in_padding=False)
-            leg = makeLegend(cErrUp, *hErr['up'].values(), leftmargin=0.25,
+            leg = makeLegend(cErrUp, *hErr[chan]['up'].values(), leftmargin=0.25,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
             leg.Draw('same')
@@ -862,9 +971,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             cErrUp.Print(_join(plotDir, 'errUp_{}_{}.C'.format(varName, chan)))
 
             cErrDn = Canvas(1000,1000)
-            errStackDn = HistStack(hErr['dn'].values(), drawstyle = 'histnoclear')
+            errStackDn = HistStack(hErr[chan]['dn'].values(), drawstyle = 'histnoclear')
             draw(errStackDn, cErrDn, xtitle=_xTitle[varName], ytitle="-Error (%)",yerror_in_padding=False)
-            leg = makeLegend(cErrDn, *hErr['dn'].values(), leftmargin=0.25,
+            leg = makeLegend(cErrDn, *hErr[chan]['dn'].values(), leftmargin=0.25,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
             leg.Draw('same')
@@ -872,50 +981,47 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             cErrDn.Print(_join(plotDir, 'errDown_{}_{}.png'.format(varName, chan)))
             cErrDn.Print(_join(plotDir, 'errDown_{}_{}.C'.format(varName, chan)))
 
+            # Errors should no longer be fractional or a percentage
+            for sys in hErr[chan].values():
+                for h in sys.values():
+                    h *= hUnfolded
+                    h /= 100.
 
             ### plot
             hUnfolded.color = 'black'
             hUnfolded.drawstyle = 'PE'
             hUnfolded.legendstyle = 'LPE'
             hUnfolded.title = 'Unfolded data + stat. unc.'
-            if 'unfolded' not in hTot:
-                hTot['unfolded'] = hUnfolded.empty_clone()
-            hTot['unfolded'] += hUnfolded
             _normalizeBins(hUnfolded)
-            hUnfolded /= lumi
 
             hUnfoldedAlt.color = 'r'
             hUnfoldedAlt.drawstyle = 'hist'
             hUnfoldedAlt.fillstyle = 'hollow'
             hUnfoldedAlt.legendstyle = 'L'
             hUnfoldedAlt.title = 'Unfolded {}'.format(signalNameAlt)
-            if 'unfoldedAlt' not in hTot:
-                hTot['unfoldedAlt'] = hUnfoldedAlt.empty_clone()
-            hTot['unfoldedAlt'] += hUnfoldedAlt
             _normalizeBins(hUnfoldedAlt)
-            hUnfoldedAlt /= lumi
 
-            hTrue = true[chan].makeHist(var, sel, binning, perUnitWidth=True)
+            hTrue = true[chan].makeHist(var, sel, binning, perUnitWidth=False)
             hTrue.color = 'blue'
             hTrue.drawstyle = 'hist'
             hTrue.fillstyle = 'hollow'
             hTrue.legendstyle = 'L'
-            hTrue.title = '{} (true) [training sample]'.format(signalName)
-            hTrue /= lumi
+            hTrue.title = '{} (true)'.format(signalName)
+            hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
+            _normalizeBins(hTrue)
 
             hTrueAlt = altTrue[chan].makeHist(var, sel, binning,
-                                              perUnitWidth=True)
+                                              perUnitWidth=False)
             hTrueAlt.color = 'magenta'
             hTrueAlt.drawstyle = 'hist'
             hTrueAlt.fillstyle = 'hollow'
             hTrueAlt.legendstyle = 'L'
             hTrueAlt.title = '{} (true)'.format(signalNameAlt)
-            hTrueAlt /= lumi
+            hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+            _normalizeBins(hTrueAlt)
 
             _normalizeBins(hUncUp)
             _normalizeBins(hUncDn)
-            hUncUp /= lumi
-            hUncDn /= lumi
 
             if varName in _blind:
                 for b, bUp, bDn in zip(hUnfolded, hUncUp, hUncDn):
@@ -937,6 +1043,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
                                                          xtitle=_xTitle[varName],
                                                          ytitle=_yTitle[varName],
                                                          yerror_in_padding=False)
+            yaxis.SetTitleSize(0.7*yaxis.GetTitleSize())
+            yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
+            yaxis.SetLabelSize(0.7*yaxis.GetLabelSize())
+            xaxis.SetLabelSize(0.7*xaxis.GetLabelSize())
 
             leg = makeLegend(cUnf, hTrueAlt, hUnfoldedAlt, hTrue, errorBand,
                              hUnfolded, **_legParams[varName])
@@ -971,53 +1081,83 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             cCov.Print(_join(plotDir, "covariance_{}_{}.png".format(varName, chan)))
             cCov.Print(_join(plotDir, "covariance_{}_{}.C".format(varName, chan)))
 
-        hTot['unfolded'].color = 'black'
-        hTot['unfolded'].drawstyle = 'PE'
-        hTot['unfolded'].legendstyle = 'LPE'
-        hTot['unfolded'].title = 'Unfolded data + stat. unc.'
-        _normalizeBins(hTot['unfolded'])
-        hTot['unfolded'] /= lumi
+        hTot = sum(hUnfoldedByChan.values())
+        hTot.color = 'black'
+        hTot.drawstyle = 'PE'
+        hTot.legendstyle = 'LPE'
+        hTot.title = 'Unfolded data + stat. unc.'
+        # total normalization
+        hTotNoNorm = hTot.clone()
+        hTot /= hTot.Integral(0,hTot.GetNbinsX()+1)
+        _normalizeBins(hTot)
 
-        hTot['unfoldedAlt'].color = 'r'
-        hTot['unfoldedAlt'].drawstyle = 'hist'
-        hTot['unfoldedAlt'].fillstyle = 'hollow'
-        hTot['unfoldedAlt'].legendstyle = 'L'
-        hTot['unfoldedAlt'].title = 'Unfolded {}'.format(signalNameAlt)
-        _normalizeBins(hTot['unfoldedAlt'])
-        hTot['unfoldedAlt'] /= lumi
+        hTotAlt = sum(hUnfoldedAltByChan.values())
+        hTotAlt.color = 'r'
+        hTotAlt.drawstyle = 'hist'
+        hTotAlt.fillstyle = 'hollow'
+        hTotAlt.legendstyle = 'L'
+        hTotAlt.title = 'Unfolded {}'.format(signalNameAlt)
+        hTotAlt /= hTotAlt.Integral(0,hTotAlt.GetNbinsX()+1)
+        _normalizeBins(hTotAlt)
 
         hTrue = true.makeHist(_variables[varName], _selections[varName],
-                              binning, perUnitWidth=True)
+                              binning, perUnitWidth=False)
         hTrue.color = 'blue'
         hTrue.drawstyle = 'hist'
         hTrue.fillstyle = 'hollow'
         hTrue.legendstyle = 'L'
-        hTrue.title = '{} (true) [training sample]'.format(signalName)
-        hTrue /= lumi
+        hTrue.title = '{} (true)'.format(signalName)
+        hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
+        _normalizeBins(hTrue)
 
         hTrueAlt = altTrue.makeHist(_variables[varName], _selections[varName],
-                                    binning, perUnitWidth=True)
+                                    binning, perUnitWidth=False)
         hTrueAlt.color = 'magenta'
         hTrueAlt.drawstyle = 'hist'
         hTrueAlt.fillstyle = 'hollow'
         hTrueAlt.legendstyle = 'L'
         hTrueAlt.title = '{} (true)'.format(signalNameAlt)
-        hTrueAlt /= lumi
+        hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+        _normalizeBins(hTrueAlt)
 
-        hUncUp = hTot['uncUpSqr'].clone()
-        for b in hUncUp:
-            b.value = sqrt(b.value)
-        hUncDn = hTot['uncDnSqr'].clone()
-        for b in hUncDn:
-            b.value = sqrt(b.value)
+        hUncTot = {}
+        uncList = []
+        for chan in channels:
+            for sys in ['up','dn']:
+                uncList += hErr[chan][sys].keys()
+        uncList = set(uncList)
+        for sys in ['up','dn']:
+            hUncTot[sys] = {}
+            for unc in uncList:
+                hUncTot[sys][unc] = hTot.empty_clone()
+                for chan in _channels:
+                    try:
+                        hThis = hErr[chan][sys][unc].clone()
+                    except KeyError:
+                        continue
+
+                    # weight by size of channel, re-normalize to total
+                    hThis *= hUnfoldedByChan[chan] / hTotNoNorm
+                    # for bErr, bChan, bTot in zip(hThis, hUnfoldedByChan[chan], hTotNoNorm):
+                    #     try:
+                    #         bErr.value *= bChan.value / bTot.value
+                    #     except ZeroDivisionError:
+                    #         pass
+                    hUncTot[sys][unc] += hThis
+
+
+        hUncUp = hTot.clone()
+        for bTot, allbs in zip(hUncUp, zip(*hUncTot['up'].values())):
+            bTot.value = sqrt(sum(b.value**2 for b in allbs))
+        hUncDn = hTot.clone()
+        for bTot, allbs in zip(hUncDn, zip(*hUncTot['dn'].values())):
+            bTot.value = sqrt(sum(b.value**2 for b in allbs))
 
         _normalizeBins(hUncUp)
         _normalizeBins(hUncDn)
-        hUncUp /= lumi
-        hUncDn /= lumi
 
         if varName in _blind:
-            for b, bUp, bDn in zip(hTot['unfolded'], hUncUp, hUncDn):
+            for b, bUp, bDn in zip(hTot, hUncUp, hUncDn):
                 if hUnfolded.xaxis.GetBinLowEdge(b.idx) >= _blind[varName]:
                     b.value = 0
                     b.error = 0
@@ -1026,17 +1166,19 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
                     bDn.value = 0
                     bDn.error = 0
 
-        errorBand = makeErrorBand(hTot['unfolded'], hUncUp, hUncDn)
+        errorBand = makeErrorBand(hTot, hUncUp, hUncDn)
 
         cUnf = Canvas(1000,1000)
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
-                                                      hTot['unfoldedAlt'],
-                                                      errorBand, hTot['unfolded']],
+                                                      hTotAlt,
+                                                      errorBand, hTot],
                                                      cUnf, xtitle=_xTitle[varName],
                                                      ytitle=_yTitle[varName],
                                                      yerror_in_padding=False)
-        leg = makeLegend(cUnf, hTrueAlt, hTot['unfoldedAlt'], hTrue, errorBand,
-                         hTot['unfolded'], **_legParams[varName])
+        yaxis.SetTitleSize(0.7*yaxis.GetTitleSize())
+
+        leg = makeLegend(cUnf, hTrueAlt, hTotAlt, hTrue, errorBand,
+                         hTot, **_legParams[varName])
 
         if varName in _blind and _blind[varName] < xmax:
             box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
@@ -1094,6 +1236,11 @@ if __name__ == "__main__":
     systSaveFileName = _systSaveFileTemplate.format(args.nIter)
     if args.amcatnlo:
         systSaveFileName = systSaveFileName.replace('.root','_amcatnlo.root')
+
+    if not _exists(args.plotDir):
+        _mkdir(args.plotDir)
+    elif not _isdir(args.plotDir):
+        raise IOError("There is already some non-directory object called {}.".format(args.plotDir))
 
     with root_open(systSaveFileName, 'UPDATE') as systSaveFile:
         main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
