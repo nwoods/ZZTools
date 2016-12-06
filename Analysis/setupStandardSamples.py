@@ -91,7 +91,8 @@ def standardZZData(channel, inDir, resultType):
 
 def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
                       eEfficiencySyst='', mEfficiencySyst='', puSyst='',
-                      amcatnlo=False, higgs=False, *extraSamples):
+                      amcatnlo=False, higgs=False, asGroup=False,
+                      *extraSamples):
     qqZZSampleName = 'ZZTo4L'
     if amcatnlo:
         qqZZSampleName += '-amcatnlo'
@@ -144,6 +145,15 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
                              eEfficiencySyst, mEfficiencySyst,
                              puSyst) for c in channels
             }
+
+    if asGroup:
+        if len(channels) == 1:
+            samples = {n:s[channels[0]]
+                       for n,s in samplesByChan.iteritems()}
+        else:
+            samples = {c:_Group('signal',c,{n:s[c] for n,s in samplesByChan.iteritems()})
+                       for c in channels}
+        return _Group('signal', channel, samples)
 
     if len(channels) == 1:
         samples = [s[channels[0]] for s in samplesByChan.values()]
