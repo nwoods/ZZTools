@@ -23,8 +23,8 @@ from collections import OrderedDict
 from math import sqrt
 
 
-inData = 'uwvvNtuples_data_15nov2016' #12oct2016'
-inMC = 'uwvvNtuples_mc_15nov2016' #12oct2016'
+inData = 'uwvvNtuples_data_25nov2016'
+inMC = 'uwvvNtuples_mc_25nov2016'
 
 puWeightFile = 'puWeight_69200_08sep2016'
 fakeRateFile = 'fakeRate_08sep2016'
@@ -168,25 +168,44 @@ legParamsLeft = {
 
 
 binning4l = {
-    'Mass'  : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.], #[26, 150., 700.],#[35, 250., 2000.],
-    'Pt'    : [20.*i for i in range(4)] + [100., 140., 200., 300.],#[20.*i for i in range(4)] + [100., 140., 200., 300.], #[40, 0., 200.],
+    'Mass'  : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.],
+    'Pt'    : [25.*i for i in range(4)] + [100., 150., 200., 300.],
     'Eta'   : [16, -5., 5.],
     'Phi'   : [12, -3.15, 3.15],
     'nvtx'  : [40, 0., 40.],
     'nJets' : [6, -0.5, 5.5],
-    # 'jet1Pt' : [0., 50., 100., 200., 300., 500.],
-    # 'jet1Eta' : [0., 1.5, 3., 4.7],
-    # 'jet2Pt' : [30., 100., 200., 500.],
-    # 'jet2Eta' : [0., 1.5, 3., 4.7],
+    'jet1Pt' : [0., 50., 100., 200., 300., 500.],
+    'jet1Eta' : [0., 1.5, 3., 4.7],
+    'jet2Pt' : [30., 100., 200., 500.],
+    'jet2Eta' : [0., 1.5, 3., 4.7],
     'mjj' : [0., 100., 300., 800.],
     'deltaEtajj' : [6, 0.,6.],
     'deltaPhiZZ' : [0., 1.5] + [2.+.25*i for i in range(6)],
     'deltaRZZ' : [6, 0., 6.],
     }
 
+binNormWidth4l = {
+    'Mass' : 50.,
+    'Pt' : 25.,
+    'Eta' : 1.,
+    'Phi' : 1.,
+    'nvtx' : 1.,
+    'nJets' : 1.,
+    'jet1Pt' : 50.,
+    'jet2Pt' : 50.,
+    'jet1Eta' : 1.,
+    'jet2Eta' : 1.,
+    'mjj' : 100.,
+    'deltaEtajj' : 1.,
+    'deltaPhiZZ' : 1.,
+    'deltaRZZ' : 1.,
+    }
+
 vars4l = {v:v for v in binning4l}
-# vars4l['jet1Eta'] = 'abs({})'.format(vars4l['jet1Eta'])
-# vars4l['jet2Eta'] = 'abs({})'.format(vars4l['jet2Eta'])
+vars4l['jet1Pt'] = 'jetPt[0]'
+vars4l['jet2Pt'] = 'jetPt[1]'
+vars4l['jet1Eta'] = 'abs(jetEta[0])'
+vars4l['jet2Eta'] = 'abs(jetEta[1])'
 vars4l = {v:{c:vars4l[v] for c in ['eeee','eemm','mmmm']} for v in vars4l}
 vars4l['deltaPhiZZ'] = {
     'eeee' : '{}(e1_e2_Phi, e3_e4_Phi)'.format(deltaPhiString()),
@@ -199,14 +218,21 @@ vars4l['deltaRZZ'] = {
     'mmmm' : '{}(m1_m2_Eta, m1_m2_Phi, m3_m4_Eta, m3_m4_Phi)'.format(deltaRString()),
     }
 
+selections4l = {v:'' for v in vars4l}
+selections4l['jet1Pt'] = 'nJets >= 1'
+selections4l['jet2Pt'] = 'nJets >= 2'
+selections4l['jet1Eta'] = 'nJets >= 1'
+selections4l['jet2Eta'] = 'nJets >= 2'
 
 if amcatnlo:
     binning4l = {'Mass' : binning4l['Mass'], 'Pt' : binning4l['Pt']}
 
 if ana == 'z4l':
     binning4l['Mass'] = [20, 80., 100.]
+    binNormWidth4l['Mass'] = 1.
 elif ana == 'full':
     binning4l['Mass'] = [25.*i for i in range(17)] + [500.,600.,800.]
+    binNormWidth4l['Mass'] = 25.
 
 for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
     for varName, binning in binning4l.iteritems():
@@ -220,9 +246,15 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
         dataSelection = ''
         if varName == 'Mass':
             dataSelection = 'Mass < 500.'
+            if selections4l[varName]:
+                dataSelection += ' && ' + selections4l[varName]
 
-        hStack = stack.makeHist(var, '', binning, postprocess=True)
-        dataPts = data.makeHist(var, dataSelection, binning, poissonErrors=True)
+        hStack = stack.makeHist(var, selections4l[varName], binning,
+                                postprocess=True,
+                                perUnitWidth=binNormWidth4l[varName])
+        dataPts = data.makeHist(var, dataSelection, binning,
+                                poissonErrors=True,
+                                perUnitWidth=binNormWidth4l[varName])
 
         c = Canvas(1000,1000)
 
@@ -235,7 +267,8 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
         if 'obj' in xTitle:
             xTitle = xTitle.format(obj=objNames[chan])
 
-        yTitle = 'Events / 1 {}'.format(units[varName])
+        yTitle = 'Events / {} {}'.format(binNormWidth4l[varName],
+                                         units[varName])
 
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
                                                      xtitle=xTitle,
@@ -261,8 +294,16 @@ binning2l = {
     'Phi' : [24, -3.15,3.15],
     }
 
+binNormWidth2l = {
+    'Mass' : 1.,
+    'Pt' : 25.,
+    'Eta' : 0.25,
+    'Phi' : 0.25,
+    }
+
 if ana != 'smp':
     binning2l['Mass'] = [60, 0., 120.]
+    binNormWidth2l['Mass'] = 2.
 
 if amcatnlo:
     binning2l = {}
@@ -318,8 +359,12 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
 
         var = {c:[vt.format(var=varName) for vt in varTemplates2l[z][c]] for c in varTemplates2l[z]}
 
-        hStack = stack.makeHist(var, selections2l[z], binning2l[varName], postprocess=True)
-        dataPts = data.makeHist(var, selections2l[z], binning2l[varName], poissonErrors=True)
+        hStack = stack.makeHist(var, selections2l[z], binning2l[varName],
+                                postprocess=True,
+                                perUnitWidth=binNormWidth2l[varName])
+        dataPts = data.makeHist(var, selections2l[z], binning2l[varName],
+                                poissonErrors=True,
+                                perUnitWidth=binNormWidth2l[varName])
 
         if varName == 'Pt' and binning2l['Pt'][-1] > 200.:
             copy = dataPts.clone()
@@ -334,7 +379,8 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
 
 
         # for ratio
-        dataHist = data.makeHist(var, '', binning2l[varName])
+        dataHist = data.makeHist(var, '', binning2l[varName],
+                                 perUnitWidth=binNormWidth2l[varName])
 
         c = Canvas(1000,1000)
 
@@ -347,7 +393,8 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
         if '{obj}' in xTitle:
             xTitle = xTitle.format(obj=objNames[z])
 
-        yTitle = 'Z bosons / 1 {}'.format(units[varName])
+        yTitle = 'Z bosons / {} {}'.format(binNormWidth2l[varName],
+                                           units[varName])
 
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
                                                      xtitle=xTitle,
@@ -375,6 +422,16 @@ binning1l = {
     'PVDXY' : [20, -.1, .1],
     'PVDZ' : [20, -.2, .2],
     'SIP3D' : [20, 0., 5.],
+    }
+
+binNormWidth1l = {
+    'Pt' : 10.,
+    'Eta' : 0.25,
+    'Phi' : 0.25,
+    'Iso' : 0.05,
+    'PVDXY' : 0.01,
+    'PVDZ' : 0.02,
+    'SIP3D' : 0.25,
     }
 
 if amcatnlo:
@@ -425,11 +482,17 @@ for lep in varTemplates1l:
 
         var = {c:[vt.format(var=varStr) for vt in varTemplates1l[lep][c]] for c in varTemplates1l[lep]}
 
-        hStack = stack.makeHist(var, selections1l[lep], binning1l[varName], postprocess=True)
-        dataPts = data.makeHist(var, selections1l[lep], binning1l[varName], poissonErrors=True)
+        hStack = stack.makeHist(var, selections1l[lep], binning1l[varName],
+                                postprocess=True,
+                                perUnitWidth=binNormWidth1l[varName])
+        dataPts = data.makeHist(var, selections1l[lep], binning1l[varName],
+                                poissonErrors=True,
+                                perUnitWidth=binNormWidth1l[varName])
 
         # for ratio
-        dataHist = data.makeHist(var, selections1l[lep], binning1l[varName])
+        dataHist = data.makeHist(var, selections1l[lep], binning1l[varName],
+                                 poissonErrors=True,
+                                 perUnitWidth=binNormWidth1l[varName])
 
         c = Canvas(1000,1000)
 
@@ -439,7 +502,8 @@ for lep in varTemplates1l:
         if '{obj}' in xTitle:
             xTitle = xTitle.format(obj=objNames[lep])
 
-        yTitle = 'Leptons / 1 {}'.format(units[varName])
+        yTitle = 'Leptons / {} {}'.format(binNormWidth1l[varName],
+                                          units[varName])
 
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
                                                      xtitle=xTitle,
