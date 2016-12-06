@@ -29,6 +29,7 @@ from math import sqrt
 from os import remove as _rm
 from os import close as _close
 from os.path import isfile as _isfile
+from numbers import Number as _Number
 
 # Workaround for weird ROOT bug
 _dummy = Hist(1,0,1)
@@ -168,7 +169,7 @@ class NtupleSample(_SampleBase):
         hist.sumw2()
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True,
-                 postprocess=False, **kwargs):
+                 postprocess=False, mergeOverflow=False, **kwargs):
         '''
         If var, selection, and/or weight are iterables (which must be of the
         same length), the hists from the resulting var/selection/weight sets
@@ -204,12 +205,21 @@ class NtupleSample(_SampleBase):
 
         h.sumw2()
 
+        if mergeOverflow:
+            h = h.merge_bins([(-2,-1)])
+            h.sumw2()
+            # have to reformat
+            h.SetTitle(self.prettyName)
+            for a,b in self._format.iteritems():
+                setattr(h, a, b)
+
         if perUnitWidth:
-            binUnit = 1 # min(h.GetBinWidth(b) for b in range(1,len(h)+1))
+            if not isinstance(perUnitWidth, _Number):
+                perUnitWidth = 1.
             for ib in xrange(1,len(h)+1):
-                w = h.GetBinWidth(ib)
-                h.SetBinContent(ib, h.GetBinContent(ib) * binUnit / w)
-                h.SetBinError(ib, h.GetBinError(ib) * binUnit / w)
+                w = h.GetBinWidth(ib) / perUnitWidth
+                h.SetBinContent(ib, h.GetBinContent(ib) / w)
+                h.SetBinError(ib, h.GetBinError(ib) / w)
             h.sumw2()
 
         if postprocess:
@@ -219,7 +229,8 @@ class NtupleSample(_SampleBase):
 
 
     def makeHist2(self, varX, varY, selection, binningX, binningY, weight='',
-                  postprocess=False, **kwargs):
+                  postprocess=False, mergeOverflowX=False,
+                  mergeOverflowY=False, **kwargs):
         '''
         If var[XY], selection, and/or weight are iterables (which must be of the
         same length), the hists from the resulting var/selection/weight sets
@@ -236,8 +247,8 @@ class NtupleSample(_SampleBase):
         # floating point stuff to matter (!!)
         h = Hist2D(*binning, type='D', title=self.prettyName, drawstyle='colz')
 
-        nToAdd = max(1 if isinstance(varX,str) else len(var),
-                     1 if isinstance(varY,str) else len(var),
+        nToAdd = max(1 if isinstance(varX,str) else len(varX),
+                     1 if isinstance(varY,str) else len(varY),
                      1 if isinstance(selection,str) else len(selection),
                      1 if isinstance(weight,str) else len(weight))
         if isinstance(varX, str):
@@ -262,6 +273,22 @@ class NtupleSample(_SampleBase):
             self.addToHist(h, v, s)
 
         h.sumw2()
+
+        if mergeOverflowX:
+            h = h.merge_bins([(-2,-1)])
+            h.sumw2()
+            if not mergeOverflowY: # this will happen there anyway
+                h.SetTitle(self.prettyName)
+                for a,b in self._format.iteritems():
+                    setattr(h, a, b)
+        if mergeOverflowY:
+            h = h.merge_bins([(-2,-1)], 1)
+            h.sumw2()
+            # have to reformat
+            h.SetTitle(self.prettyName)
+            for a,b in self._format.iteritems():
+                setattr(h, a, b)
+
 
         if postprocess:
             self._postprocessor(h)
@@ -331,6 +358,10 @@ class NtupleSample(_SampleBase):
     def __iter__(self):
         for row in self.ntuple:
             yield row
+
+
+    def __len__(self):
+        return self.ntuple.GetEntries()
 
 
 
@@ -489,22 +520,34 @@ class DataSample(NtupleSample):
 
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True,
-                 poissonErrors=False, postprocess=False, **kwargs):
+                 poissonErrors=False, postprocess=False, mergeOverflow=False,
+                 **kwargs):
         h = super(DataSample, self).makeHist(var, selection, binning, weight,
-                                             perUnitWidth=(perUnitWidth and not poissonErrors),
+                                             perUnitWidth=(perUnitWidth if not poissonErrors else False),
                                              **kwargs)
+
+        if mergeOverflow:
+            h = h.merge_bins([(-2,-1)])
+            h.sumw2()
+            if not poissonErrors: # this will happen anyway
+                h.SetTitle(self.prettyName)
+                for a,b in self._format.iteritems():
+                    setattr(h, a, b)
 
         if poissonErrors:
             pois = h.poisson_errors()
+            # have to reformat
             pois.SetTitle(self.prettyName)
             for a,b in self._format.iteritems():
                 setattr(pois, a, b)
 
             if perUnitWidth:
+                if not isinstance(perUnitWidth, _Number):
+                    perUnitWidth = 1.
                 x = pois.GetX()
                 y = pois.GetY()
                 for i in xrange(pois.GetN()):
-                    width = pois.GetErrorXlow(i) + pois.GetErrorXhigh(i)
+                    width = (pois.GetErrorXlow(i) + pois.GetErrorXhigh(i)) / perUnitWidth
                     pois.SetPoint(i, x[i], y[i] / width)
                     pois.SetPointEYlow(i, pois.GetErrorYlow(i) / width)
                     pois.SetPointEYhigh(i, pois.GetErrorYhigh(i) / width)
