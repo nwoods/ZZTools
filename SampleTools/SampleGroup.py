@@ -16,6 +16,7 @@ from . import DataSample as _DataSample
 
 from rootpy.plotting import Hist, Hist2D, HistStack
 
+from numbers import Number as _Number
 
 class SampleGroup(_SampleBase):
     '''
@@ -57,42 +58,66 @@ class SampleGroup(_SampleBase):
 
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True,
-                 poissonErrors=False, postprocess=False, **kwargs):
+                 poissonErrors=False, postprocess=False,
+                 mergeOverflow=False, **kwargs):
         '''
-        If var, selection, and/or weight are dictionaries, they will be used to
-            add histograms from the sample of the same key. If they are strings
-            or appropriate iterables, they will be used to add histograms from
-            all samples.
+        If var is a dictionary, only samples with those keys will be used. If
+            it is a string or appropriate iterable, it will be applied to all
+            samples.
+        If selection and/or weight are dictionaries, they will be applied only
+            to samples of their keys. Any sample not in the dict will be given
+            a null selection/weight (i.e., an empty string). If they are
+            strings or appropriate iterables, they will be applied to all
+            samples.
         If poissonErrors evaluates to True, all samples are required to be
             data samples, and a TGraphAsymmErrors is returned instead of a Hist
+        If perUnitWidth is a positive number, bins are normalized to that
+            width. If it is a non-number that evaluates to True, bins are
+            normalized to their width in the units of the x-axis.
         Note: if the postprocessor was added recursively, it is run only here,
             not on the histograms made by the child samples
         '''
-        if isinstance(var, dict):
-            samplesToUse = var.keys()
-        elif isinstance(selection, dict):
-            samplesToUse = selection.keys()
-        elif isinstance(weight, dict):
-            samplesToUse = weight.keys()
-        else:
-            samplesToUse = self._samples.keys()
+        if not len(self):
+            raise KeyError(("Group {} can't be drawn because it contains no "
+                            "samples.").format(self.name))
 
-        if not isinstance(var, dict):
+        if isinstance(var, dict):
+            samplesToUse = [k for k in var.keys() if k in self._samples]
+            if not len(samplesToUse):
+                errMsg = ('No samples to draw!\n'
+                          'You tried to draw ({}),\n'
+                          'but group {} contains only ({}).')
+                errMsg = errMsg.format(', '.join(var.keys()),
+                                       self.name,
+                                       ', '.join(self.keys()))
+                raise KeyError(errMsg)
+        else:
+            samplesToUse = self.keys()
             var = {k:var for k in samplesToUse}
-        if not isinstance(selection, dict):
-            selection = {k:selection for k in samplesToUse}
-        if not isinstance(weight, dict):
-            weight = {k:weight for k in samplesToUse}
+
+        # Do it this way to allow extra samples to be in the dict without
+        # without modifying dictionaries passed in from elsewhere
+        if isinstance(selection, dict):
+            selections = {k:'' for k in samplesToUse} # note the "s"!
+            selections.update(selection)
+        else:
+            selections = {k:selection for k in samplesToUse}
+        if isinstance(weight, dict):
+            weights = {k:'' for k in samplesToUse} # note the "s"!
+            weights.update(weight)
+        else:
+            weights = {k:weight for k in samplesToUse}
 
         if poissonErrors:
             assert all(isinstance(self._samples[s], _DataSample) or isinstance(self._samples[s], SampleGroup) for s in samplesToUse), \
                 "Poisson errors only make sense with data."
             h = sum(
-                self._samples[s].makeHist(var[s], selection[s], binning,
-                                          weight[s],
+                self._samples[s].makeHist(var[s], selections[s], binning,
+                                          weights[s],
                                           perUnitWidth=False,
                                           poissonErrors=False,
                                           postprocess=(postprocess and not self._recursePostprocessor),
+                                          mergeOverflow=mergeOverflow,
                                           **kwargs) for s in samplesToUse)
             out = h.poisson_errors()
             out.title = self.prettyName
@@ -100,10 +125,12 @@ class SampleGroup(_SampleBase):
                 setattr(out,a,b)
 
             if perUnitWidth:
+                if not isinstance(perUnitWidth, _Number):
+                    perUnitWidth = 1.
                 x = out.GetX()
                 y = out.GetY()
                 for i in xrange(out.GetN()):
-                    width = out.GetErrorXlow(i) + out.GetErrorXhigh(i)
+                    width = (out.GetErrorXlow(i) + out.GetErrorXhigh(i)) / perUnitWidth
                     out.SetPoint(i, x[i], y[i] / width)
                     out.SetPointEYlow(i, out.GetErrorYlow(i) / width)
                     out.SetPointEYhigh(i, out.GetErrorYhigh(i) / width)
@@ -121,8 +148,10 @@ class SampleGroup(_SampleBase):
         h = Hist(*bins, type='D', title=self.prettyName, **self._format)
 
         for s in samplesToUse:
-            h += self._samples[s].makeHist(var[s], selection[s], binning,
-                                           weight[s], perUnitWidth, **kwargs)
+            h += self._samples[s].makeHist(var[s], selections[s], binning,
+                                           weights[s], perUnitWidth,
+                                           mergeOverflow=mergeOverflow,
+                                           **kwargs)
 
         if postprocess:
             self._postprocessor(h)
@@ -131,34 +160,58 @@ class SampleGroup(_SampleBase):
 
 
     def makeHist2(self, varX, varY, selection, binningX, binningY,
-                  weight='', postprocess=False, **kwargs):
+                  weight='', postprocess=False, mergeOverflowX=False,
+                  mergeOverflowY=False, **kwargs):
         '''
-        If var[XY], selection, and/or weight are dictionaries, they will be
-        used to add histograms from the sample of the same key. If they are
-        strings or appropriate iterables, they will be used to add histograms
-        from all samples.
+        var[XY], selection and weight work the same as SampleGroup.makeHist()
         '''
-        if isinstance(varX, dict):
-            samplesToUse = varX.keys()
-            if not isinstance(varY, str):
-                assert all(k in varY for k in varX), "X and Y variables must match"
-        elif isinstance(varY, dict):
-            samplesToUse = varY.keys()
-        elif isinstance(selection, dict):
-            samplesToUse = selection.keys()
-        elif isinstance(weight, dict):
-            samplesToUse = weight.keys()
-        else:
-            samplesToUse = self._samples.keys()
+        if not len(self):
+            raise KeyError(("Group {} can't be drawn because it contains no "
+                            "samples.").format(self.name))
 
-        if not isinstance(varX, dict):
+        if isinstance(varX, dict):
+            samplesToUse = [k for k in varX.keys() if k in self._samples]
+            if not len(samplesToUse):
+                errMsg = ('No samples to draw!\n'
+                          'You tried to draw ({}),\n'
+                          'but group {} contains only ({}).')
+                errMsg = errMsg.format(', '.join(varX.keys()),
+                                       self.name,
+                                       ', '.join(self.keys()))
+                raise KeyError(errMsg)
+            if isinstance(varY, str):
+                varY = {s:varY for s in samplesToUse}
+            elif not all(k in varY for k in samplesToUse):
+                raise KeyError('X and Y variables must be defined for the same'
+                               ' samples')
+        elif isinstance(varY, dict):
+            samplesToUse = [k for k in varY.keys() if k in self._samples]
+            if not len(samplesToUse):
+                errMsg = ('No samples to draw!\n'
+                          'You tried to draw ({}),\n'
+                          'but group {} contains only ({}).')
+                errMsg = errMsg.format(', '.join(varY.keys()),
+                                       self.name,
+                                       ', '.join(self.keys()))
+                raise KeyError(errMsg)
+            varX = {s:varX for s in samplesToUse} # better be a str!
+        else:
+            samplesToUse = self.keys()
             varX = {k:varX for k in samplesToUse}
-        if not isinstance(varY, dict):
             varY = {k:varY for k in samplesToUse}
-        if not isinstance(selection, dict):
-            selection = {k:selection for k in samplesToUse}
-        if not isinstance(weight, dict):
-            weight = {k:weight for k in samplesToUse}
+
+        # Do it this way to allow extra samples to be in the dict without
+        # without modifying dictionaries passed in from elsewhere
+        if isinstance(selection, dict):
+            selections = {k:'' for k in samplesToUse} # note the "s"!
+            selections.update(selection)
+        else:
+            selections = {k:selection for k in samplesToUse}
+        if isinstance(weight, dict):
+            weights = {k:'' for k in samplesToUse} # note the "s"!
+            weights.update(weight)
+        else:
+            weights = {k:weight for k in samplesToUse}
 
         binsX = binningX[:]
         if len(binsX) != 3:
@@ -173,9 +226,11 @@ class SampleGroup(_SampleBase):
         h = Hist2D(*binning, type='D', title=self.prettyName, **self._format)
 
         for s in samplesToUse:
-            h += self._samples[s].makeHist2(varX[s], varY[s], selection[s],
-                                            binningX, binningY, weight[s],
+            h += self._samples[s].makeHist2(varX[s], varY[s], selections[s],
+                                            binningX, binningY, weights[s],
                                             postprocess=postprocess,
+                                            mergeOverflowX=mergeOverflowX,
+                                            mergeOverflowY=mergeOverflowY,
                                             **kwargs)
 
         if postprocess:
@@ -196,7 +251,8 @@ class SampleGroup(_SampleBase):
         '''
         if isinstance(w, dict):
             for name, wt in w.iteritems():
-                self[name].applyWeight(wt, reset)
+                if name in self._samples:
+                    self[name].applyWeight(wt, reset)
         else:
             for s in self.values():
                 s.applyWeight(w, reset)
@@ -269,7 +325,8 @@ class SampleStack(_SampleBase):
 
 
     def makeHist(self, var, selection, binning, weight='', perUnitWidth=True,
-                 postprocess=False, *extraHists, **kwargs):
+                 postprocess=False, mergeOverflow=False,
+                 *extraHists, **kwargs):
         '''
         Note: if the postprocessor was added recursively, it is run only here,
         not on the histograms made by the child samples.
@@ -282,6 +339,7 @@ class SampleStack(_SampleBase):
             h = s.makeHist(var, selection, binning, weight,
                            perUnitWidth,
                            postprocess=(postprocess and not self._recursePostprocessor),
+                           mergeOverflow=mergeOverflow,
                            **kwargs)
             try:
                 isSignal = s.isSignal
@@ -304,7 +362,8 @@ class SampleStack(_SampleBase):
 
 
     def makeHist2(self, varX, varY, selection, binningX, binningY,
-                  weight='', postprocess=False, *extraHists, **kwargs):
+                  weight='', postprocess=False, mergeOverflowX=False,
+                  mergeOverflowY=False, *extraHists, **kwargs):
         sortByMax = kwargs.pop('sortByMax', True)
 
         sig = []
@@ -312,6 +371,8 @@ class SampleStack(_SampleBase):
         for s in self._samples:
             h = s.makeHist2(varX, varY, selection, binningX, binningY, weight,
                             postprocess=(postprocess and not self._recursePostprocessor),
+                            mergeOverflowX=mergeOverflowX,
+                            mergeOverflowY=mergeOverflowY,
                             **kwargs)
             try:
                 isSignal = s.isSignal
