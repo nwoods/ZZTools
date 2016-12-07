@@ -43,21 +43,55 @@ def makeLegend(pad, *objects, **params):
 
     return out
 
-def addPadBelow(p, height, bottomMargin=0.3, topMargin=0.085):
+def addPadsBelow(p, *heights, **kwargs):
     '''
-    Split pad p into two pads, and return (upper, lower)
+    Split pad p into multiple pads, and return a tuple containing all pads
+    (ordered from top of the canvas to bottom).
+
+    p (Pad): Pad or Canvas to split.
+    heights (float(s)): heights of the lower pads, as a fraction of the canvas
+        height, ordered top to bottom. Should not include top pad.
+
+    Recognized keyword arguments:
+    bottomMargin (float, default=0.3): Height of the margin at the bottom of
+        the pad (where the x-axis title goes), as a fraction of the height of
+        the last pad.
+    topMargin (float, default=0.085): Height of the margin above the top pad,
+        as a fraction of the height of the top pad.
     '''
+    bottomMargin = kwargs.get('bottomMargin', 0.3)
+    topMargin = kwargs.get('topMargin', 0.085)
+
     p.cd()
 
-    upper = _Pad(0.,height,1.,1.)
-    upper.SetTopMargin(topMargin)
-    upper.SetBottomMargin(0.01)
+    heights = list(heights)
 
-    lower = _Pad(0.,0.,1.,height)
-    lower.SetBottomMargin(bottomMargin)
-    lower.SetTopMargin(0.)
+    # make room for bottom margin
+    heights[-1] *= 1.+bottomMargin
 
-    return upper, lower
+    top = 1.
+    bottom = sum(heights)
+    pads = [_Pad(0.,bottom, 1., top)]
+    pads[0].SetTopMargin(topMargin)
+    pads[0].SetBottomMargin(0.005)
+    for h in heights:
+        top = bottom
+        bottom = max(bottom - h, 0) # max to avoid "-0" errors
+        pads.append(_Pad(0., bottom, 1., top))
+        pads[-1].SetTopMargin(0.)
+        pads[-1].SetBottomMargin(0)
+
+    pads[-1].SetBottomMargin(bottomMargin)
+
+    return tuple(pads)
+
+def addPadBelow(p, height, bottomMargin=0.3, topMargin=0.085):
+    '''
+    Split pad p into two pads, and return (upper, lower). Just calls
+    addPadsBelow(); mostly here for backwards compatibility.
+    '''
+    return addPadsBelow(p, height, bottomMargin=bottomMargin,
+                        topMargin=topMargin)
 
 def makeRatio(numerator, denominator):
     '''
@@ -101,6 +135,7 @@ def makeRatio(numerator, denominator):
 
     unity = _Line(hNum.lowerbound(), 1, hNum.upperbound(), 1)
     unity.SetLineStyle(7)
+    unity.SetLineWidth(2*unity.GetLineWidth())
 
     return ratio, unity
 
@@ -118,7 +153,7 @@ def fixRatioAxes(mainXAxis, mainYAxis, ratioXAxis, ratioYAxis,
 
     ratioYAxis.SetTitleSize(mainYAxis.GetTitleSize() * mainPadHeight / ratioPadHeight)
     ratioYAxis.SetLabelSize(mainYAxis.GetLabelSize() * mainPadHeight / ratioPadHeight)
-    ratioYAxis.SetTitleOffset(ratioYAxis.GetTitleOffset() * ratioPadHeight / mainPadHeight)
+    ratioYAxis.SetTitleOffset(mainYAxis.GetTitleOffset() * ratioPadHeight / mainPadHeight)
 
     mainXAxis.SetLabelOffset(999)
     mainXAxis.SetTitleOffset(999)
