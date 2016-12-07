@@ -9,12 +9,12 @@ from rootpy import asrootpy
 from rootpy.io import root_open
 from rootpy.plotting import Canvas, Legend, Hist, Hist2D, HistStack, Graph
 from rootpy.plotting.utils import draw
-from rootpy.ROOT import cout, TDecompSVD, TBox
+from rootpy.ROOT import cout, TDecompSVD, TBox, TLatex
 from rootpy.ROOT import RooUnfoldBayes as RooUnfoldIter # it's frequentist!
 
 from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
 from PlotTools import PlotStyle as _Style
-from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes, makeErrorBand
+from PlotTools import makeLegend, addPadsBelow, makeRatio, fixRatioAxes, makeErrorBand
 from Utilities import WeightStringMaker, identityFunction, Z_MASS, \
     deltaRFunction, deltaRString, deltaPhiFunction, deltaPhiString
 from Analysis.setupStandardSamples import *
@@ -190,7 +190,7 @@ _yTitleTemp = '\\frac{{1}}{{\\sigma_{{\\text{{fid}}}}}} \\frac{{d\\sigma_{{\\tex
 for var, prettyVar in _prettyVars.iteritems():
     xt = prettyVar
     if _units[var]:
-        xt += ' \\, \\text{{({})}}'.format(_units[var])
+        xt += ' \\, \\text{{[{}]}}'.format(_units[var])
         yt = _yTitleTemp.format(xvar=prettyVar,
                                 units='\\, \\left[ \\frac{{1}}{{\\text{{{unit}}}}} \\right]'.format(unit=_units[var]))
     else:
@@ -392,7 +392,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
         hErr = {}
         hUnfoldedByChan = {}
-        hUnfoldedAltByChan = {}
+        #hUnfoldedAltByChan = {}
         for chan in channels:
             if not hasattr(varDir, chan):
                 d = varDir.mkdir(chan)
@@ -448,11 +448,11 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             ### Unfold amc@NLO "data" as a sanity check
             hAlt = altReco[chan].makeHist(var, sel, binning,
                                           perUnitWidth=False)
-            unfolderAlt = RooUnfoldIter(response, hAlt, nIter)
-            hUnfoldedAlt = asrootpy(unfolderAlt.Hreco())
-            hUnfoldedAltByChan[chan] = hUnfoldedAlt.clone()
-
-            hUnfoldedAlt /= hUnfoldedAlt.Integral(0,hUnfoldedAlt.GetNbinsX()+1)
+            #unfolderAlt = RooUnfoldIter(response, hAlt, nIter)
+            #hUnfoldedAlt = asrootpy(unfolderAlt.Hreco())
+            #hUnfoldedAltByChan[chan] = hUnfoldedAlt.clone()
+            #
+            #hUnfoldedAlt /= hUnfoldedAlt.Integral(0,hUnfoldedAlt.GetNbinsX()+1)
 
             #### represent systematic errors as histograms where the bin content
             #### is the systematic error from that source
@@ -994,29 +994,31 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             hUnfolded.title = 'Unfolded data + stat. unc.'
             _normalizeBins(hUnfolded)
 
-            hUnfoldedAlt.color = 'r'
-            hUnfoldedAlt.drawstyle = 'hist'
-            hUnfoldedAlt.fillstyle = 'hollow'
-            hUnfoldedAlt.legendstyle = 'L'
-            hUnfoldedAlt.title = 'Unfolded {}'.format(signalNameAlt)
-            _normalizeBins(hUnfoldedAlt)
+            #hUnfoldedAlt.color = 'magenta'
+            #hUnfoldedAlt.drawstyle = 'hist'
+            #hUnfoldedAlt.fillstyle = 'hollow'
+            #hUnfoldedAlt.legendstyle = 'L'
+            #hUnfoldedAlt.title = 'Unfolded {}'.format(signalNameAlt)
+            #_normalizeBins(hUnfoldedAlt)
 
             hTrue = true[chan].makeHist(var, sel, binning, perUnitWidth=False)
-            hTrue.color = 'blue'
+            hTrue.fillcolor = '#99ccff'
+            hTrue.linecolor = '#000099'
             hTrue.drawstyle = 'hist'
-            hTrue.fillstyle = 'hollow'
-            hTrue.legendstyle = 'L'
-            hTrue.title = '{} (true)'.format(signalName)
+            hTrue.fillstyle = 'solid'
+            hTrue.legendstyle = 'F'
+            hTrue.title = '{}'.format(signalName)
             hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
             _normalizeBins(hTrue)
 
             hTrueAlt = altTrue[chan].makeHist(var, sel, binning,
                                               perUnitWidth=False)
-            hTrueAlt.color = 'magenta'
+            hTrueAlt.color = 'red'
             hTrueAlt.drawstyle = 'hist'
             hTrueAlt.fillstyle = 'hollow'
             hTrueAlt.legendstyle = 'L'
-            hTrueAlt.title = '{} (true)'.format(signalNameAlt)
+            hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
+            hTrueAlt.title = '{}'.format(signalNameAlt)
             hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
             _normalizeBins(hTrueAlt)
 
@@ -1035,20 +1037,24 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
             errorBand = makeErrorBand(hUnfolded, hUncUp, hUncDn)
 
-            cUnf = Canvas(1000,1000)
-            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
-                                                          hUnfoldedAlt,
-                                                          hUnfolded,
-                                                          errorBand], cUnf,
-                                                         xtitle=_xTitle[varName],
-                                                         ytitle=_yTitle[varName],
-                                                         yerror_in_padding=False)
-            yaxis.SetTitleSize(0.7*yaxis.GetTitleSize())
-            yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
-            yaxis.SetLabelSize(0.7*yaxis.GetLabelSize())
-            xaxis.SetLabelSize(0.7*xaxis.GetLabelSize())
+            cUnf = Canvas(1000,1200)
+            mainPad, ratioPad1, ratioPad2 = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
 
-            leg = makeLegend(cUnf, hTrueAlt, hUnfoldedAlt, hTrue, errorBand,
+            mainPad.cd()
+            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
+                                                          #hUnfoldedAlt,
+                                                          hUnfolded,
+                                                          errorBand], mainPad,
+                                                         xtitle=_xTitle[varName],
+                                                         ytitle=_yTitle[varName])#,
+                                                         #yerror_in_padding=False)
+            yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
+            yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
+            yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
+            xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
+
+            leg = makeLegend(cUnf, hTrueAlt, #hUnfoldedAlt,
+                             hTrue, errorBand,
                              hUnfolded, **_legParams[varName])
 
             if varName in _blind and _blind[varName] < xmax:
@@ -1059,6 +1065,49 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
                 leg.SetFillStyle(1001)
 
             leg.Draw("same")
+
+            latex = TLatex()
+            latex.SetNDC()
+            latex.SetTextSize(.13)
+            latex.SetTextFont(62)
+            latex.SetTextAlign(11)
+
+            ratioPad1.cd()
+            ratio1, unity1 = makeRatio(hUnfolded, hTrue)
+            ratioError1 = makeErrorBand(hUnfolded/hTrue, hUncUp/hTrue,
+                                        hUncDn/hTrue)
+            (ratio1X, ratio1Y), ratio1Limits = draw([ratio1,ratioError1],
+                                                    ratioPad1,
+                                                    ytitle='Data / MC',
+                                                    xlimits=(xmin,xmax),
+                                                    ylimits=(0.50001,1.9999),
+                                                    ydivisions=5)
+            unity1.Draw("same")
+            latex.DrawLatex(0.15, 0.8, signalName)
+
+
+            ratioPad2.cd()
+            ratio2, unity2 = makeRatio(hUnfolded, hTrueAlt)
+            ratioError2 = makeErrorBand(hUnfolded/hTrueAlt, hUncUp/hTrueAlt,
+                                        hUncDn/hTrueAlt)
+            (ratio2X, ratio2Y), ratio2Limits = draw([ratio2,ratioError2],
+                                                    ratioPad2,
+                                                    ytitle='Data / MC',
+                                                    xlimits=(xmin,xmax),
+                                                    ylimits=(0.5,1.9999),
+                                                    ydivisions=5)
+            unity2.Draw("same")
+            latex.SetTextSize(latex.GetTextSize() * ratioPad1.height / ratioPad2.height)
+            latex.DrawLatex(0.15, 1.-.2*ratioPad1.height/ratioPad2.height,
+                            signalNameAlt)
+
+            cUnf.cd()
+            ratioPad2.Draw()
+            ratioPad1.Draw()
+            mainPad.Draw()
+
+            fixRatioAxes(xaxis,yaxis,ratio1X,ratio1Y, mainPad.height, ratioPad1.height)
+            fixRatioAxes(ratio1X,ratio1Y,ratio2X,ratio2Y, ratioPad1.height, ratioPad2.height)
 
             style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
             cUnf.Print(_join(plotDir, "unfold_{}_{}.png".format(varName, chan)))
@@ -1091,32 +1140,34 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         hTot /= hTot.Integral(0,hTot.GetNbinsX()+1)
         _normalizeBins(hTot)
 
-        hTotAlt = sum(hUnfoldedAltByChan.values())
-        hTotAlt.color = 'r'
-        hTotAlt.drawstyle = 'hist'
-        hTotAlt.fillstyle = 'hollow'
-        hTotAlt.legendstyle = 'L'
-        hTotAlt.title = 'Unfolded {}'.format(signalNameAlt)
-        hTotAlt /= hTotAlt.Integral(0,hTotAlt.GetNbinsX()+1)
-        _normalizeBins(hTotAlt)
+        #hTotAlt = sum(hUnfoldedAltByChan.values())
+        #hTotAlt.color = 'magenta'
+        #hTotAlt.drawstyle = 'hist'
+        #hTotAlt.fillstyle = 'hollow'
+        #hTotAlt.legendstyle = 'L'
+        #hTotAlt.title = 'Unfolded {}'.format(signalNameAlt)
+        #hTotAlt /= hTotAlt.Integral(0,hTotAlt.GetNbinsX()+1)
+        #_normalizeBins(hTotAlt)
 
         hTrue = true.makeHist(_variables[varName], _selections[varName],
                               binning, perUnitWidth=False)
-        hTrue.color = 'blue'
+        hTrue.fillcolor = '#99ccff'
+        hTrue.linecolor = '#000099'
         hTrue.drawstyle = 'hist'
-        hTrue.fillstyle = 'hollow'
-        hTrue.legendstyle = 'L'
-        hTrue.title = '{} (true)'.format(signalName)
+        hTrue.fillstyle = 'solid'
+        hTrue.legendstyle = 'F'
+        hTrue.title = '{}'.format(signalName)
         hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
         _normalizeBins(hTrue)
 
         hTrueAlt = altTrue.makeHist(_variables[varName], _selections[varName],
                                     binning, perUnitWidth=False)
-        hTrueAlt.color = 'magenta'
+        hTrueAlt.color = 'r'
         hTrueAlt.drawstyle = 'hist'
         hTrueAlt.fillstyle = 'hollow'
         hTrueAlt.legendstyle = 'L'
-        hTrueAlt.title = '{} (true)'.format(signalNameAlt)
+        hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
+        hTrueAlt.title = '{}'.format(signalNameAlt)
         hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
         _normalizeBins(hTrueAlt)
 
@@ -1168,16 +1219,24 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
 
         errorBand = makeErrorBand(hTot, hUncUp, hUncDn)
 
-        cUnf = Canvas(1000,1000)
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
-                                                      hTotAlt,
-                                                      errorBand, hTot],
-                                                     cUnf, xtitle=_xTitle[varName],
-                                                     ytitle=_yTitle[varName],
-                                                     yerror_in_padding=False)
-        yaxis.SetTitleSize(0.7*yaxis.GetTitleSize())
+        cUnf = Canvas(1000,1200)
+        mainPad, ratioPad1, ratioPad2 = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=.35)
 
-        leg = makeLegend(cUnf, hTrueAlt, hTotAlt, hTrue, errorBand,
+        mainPad.cd()
+
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
+                                                      #hTotAlt,
+                                                      hTot, errorBand],
+                                                     mainPad, xtitle=_xTitle[varName],
+                                                     ytitle=_yTitle[varName])#,
+                                                     #yerror_in_padding=False)
+        yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
+        yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
+        yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
+        xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
+
+        leg = makeLegend(mainPad, hTrueAlt, #hTotAlt,
+                         hTrue, errorBand,
                          hTot, **_legParams[varName])
 
         if varName in _blind and _blind[varName] < xmax:
@@ -1188,6 +1247,39 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             leg.SetFillStyle(1001)
 
         leg.Draw("same")
+
+        latex = TLatex()
+        latex.SetNDC()
+        latex.SetTextSize(.13)
+        latex.SetTextFont(62)
+        latex.SetTextAlign(11)
+
+        ratioPad1.cd()
+        ratio1, unity1 = makeRatio(hTot, hTrue)
+        ratioError1 = makeErrorBand(hTot/hTrue, hUncUp/hTrue, hUncDn/hTrue)
+        (ratio1X, ratio1Y), ratio1Limits = draw([ratio1,ratioError1], ratioPad1, ytitle='Data / MC',
+                                                xlimits=(xmin,xmax),
+                                                ylimits=(0.5,1.99999), ydivisions=5)
+        unity1.Draw("same")
+        latex.DrawLatex(0.15, 0.8, signalName)
+
+        ratioPad2.cd()
+        ratio2, unity2 = makeRatio(hTot, hTrueAlt)
+        ratioError2 = makeErrorBand(hTot/hTrueAlt, hUncUp/hTrueAlt, hUncDn/hTrueAlt)
+        (ratio2X, ratio2Y), ratio2Limits = draw([ratio2,ratioError2], ratioPad2, ytitle='Data / MC',
+                                                xlimits=(xmin,xmax),
+                                                ylimits=(0.5,1.99999), ydivisions=5)
+        unity2.Draw("same")
+        latex.SetTextSize(latex.GetTextSize() * ratioPad1.height / ratioPad2.height)
+        latex.DrawLatex(0.15, 1.-.2*ratioPad1.height/ratioPad2.height, signalNameAlt)
+
+        cUnf.cd()
+        ratioPad2.Draw()
+        ratioPad1.Draw()
+        mainPad.Draw()
+
+        fixRatioAxes(xaxis,yaxis,ratio1X,ratio1Y, mainPad.height, ratioPad1.height)
+        fixRatioAxes(ratio1X,ratio1Y,ratio2X,ratio2Y, ratioPad1.height, ratioPad2.height)
 
         style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
         cUnf.Print(_join(plotDir, "unfold_{}.png".format(varName)))
