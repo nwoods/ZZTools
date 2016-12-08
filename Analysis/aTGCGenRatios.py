@@ -19,12 +19,12 @@ from os import makedirs
 
 
 var = 'Mass'
-binning = [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.]
+binning = [100.+100.*i for i in range(6)] + [800.,1000.,1200.]
 aTGCParams = ['f4','f5']
 
 channels = ['eeee','eemm','mmmm']
 
-fileTemp = 'output_histo_{fg}I{fz}_{param}.root'
+fileTemp = 'histo_{fg}I{fz}_{param}_file.root'
 
 fgs = [-.0038, 0., .0038]
 fzs = [-0.003, 0., 0.003]
@@ -81,6 +81,7 @@ def main(inData, inMC, inATGC, outDir, fakeRateFile, puWeightFile, lumi,
                 hATGC = asrootpy(f.h_ratio_MZZ_wt)
                 ratio += hATGC
             ratio /= hSM
+            ratio[-1].value = ratio[-2].value
             cRatio = Canvas(1000,1000)
             ratio.Draw('hist')
             cRatio.Print("~/www/UWVVPlots/ratio_{}_{}_{}.png".format(param, fg, fz))
