@@ -197,7 +197,7 @@ def makeErrorBand(hMean, errUp, errDn=None):
     err.fillstyle = 'x'
     err.drawstyle = '2'
     err.fillcolor = 'black'
-    err.title = 'Stat #oplus syst'
+    err.title = 'Stat. #oplus syst. unc.'
     err.legendstyle = 'F'
 
     return err
