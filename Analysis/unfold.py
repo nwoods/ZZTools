@@ -73,6 +73,21 @@ _variables = {
               'eemm':['e1_e2_Pt','m1_m2_Pt']},
     'z2Pt' : {'eeee':'e3_e4_Pt', 'mmmm':'m3_m4_Pt',
               'eemm':['m1_m2_Pt','e1_e2_Pt']},
+    'zHigherPt' : {
+        'eeee' : ['e1_e2_Pt', 'e3_e4_Pt'],
+        'mmmm' : ['m1_m2_Pt', 'm3_m4_Pt'],
+        'eemm' : ['e1_e2_Pt','m1_m2_Pt']
+        },
+    'zLowerPt' : {
+        'eeee' : ['e1_e2_Pt', 'e3_e4_Pt'],
+        'mmmm' : ['m1_m2_Pt', 'm3_m4_Pt'],
+        'eemm' : ['e1_e2_Pt','m1_m2_Pt']
+        },
+    'zPt' : {
+        'eeee' : ['e1_e2_Pt', 'e3_e4_Pt'],
+        'mmmm' : ['m1_m2_Pt', 'm3_m4_Pt'],
+        'eemm' : ['e1_e2_Pt','m1_m2_Pt']
+        },
     'deltaPhiZZ' : {
         'eeee' : 'abs({}(e1_e2_Phi, e3_e4_Phi))'.format(deltaPhiString()),
         'eemm' : 'abs({}(e1_e2_Phi, m1_m2_Phi))'.format(deltaPhiString()),
@@ -82,6 +97,11 @@ _variables = {
         'eeee' : '{}(e1_e2_Eta, e1_e2_Phi, e3_e4_Eta, e3_e4_Phi)'.format(deltaRString()),
         'eemm' : '{}(e1_e2_Eta, e1_e2_Phi, m1_m2_Eta, m1_m2_Phi)'.format(deltaRString()),
         'mmmm' : '{}(m1_m2_Eta, m1_m2_Phi, m3_m4_Eta, m3_m4_Phi)'.format(deltaRString()),
+        },
+    'lPt' : {
+        'eeee' : ['e1Pt', 'e2Pt', 'e3Pt', 'e4Pt'],
+        'eemm' : ['e1Pt', 'e2Pt', 'm1Pt', 'm2Pt'],
+        'mmmm' : ['m1Pt', 'm2Pt', 'm3Pt', 'm4Pt'],
         },
     'l1Pt' : {
         'eeee' : 'max(e1Pt, e3Pt)',
@@ -94,22 +114,41 @@ _fDR = deltaRFunction()
 _varFunctions = {
     'pt' : {c:lambda row: row.Pt for c in _channels},
     'mass' : {c:lambda row: row.Mass for c in _channels},
-    'z1Mass' : {'eeee':lambda row: row.e1_e2_Mass,
-                'mmmm':lambda row: row.m1_m2_Mass,
-                'eemm':lambda row: row.e1_e2_Mass if abs(row.e1_e2_Mass - Z_MASS) < abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Mass,
-                },
-    'z2Mass' : {'eeee':lambda row: row.e3_e4_Mass,
-                'mmmm':lambda row: row.m3_m4_Mass,
-                'eemm':lambda row: row.e1_e2_Mass if abs(row.e1_e2_Mass - Z_MASS) > abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Mass,
-                },
-    'z1Pt' : {'eeee':lambda row: row.e1_e2_Pt,
-              'mmmm':lambda row: row.m1_m2_Pt,
-              'eemm':lambda row: row.e1_e2_Pt if abs(row.e1_e2_Mass - Z_MASS) < abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Pt,
-              },
-    'z2Pt' : {'eeee':lambda row: row.e3_e4_Pt,
-              'mmmm':lambda row: row.m3_m4_Pt,
-              'eemm':lambda row: row.e1_e2_Pt if abs(row.e1_e2_Mass - Z_MASS) > abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Pt,
-              },
+    'z1Mass' : {
+        'eeee' : lambda row: row.e1_e2_Mass,
+        'mmmm' : lambda row: row.m1_m2_Mass,
+        'eemm' : lambda row: row.e1_e2_Mass if abs(row.e1_e2_Mass - Z_MASS) < abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Mass,
+        },
+    'z2Mass' : {
+        'eeee' : lambda row: row.e3_e4_Mass,
+        'mmmm' : lambda row: row.m3_m4_Mass,
+        'eemm' : lambda row: row.e1_e2_Mass if abs(row.e1_e2_Mass - Z_MASS) > abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Mass,
+        },
+    'z1Pt' : {
+        'eeee' : lambda row: row.e1_e2_Pt,
+        'mmmm' : lambda row: row.m1_m2_Pt,
+        'eemm' : lambda row: row.e1_e2_Pt if abs(row.e1_e2_Mass - Z_MASS) < abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Pt,
+        },
+    'z2Pt' : {
+        'eeee' : lambda row: row.e3_e4_Pt,
+        'mmmm' : lambda row: row.m3_m4_Pt,
+        'eemm' : lambda row: row.e1_e2_Pt if abs(row.e1_e2_Mass - Z_MASS) > abs(row.m1_m2_Mass - Z_MASS) else row.m1_m2_Pt,
+        },
+    'zPt' : {
+        'eeee' : [lambda row: row.e1_e2_Pt, lambda row: row.e3_e4_Pt],
+        'eemm' : [lambda row: row.e1_e2_Pt, lambda row: row.m1_m2_Pt],
+        'mmmm' : [lambda row: row.m1_m2_Pt, lambda row: row.m3_m4_Pt],
+        },
+    'zHigherPt' : {
+        'eeee' : lambda row: max(row.e1_e2_Pt, row.e3_e4_Pt),
+        'eemm' : lambda row: max(row.e1_e2_Pt, row.m1_m2_Pt),
+        'mmmm' : lambda row: max(row.m1_m2_Pt, row.m3_m4_Pt),
+        },
+    'zLowerPt' : {
+        'eeee' : lambda row: min(row.e1_e2_Pt, row.e3_e4_Pt),
+        'eemm' : lambda row: min(row.e1_e2_Pt, row.m1_m2_Pt),
+        'mmmm' : lambda row: min(row.m1_m2_Pt, row.m3_m4_Pt),
+        },
     'deltaPhiZZ' : {
         'eeee' : lambda row: abs(_fDPhi(row.e1_e2_Phi, row.e3_e4_Phi)),
         'eemm' : lambda row: abs(_fDPhi(row.e1_e2_Phi, row.m1_m2_Phi)),
@@ -119,6 +158,11 @@ _varFunctions = {
         'eeee' : lambda row: _fDR(row.e1_e2_Eta, row.e1_e2_Phi, row.e3_e4_Eta, row.e3_e4_Phi),
         'eemm' : lambda row: _fDR(row.e1_e2_Eta, row.e1_e2_Phi, row.m1_m2_Eta, row.m1_m2_Phi),
         'mmmm' : lambda row: _fDR(row.m1_m2_Eta, row.m1_m2_Phi, row.m3_m4_Eta, row.m3_m4_Phi),
+        },
+    'lPt' : {
+        'eeee' : [lambda row: row.e1Pt, lambda row: row.e2Pt, lambda row: row.e3Pt, lambda row: row.e4Pt],
+        'eemm' : [lambda row: row.e1Pt, lambda row: row.e2Pt, lambda row: row.m1Pt, lambda row: row.m2Pt],
+        'mmmm' : [lambda row: row.m1Pt, lambda row: row.m2Pt, lambda row: row.m3Pt, lambda row: row.m4Pt],
         },
     'l1Pt' : {
         'eeee' : lambda row: max(row.e1Pt, row.e3Pt),
@@ -141,8 +185,12 @@ _binning = {
     'z2Mass' : [60., 75., 83.] + [84.+i for i in range(14)] + [105., 120.],#[12, 60., 120.],
     'z1Pt' : [i * 25. for i in range(7)] + [200., 300.],
     'z2Pt' : [i * 25. for i in range(7)] + [200., 300.],
+    'zPt' : [i * 25. for i in range(7)] + [200., 300.],
+    'zHigherPt' : [i * 25. for i in range(7)] + [200., 300.],
+    'zLowerPt' : [i * 25. for i in range(7)] + [200., 300.],
     'deltaPhiZZ' : [0., 1.5] + [2.+.25*i for i in range(6)],
     'deltaRZZ' : [6, 0., 6.],
+    'lPt' : [15, 0., 150.],
     'l1Pt' : [15, 0., 150.],
     }
 
@@ -158,10 +206,14 @@ _units = {
     'deltaEtajj' : '',
     'z1Mass' : 'GeV',
     'z2Mass' : 'GeV',
+    'zPt' : 'GeV',
     'z1Pt' : 'GeV',
     'z2Pt' : 'GeV',
+    'zHigherPt' : 'GeV',
+    'zLowerPt' : 'GeV',
     'deltaPhiZZ' : '',
     'deltaRZZ' : '',
+    'lPt' : 'GeV',
     'l1Pt' : 'GeV',
     }
 
@@ -179,8 +231,12 @@ _prettyVars = {
     'z2Mass' : 'm_{\\text{Z}_{2}}',
     'z1Pt' : 'p_T^{\\text{Z}_{1}}',
     'z2Pt' : 'p_T^{\\text{Z}_{2}}',
+    'zPt' : 'p_T^{\\text{Z}}',
+    'zHigherPt' : 'p_T^{\\text{Z}_{\\text{lead}}}',
+    'zLowerPt' : 'p_T^{\\text{Z}_{\\text{sublead}}}',
     'deltaPhiZZ' : '\\Delta \\phi_{\\text{Z}_1,\\text{Z}_2}',
     'deltaRZZ' : '\\Delta \\text{R}_{\\text{Z}_1,\\text{Z}_2}',
+    'lPt' : 'p_{T}^{\\ell}',
     'l1Pt' : 'p_{T}^{\\ell_1}',
     }
 
@@ -218,8 +274,20 @@ _selections = {
               'eemm':['abs(e1_e2_Mass - {0}) < abs(m1_m2_Mass - {0})'.format(Z_MASS),
                       'abs(e1_e2_Mass - {0}) > abs(m1_m2_Mass - {0})'.format(Z_MASS)],
               },
+    'zPt' : {c:'' for c in _channels},
+    'zHigherPt' : {
+        'eeee' : ['e1_e2_Pt > e3_e4_Pt', 'e1_e2_Pt < e3_e4_Pt'],
+        'mmmm' : ['m1_m2_Pt > m3_m4_Pt', 'm1_m2_Pt < m3_m4_Pt'],
+        'eemm' : ['e1_e2_Pt > m1_m2_Pt', 'e1_e2_Pt < m1_m2_Pt'],
+        },
+    'zLowerPt' : {
+        'eeee' : ['e1_e2_Pt < e3_e4_Pt', 'e1_e2_Pt > e3_e4_Pt'],
+        'mmmm' : ['m1_m2_Pt < m3_m4_Pt', 'm1_m2_Pt > m3_m4_Pt'],
+        'eemm' : ['e1_e2_Pt < m1_m2_Pt', 'e1_e2_Pt > m1_m2_Pt'],
+        },
     'deltaPhiZZ' : {c:'' for c in _channels},
     'deltaRZZ' : {c:'' for c in _channels},
+    'lPt' : {c:'' for c in _channels},
     'l1Pt' : {c:'' for c in _channels},
     }
 _selFunctions = {
@@ -227,10 +295,14 @@ _selFunctions = {
     'mass' : identityFunction,
     'z1Mass' : identityFunction, # Z choice done in var function
     'z2Mass' : identityFunction,
-    'z1Pt' : identityFunction,
+    'z1Pt' : identityFunction, # Z choice done in var function
     'z2Pt' : identityFunction,
+    'zPt' : identityFunction,
+    'zHigherPt' : identityFunction, # Z choice done in var function
+    'zLowerPt' : identityFunction,
     'deltaPhiZZ' : identityFunction,
     'deltaRZZ' : identityFunction,
+    'lPt' : identityFunction,
     'l1Pt' : identityFunction,
     }
 
@@ -273,6 +345,9 @@ _blind = {
     'mass' : 500.,
     'z1Pt' : 200.,
     'z2Pt' : 200.,
+    'zPt' : 200.,
+    'zHigherPt' : 200.,
+    'zLowerPt' : 200.,
     }
 
 # list of variables not counting systematic shifts
@@ -299,6 +374,7 @@ _legParams['deltaEtajj'] = _legParams['z1Mass'].copy()
 _legParams['deltaEtajj']['leftmargin'] = .5
 _legParams['deltaEtajj']['rightmargin'] = .03
 _legParams['deltaEtajj']['topmargin'] = .05
+_legParams['lPt']['topmargin'] = 0.05
 _legParams['l1Pt']['topmargin'] = 0.05
 
 _systSaveFileTemplate = _join(_env['zzt'], 'Analysis', 'savedResults',
@@ -991,7 +1067,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             hUnfolded.color = 'black'
             hUnfolded.drawstyle = 'PE'
             hUnfolded.legendstyle = 'LPE'
-            hUnfolded.title = 'Unfolded data + stat. unc.'
+            hUnfolded.title = 'Data + stat. unc.'
             _normalizeBins(hUnfolded)
 
             #hUnfoldedAlt.color = 'magenta'
@@ -1134,7 +1210,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         hTot.color = 'black'
         hTot.drawstyle = 'PE'
         hTot.legendstyle = 'LPE'
-        hTot.title = 'Unfolded data + stat. unc.'
+        hTot.title = 'Data + stat. unc.'
         # total normalization
         hTotNoNorm = hTot.clone()
         hTot /= hTot.Integral(0,hTot.GetNbinsX()+1)
