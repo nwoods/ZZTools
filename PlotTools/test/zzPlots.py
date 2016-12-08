@@ -5,6 +5,7 @@ from rootpy import log as rlog; rlog = rlog["/zzPlots"]
 logging.basicConfig(level=logging.WARNING)
 rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 
+from rootpy import asrootpy
 from rootpy.io import root_open
 from rootpy.plotting import Canvas, Legend
 from rootpy.plotting.utils import draw
@@ -13,7 +14,8 @@ from rootpy.ROOT import TBox, Double
 from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
 from PlotTools import PlotStyle as _Style
 from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes
-from Utilities import WeightStringMaker, deltaRString, deltaPhiString
+from Utilities import WeightStringMaker, deltaRString, deltaPhiString, \
+    makeNumberPretty
 from Analysis import standardZZSamples
 
 from os import environ
@@ -29,9 +31,9 @@ inMC = 'uwvvNtuples_mc_25nov2016'
 puWeightFile = 'puWeight_69200_08sep2016'
 fakeRateFile = 'fakeRate_08sep2016'
 
-ana = 'z4l'
+ana = 'smp'
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_{}'.format(ana)
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_{}_withATGC'.format(ana)
 try:
     _mkdir(outdir)
 except OSError: # already exists
@@ -158,7 +160,7 @@ xTitles = {
 
 for v,t in xTitles.iteritems():
     if units[v]:
-        t += ' \\, (\\text{{{{{}}}}})'.format(units[v])
+        t += ' \\, [\\text{{{{{}}}}}]'.format(units[v])
 
 # some distributions need the legend moved
 legParamsLeft = {
@@ -168,7 +170,7 @@ legParamsLeft = {
 
 
 binning4l = {
-    'Mass'  : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.],
+    'Mass'  : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800., 1000., 1200.],
     'Pt'    : [25.*i for i in range(4)] + [100., 150., 200., 300.],
     'Eta'   : [16, -5., 5.],
     'Phi'   : [12, -3.15, 3.15],
@@ -255,22 +257,23 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
         dataPts = data.makeHist(var, dataSelection, binning,
                                 poissonErrors=True,
                                 perUnitWidth=binNormWidth4l[varName])
+        toPlot = [hStack, dataPts]
 
         c = Canvas(1000,1000)
 
         legParams = {}
         if ana == 'z4l' and varName == 'Mass' or ana == 'smp' and varName == 'deltaRZZ':
             legParams = legParamsLeft.copy()
-        leg = makeLegend(c, hStack, dataPts, **legParams)
+        leg = makeLegend(c, *toPlot, **legParams)
 
         xTitle = xTitles[varName]
         if 'obj' in xTitle:
             xTitle = xTitle.format(obj=objNames[chan])
 
-        yTitle = 'Events / {} {}'.format(binNormWidth4l[varName],
+        yTitle = 'Events / {} {}'.format(makeNumberPretty(binNormWidth4l[varName], 2),
                                          units[varName])
 
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c,
                                                      xtitle=xTitle,
                                                      ytitle=yTitle)
         # blinding box
@@ -285,6 +288,105 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
         style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
         c.Print('{}/{}{}.png'.format(outdir, chan, varName))
+
+
+        if varName == 'Mass' and ana == 'smp' and chan == 'zz':
+            aTGCFileTemp = '/data/nawoods/aTGCSherpaHistos/histo_{fg}I{fz}_{param}_file.root'
+
+            try:
+                with root_open(aTGCFileTemp.format(fg='0',fz='0',param='f4')) as f:
+                    hSherpaSM = asrootpy(f.h_ratio_MZZ_wt)
+                    hSherpaSM.SetDirectory(0)
+                with root_open(aTGCFileTemp.format(fg='0p0038',fz='0p003',param='f5')) as f:
+                    hSherpa_f5_maxTGC = asrootpy(f.h_ratio_MZZ_wt)
+                    hSherpa_f5_maxTGC.SetDirectory(0)
+                with root_open(aTGCFileTemp.format(fg='0p0038',fz='0p003',param='f4')) as f:
+                    hSherpa_f4_maxTGC = asrootpy(f.h_ratio_MZZ_wt)
+                    hSherpa_f4_maxTGC.SetDirectory(0)
+
+                ratio_f5_maxTGC = hSherpa_f5_maxTGC / hSherpaSM
+                ratio_f5_maxTGC[-1].value = ratio_f5_maxTGC[-2].value
+                ratio_f4_maxTGC = hSherpa_f4_maxTGC / hSherpaSM
+                ratio_f4_maxTGC[-1].value = ratio_f4_maxTGC[-2].value
+                wtMaker = WeightStringMaker('aTGC')
+                wt_f5_maxTGC = wtMaker.makeWeightStringFromHist(ratio_f5_maxTGC, 'Mass')
+                wt_f4_maxTGC = wtMaker.makeWeightStringFromHist(ratio_f4_maxTGC, 'Mass')
+
+                h_f5_maxTGC = hStack[0].empty_clone()
+                h_f4_maxTGC = hStack[0].empty_clone()
+                for s in stack:
+                    if 'ZZTo4L' in s.name:
+                        h_f4_maxTGC += s.makeHist(var, selections4l[varName],
+                                                  binning,
+                                                  wt_f4_maxTGC,
+                                                  postprocess=True,
+                                                  perUnitWidth=binNormWidth4l[varName],
+                                                  mergeOverflow=True)
+                        h_f5_maxTGC += s.makeHist(var, selections4l[varName],
+                                                  binning,
+                                                  wt_f5_maxTGC,
+                                                  postprocess=True,
+                                                  perUnitWidth=binNormWidth4l[varName],
+                                                  mergeOverflow=True)
+                    else:
+                        hTemp = s.makeHist(var, selections4l[varName],
+                                           binning,
+                                           postprocess=True,
+                                           perUnitWidth=binNormWidth4l[varName],
+                                           mergeOverflow=True)
+                        h_f4_maxTGC += hTemp
+                        h_f5_maxTGC += hTemp
+
+                h_f5_maxTGC.color = 'r'
+                h_f5_maxTGC.drawstyle = 'hist'
+                h_f5_maxTGC.fillstyle = 'hollow'
+                h_f5_maxTGC.linestyle = 'dashed'
+                h_f5_maxTGC.SetLineWidth(h_f5_maxTGC.GetLineWidth() * 2)
+                h_f5_maxTGC.legendstyle = 'L'
+                h_f5_maxTGC.title = 'f_{5}^{#gamma} = 0.0038, f_{5}^{Z} = 0.003'
+
+                h_f4_maxTGC.color = 'magenta'
+                h_f4_maxTGC.drawstyle = 'hist'
+                h_f4_maxTGC.fillstyle = 'hollow'
+                h_f4_maxTGC.linestyle = 'dashed'
+                h_f4_maxTGC.SetLineWidth(h_f4_maxTGC.GetLineWidth() * 2)
+                h_f4_maxTGC.legendstyle = 'L'
+                h_f4_maxTGC.title = 'f_{4}^{#gamma} = 0.0038, f_{4}^{Z} = 0.003'
+
+                toPlot = [hStack, h_f4_maxTGC, h_f5_maxTGC, dataPts]
+
+                legParams['entryheight'] = 0.02
+                legParams['entrysep'] = 0.008
+                legParams['textsize'] = 0.022
+                legParams['leftmargin'] = 0.4
+
+                cTGC = Canvas(1000,1000)
+                cTGC.SetLogy()
+                leg = makeLegend(cTGC, *toPlot, **legParams)
+
+                (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, cTGC,
+                                                             xtitle=xTitle,
+                                                             ytitle=yTitle,
+                                                             logy=True)
+                # blinding box
+                if binning4l['Mass'][-1] > 500.:
+                    box = TBox(max(xmin,500.), ymin, min(binning4l['Mass'][-1], xmax), ymax)
+                    box.SetFillColor(1)
+                    box.SetFillStyle(3002)
+                    box.Draw("same")
+                    leg.SetFillStyle(1001)
+
+                leg.Draw("same")
+
+                style.setCMSStyle(cTGC, '', dataType='Preliminary', intLumi=lumi)
+                cTGC.Print('{}/{}{}_aTGC.png'.format(outdir, chan, varName))
+
+
+            except Exception as e:
+                print "Adding aTGC signal failed with the following exception:"
+                print e
+                print "If you want that on your plots, you should fix this problem!"
+
 
 
 binning2l = {
