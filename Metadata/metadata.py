@@ -182,6 +182,8 @@ groupInfo['Z+X'] = {
 groupInfo['irreducible'] = {
     'isSignal' : False,
     'format' : {
-        'color' : '#ffcc00',
+        'fillcolor' : '#ffcc00',
+        'linecolor' : 'black',
         },
+    'prettyName' : 't#bar{t}Z, WWZ',
     }
