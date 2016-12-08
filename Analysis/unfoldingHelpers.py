@@ -64,9 +64,10 @@ def _getGenVarDict(channel, truth, var, varFunction, selectionFunction):
     channel (str): single channel to use
     truth (SampleGroup): gen-level sample
     var (str or iterable of str): variable in question (used only for caching)
-    varFunction (callable): function to extract the variable from an ntuple row
+    varFunction (callable or iterable of callable): function to extract the
+        variable from an ntuple row
     selectionFunction (callable): function that takes an ntuple row and returns
-        a boolean to select events we care about.
+        a boolean to select events we care about
 
     Returns a variable- and channel-specific dict whose keys are sample names.
         Each corresponding value is a dict containing the variable values keyed
@@ -91,10 +92,16 @@ def _getGenVarDict(channel, truth, var, varFunction, selectionFunction):
     for name, sample in truth.itersamples():
         if name in _genCache:
             continue
-        _genCache[name] = {
-            (row.run, row.lumi, row.evt) : varFunction(row)
-            for row in sample if selectionFunction(row)
-            }
+        if hasattr(varFunction, '__iter__'):
+            _genCache[name] = {
+                (row.run, row.lumi, row.evt) : [v(row) for v in varFunction]
+                for row in sample if selectionFunction(row)
+                }
+        else:
+            _genCache[name] = {
+                (row.run, row.lumi, row.evt) : varFunction(row)
+                for row in sample if selectionFunction(row)
+                }
 
     return _genCache
 
@@ -110,8 +117,11 @@ def getResponse(channel, truth, mc, bkg, var, varFunction, binning, fPUWeight,
     truth (SampleGroup): gen-level information
     stack (SampleStack): MC+background stack
     var (str or iterable of str): distribution to unfold
-    varFunction (callable): function that takes an ntuple row and returns the
-        same quantity as var
+    varFunction (callable or iterable of callable): function(s) that take(s)
+        an ntuple row and return(s) the same quantity(ies) as var. If an
+        iterable, all are used with the same selection; if only one of several
+        values should be used (as with the variable strings), the selection
+        should be done inside the function.
     binning (list): binning for var
     fPUWeight (callable): function for calculating pileup weight from nTruePU
     lepSyst (str): if 'up' or 'dn'/'down', will shift the lepton efficiency
@@ -121,14 +131,14 @@ def getResponse(channel, truth, mc, bkg, var, varFunction, binning, fPUWeight,
         variables that only make sense for MC reco)
     selectionStr (str or iterable of str): selection to apply when using draw
         strings
-    selectionFunction (callable): function that takes an ntuple row
-        and returns a boolean to select the same events as selectionStr
+    selectionFunction (callable): function that takes an ntuple row and
+        returns a boolean to select events we care about
     selectionStrAlt (str or iterable or str): Selection string for background
         and truth
-    varFunctionAlt (callable or None): function corresponding to altVar
-    selectionFunctionAlt (callable or None): function corresponding to
-        selectionStrAlt
-    ignoreCache (bool): if True, the cache will not be used
+    varFunctionAlt (callable or None): function equivalent to selectionFunction
+        but for true-level ntuples only
+    selectionFunctionAlt (callable, list of callable, or None): function(s)
+        corresponding to selectionStrAlt
     '''
     if not altVar:
         altVar = var
@@ -155,20 +165,29 @@ def getResponse(channel, truth, mc, bkg, var, varFunction, binning, fPUWeight,
     genVar = _getGenVarDict(channel, truth, altVar, varFunctionAlt,
                             selectionFunctionAlt)
 
+    if hasattr(varFunction, '__iter__'):
+        def _fill(h, rw, gen, wt):
+            for f,g in zip(varFunction, gen):
+                h.Fill(f(rw), g, wt)
+    else:
+        def _fill(h, rw, gen, wt):
+            h.Fill(varFunction(rw), gen, wt)
+
     for sample in mcList:
         name = sample.name
         wConst = sample.xsec*sample.intLumi/sample.sumW
         for row in sample:
             if selectionFunction(row):
                 evtID = (row.run, row.lumi, row.evt)
-                weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst
                 try:
-                    hResponse.Fill(varFunction(row), genVar[name][evtID],
-                                   weight)
+                    genInfo = genVar[name][evtID]
                 except KeyError:
                     # it's ok to miss an event, not a whole sample
                     if name not in genVar:
                         raise
+                    continue
+                weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst
+                _fill(hResponse, row, genInfo, weight)
 
     hTrue = truth.makeHist(altVar, selectionStrAlt, binning, perUnitWidth=False)
 
@@ -269,18 +288,28 @@ def getResponsePDFErrors(channel, truth, mc, bkg, var, varFunction,
     genVar = _getGenVarDict(channel, truth, altVar, varFunctionAlt,
                             selectionFunctionAlt)
 
+    if hasattr(varFunction, '__iter__'):
+        def _fill(h, rw, gen, wt):
+            for f,g in zip(varFunction, gen):
+                h.Fill(f(rw), g, wt)
+    else:
+        def _fill(h, rw, gen, wt):
+            h.Fill(varFunction(rw), gen, wt)
+
     for sample in mcList:
         name = sample.name
         wConst = sample.xsec*sample.intLumi/sample.sumW
         for row in sample:
             if selectionFunction(row):
                 evtID = (row.run, row.lumi, row.evt)
-                weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst
                 try:
-                    hResponseUp.Fill(varFunction(row), genVar[name][evtID],
-                                   weight)
+                    genInfo = genVar[name][evtID]
                 except KeyError:
-                    pass
+                    if name not in genVar:
+                        raise
+                    continue
+                weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst
+                _fill(hResponseUp, row, genInfo, weight)
 
     hResponseDn = hResponseUp.clone()
     # assume matrix is diagonal enough that we can just use the variance of the
@@ -353,6 +382,14 @@ def getResponseScaleErrors(channel, truth, mc, bkg, var, varFunction, binning, f
     genVar = _getGenVarDict(channel, truth, altVar, varFunctionAlt,
                             selectionFunctionAlt)
 
+    if hasattr(varFunction, '__iter__'):
+        def _fill(h, rw, gen, wt):
+            for f,g in zip(varFunction, gen):
+                h.Fill(f(rw), g, wt)
+    else:
+        def _fill(h, rw, gen, wt):
+            h.Fill(varFunction(rw), gen, wt)
+
     hResponse = []
     for iVar in _variationIndices:
         if len(binning) == 3:
@@ -371,12 +408,14 @@ def getResponseScaleErrors(channel, truth, mc, bkg, var, varFunction, binning, f
             for row in sample:
                 if selectionFunction(row):
                     evtID = (row.run, row.lumi, row.evt)
-                    weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst * fScaleWt(row)
                     try:
-                        hResponse[-1].Fill(varFunction(row), genVar[name][evtID],
-                                       weight)
+                        genInfo = genVar[name][evtID]
                     except KeyError:
-                        pass
+                        if name not in genVar:
+                            raise
+                        continue
+                    weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst * fScaleWt(row)
+                    _fill(hResponse[-1], row, genInfo, weight)
 
     hTrue = [truth.makeHist(altVar, selectionStrAlt, binning,
                             {
@@ -448,6 +487,14 @@ def getResponseAlphaSErrors(channel, truth, mc, bkg, var, varFunction, binning, 
     genVar = _getGenVarDict(channel, truth, altVar, varFunctionAlt,
                             selectionFunctionAlt)
 
+    if hasattr(varFunction, '__iter__'):
+        def _fill(h, rw, gen, wt):
+            for f,g in zip(varFunction, gen):
+                h.Fill(f(rw), g, wt)
+    else:
+        def _fill(h, rw, gen, wt):
+            h.Fill(varFunction(rw), gen, wt)
+
     hResponse = []
     for iVar in _alphaSIndices:
         if len(binning) == 3:
@@ -466,12 +513,14 @@ def getResponseAlphaSErrors(channel, truth, mc, bkg, var, varFunction, binning, 
             for row in sample:
                 if selectionFunction(row):
                     evtID = (row.run, row.lumi, row.evt)
-                    weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst * fScaleWt(row)
                     try:
-                        hResponse[-1].Fill(varFunction(row), genVar[name][evtID],
-                                       weight)
+                        genInfo = genVar[name][evtID]
                     except KeyError:
-                        pass
+                        if name not in genVar:
+                            raise
+                        continue
+                    weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst * fScaleWt(row)
+                    _fill(hResponse[-1], row, genInfo, weight)
 
     hTrue = [truth.makeHist(altVar, selectionStrAlt, binning,
                             {
