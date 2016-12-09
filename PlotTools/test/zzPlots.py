@@ -31,9 +31,9 @@ inMC = 'uwvvNtuples_mc_25nov2016'
 puWeightFile = 'puWeight_69200_08sep2016'
 fakeRateFile = 'fakeRate_08sep2016'
 
-ana = 'smp'
+ana = 'full'
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_{}_withATGC'.format(ana)
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_{}'.format(ana)
 try:
     _mkdir(outdir)
 except OSError: # already exists
