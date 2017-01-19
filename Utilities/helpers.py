@@ -197,3 +197,7 @@ def deltaRString():
         _setupDeltaR()
 
     return _strDeltaR
+
+
+def zMassDist(m):
+    return abs(m - Z_MASS)
