@@ -6,13 +6,13 @@ rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 
 from SampleTools import SampleGroup as _Group
 from SampleTools import SampleStack as _Stack
-from Utilities import mapObjects as _mapObjects
-from Utilities import identityFunction as _identityFunction
+from Utilities import mapObjects as _mapObjects, identityFunction as _identityFunction, \
+    zMassDist as _zMassDist, Z_MASS as _MZ
 
 from rootpy import ROOTError as _RootError
 from rootpy.ROOT import RooUnfoldResponse as _Response
-from rootpy.plotting import Hist2D as _Hist2D
-from rootpy.plotting import Graph as _Graph
+from rootpy.plotting import Hist2D as _Hist2D, Graph as _Graph
+import rootpy.compiled as _RootComp
 
 from operator import mul as _times
 
@@ -53,6 +53,61 @@ def _makeScaleFactorFunction(channel, syst=''):
         return lambda row: reduce(_times,(getattr(row, ob+'EffScaleFactor')-getattr(row, ob+'EffScaleFactorError') for ob in objects))
     return lambda row: reduce(_times,(getattr(row, ob+'EffScaleFactor') for ob in objects))
 
+
+def _objVar(row, var, obj):
+    return getattr(row, obj+var)
+def _nObjVar(row, var, *objects):
+    toGet = '_'.join(list(objects)+[var])
+    return getattr(row, toGet)
+
+_RootComp.register_code('''
+#include "TLorentzVector.h"
+
+float _getInvariantMass(float pt1, float eta1, float phi1,
+                        float pt2, float eta2, float phi2)
+{
+  TLorentzVector p1, p2;
+  p1.SetPtEtaPhiM(pt1, eta1, phi1, 0.);
+  p2.SetPtEtaPhiM(pt2, eta2, phi2, 0.);
+
+  return (p1+p2).M();
+}
+''', ['_getInvariantMass'])
+_asdf = _RootComp._getInvariantMass(0,0,0,0,0,0) # force to compile
+_fInvMass = _RootComp._getInvariantMass
+# note no leading '_'
+fInvMassString = '_getInvariantMass({0}Pt, {0}Eta, {0}Phi, {1}Pt, {1}Eta, {1}Phi)'
+
+def _getInvMass(row, lep1, lep2):
+    return _fInvMass(_objVar(row, 'Pt', lep1), _objVar(row, 'Eta', lep1),
+                     _objVar(row, 'Phi', lep1), _objVar(row, 'Pt', lep2),
+                     _objVar(row, 'Eta', lep2), _objVar(row, 'Phi', lep2))
+
+def _makeWrongZRejecter(channel):
+    # only needed for 4e and 4mu
+    if not all(lep == channel[0] for lep in channel):
+        return _identityFunction
+
+    obj = _mapObjects(channel)
+    def f(row):
+        dZ1 = _zMassDist(_nObjVar(row, 'Mass', obj[0], obj[1]))
+        return ((_objVar(row, 'Charge', obj[0]) == _objVar(row, 'Charge', obj[2]) or _zMassDist(_getInvMass(row, obj[0], obj[2])) > dZ1) and
+                (_objVar(row, 'Charge', obj[0]) == _objVar(row, 'Charge', obj[3]) or _zMassDist(_getInvMass(row, obj[0], obj[3])) > dZ1) and
+                (_objVar(row, 'Charge', obj[1]) == _objVar(row, 'Charge', obj[2]) or _zMassDist(_getInvMass(row, obj[1], obj[2])) > dZ1) and
+                (_objVar(row, 'Charge', obj[1]) == _objVar(row, 'Charge', obj[3]) or _zMassDist(_getInvMass(row, obj[1], obj[3])) > dZ1))
+    return f
+
+_wrongZRejectionTemp = ('(({0}1Charge=={0}3Charge||abs(_getInvariantMass({0}1Pt,{0}1Eta,{0}1Phi,{0}3Pt,{0}3Eta,{0}3Phi)-{1}) > abs({0}1_{0}2_Mass-{1})) && '
+                        ' ({0}1Charge=={0}4Charge||abs(_getInvariantMass({0}1Pt,{0}1Eta,{0}1Phi,{0}4Pt,{0}4Eta,{0}4Phi)-{1}) > abs({0}1_{0}2_Mass-{1})) && '
+                        ' ({0}2Charge=={0}3Charge||abs(_getInvariantMass({0}2Pt,{0}2Eta,{0}2Phi,{0}3Pt,{0}3Eta,{0}3Phi)-{1}) > abs({0}1_{0}2_Mass-{1})) && '
+                        ' ({0}2Charge=={0}4Charge||abs(_getInvariantMass({0}2Pt,{0}2Eta,{0}2Phi,{0}4Pt,{0}4Eta,{0}4Phi)-{1}) > abs({0}1_{0}2_Mass-{1})))')
+_wrongZRejectionStr = {
+    'eeee' : _wrongZRejectionTemp.format('e', _MZ),
+    'mmmm' : _wrongZRejectionTemp.format('m', _MZ),
+    'eemm' : '1'
+    }
+
+
 _genCache = {}
 _cacheVar = ''
 _cacheChannel = ''
@@ -91,16 +146,18 @@ def _getGenVarDict(channel, truth, var, varFunction, selectionFunction):
 
     for name, sample in truth.itersamples():
         if name in _genCache:
+            print "Reusing {} {}".format(channel, varName)
             continue
+        fBestZ = _makeWrongZRejecter(channel)
         if hasattr(varFunction, '__iter__'):
             _genCache[name] = {
                 (row.run, row.lumi, row.evt) : [v(row) for v in varFunction]
-                for row in sample if selectionFunction(row)
+                for row in sample if selectionFunction(row) and fBestZ(row)
                 }
         else:
             _genCache[name] = {
                 (row.run, row.lumi, row.evt) : varFunction(row)
-                for row in sample if selectionFunction(row)
+                for row in sample if selectionFunction(row) and fBestZ(row)
                 }
 
     return _genCache
@@ -144,6 +201,14 @@ def getResponse(channel, truth, mc, bkg, var, varFunction, binning, fPUWeight,
         altVar = var
     if not selectionStrAlt:
         selectionStrAlt = selectionStr
+
+    if not selectionStrAlt:
+        selectionStrGen = _wrongZRejectionStr[channel]
+    elif isinstance(selectionStrAlt, str):
+        selectionStrGen = selectionStrAlt + ' && ' + _wrongZRejectionStr[channel]
+    else:
+        # better be an iterable of strings
+        selectionStrGen = [(s + ' && ' if s else '') + _wrongZRejectionStr[channel] for s in selectionStrAlt]
 
     if varFunctionAlt is None:
         varFunctionAlt = varFunction
@@ -189,7 +254,9 @@ def getResponse(channel, truth, mc, bkg, var, varFunction, binning, fPUWeight,
                 weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst
                 _fill(hResponse, row, genInfo, weight)
 
-    hTrue = truth.makeHist(altVar, selectionStrAlt, binning, perUnitWidth=False)
+    hTrue = truth.makeHist(altVar,
+                           selectionStrGen,
+                           binning, perUnitWidth=False)
 
     return _Response(hReco, hTrue, hResponse)
 
@@ -203,6 +270,7 @@ class _NoPDFWeightLogging(logging.Filter):
     '''
     def filter(self, record):
         return 'Bad numerical expression : "pdfWeights"' not in record.msg
+
 rlog["/ROOT.TTreeFormula.Compile"].addFilter(_NoPDFWeightLogging())
 
 def getResponsePDFErrors(channel, truth, mc, bkg, var, varFunction,
@@ -222,6 +290,14 @@ def getResponsePDFErrors(channel, truth, mc, bkg, var, varFunction,
     if not selectionStrAlt:
         selectionStrAlt = selectionStr
 
+    if not selectionStrAlt:
+        selectionStrGen = _wrongZRejectionStr[channel]
+    elif isinstance(selectionStrAlt, str):
+        selectionStrGen = selectionStrAlt + ' && ' + _wrongZRejectionStr[channel]
+    else:
+        # better be an iterable of strings
+        selectionStrGen = [(s + ' && ' if s else '') + _wrongZRejectionStr[channel] for s in selectionStrAlt]
+
     if varFunctionAlt is None:
         varFunctionAlt = varFunction
     if selectionFunctionAlt is None:
@@ -235,7 +311,7 @@ def getResponsePDFErrors(channel, truth, mc, bkg, var, varFunction,
     hRecoVariations = []
     for s in mc.values():
         try:
-            hRecoVariations.append(s.makeHist2(var, 'Iteration$', '', binning,
+            hRecoVariations.append(s.makeHist2(var, 'Iteration$', selectionStr, binning,
                                    [100, 0, 100], 'pdfWeights', False))
         except _RootError:
             # MCFM samples don't have LHE info
@@ -253,14 +329,17 @@ def getResponsePDFErrors(channel, truth, mc, bkg, var, varFunction,
         hRecoDn[i+1].value = max(0.,hRecoDn[i+1].value + binRMSes[i])
 
     # same for gen info
-    hTrueUp = truth.makeHist(altVar, selectionStrAlt, binning, perUnitWidth=False)
+    hTrueUp = truth.makeHist(altVar, selectionStrGen, binning,
+                             perUnitWidth=False)
     hTrueDn = hTrueUp.clone()
 
     hTrueVariations = []
     for s in truth.values():
         try:
-            hTrueVariations.append(s.makeHist2(var, 'Iteration$', '', binning,
-                                   [100, 0, 100], 'pdfWeights', False))
+            hTrueVariations.append(s.makeHist2(var, 'Iteration$',
+                                               selectionStrGen, binning,
+                                               [100, 0, 100], 'pdfWeights',
+                                               False))
         except _RootError:
             # MCFM samples don't have LHE info
             if 'GluGluZZ' not in s.name:
@@ -359,6 +438,14 @@ def getResponseScaleErrors(channel, truth, mc, bkg, var, varFunction, binning, f
     if not selectionStrAlt:
         selectionStrAlt = selectionStr
 
+    if not selectionStrAlt:
+        selectionStrGen = _wrongZRejectionStr[channel]
+    elif isinstance(selectionStrAlt, str):
+        selectionStrGen = selectionStrAlt + ' && ' + _wrongZRejectionStr[channel]
+    else:
+        # better be an iterable of strings
+        selectionStrGen = [(s + ' && ' if s else '') + _wrongZRejectionStr[channel] for s in selectionStrAlt]
+
     if varFunctionAlt is None:
         varFunctionAlt = varFunction
     if selectionFunctionAlt is None:
@@ -417,7 +504,7 @@ def getResponseScaleErrors(channel, truth, mc, bkg, var, varFunction, binning, f
                     weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst * fScaleWt(row)
                     _fill(hResponse[-1], row, genInfo, weight)
 
-    hTrue = [truth.makeHist(altVar, selectionStrAlt, binning,
+    hTrue = [truth.makeHist(altVar, selectionStrGen, binning,
                             {
                 'ZZTo4L':'scaleWeights[{}]'.format(i),
                 'ZZTo4L-amcatnlo':'scaleWeights[{}]'.format(i),
@@ -463,6 +550,14 @@ def getResponseAlphaSErrors(channel, truth, mc, bkg, var, varFunction, binning, 
         altVar = var
     if not selectionStrAlt:
         selectionStrAlt = selectionStr
+
+    if not selectionStrAlt:
+        selectionStrGen = _wrongZRejectionStr[channel]
+    elif isinstance(selectionStrAlt, str):
+        selectionStrGen = selectionStrAlt + ' && ' + _wrongZRejectionStr[channel]
+    else:
+        # better be an iterable of strings
+        selectionStrGen = [(s + ' && ' if s else '') + _wrongZRejectionStr[channel] for s in selectionStrAlt]
 
     if varFunctionAlt is None:
         varFunctionAlt = varFunction
@@ -522,7 +617,7 @@ def getResponseAlphaSErrors(channel, truth, mc, bkg, var, varFunction, binning, 
                     weight = fPUWeight(row.nTruePU) * row.genWeight * fLepSF(row) * wConst * fScaleWt(row)
                     _fill(hResponse[-1], row, genInfo, weight)
 
-    hTrue = [truth.makeHist(altVar, selectionStrAlt, binning,
+    hTrue = [truth.makeHist(altVar, selectionStrGen, binning,
                             {
                 'ZZTo4L':'pdfWeights[{}]'.format(i),
                 'ZZTo4L-amcatnlo':'pdfWeights[{}]'.format(i),

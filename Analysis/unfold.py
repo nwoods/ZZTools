@@ -60,6 +60,17 @@ def _makeComparator(var, compareTo):
 
     return lambda row: getattr(row, newVar) > newComp
 
+_wrongZRejectionTemp = ('(({0}1Charge=={0}3Charge||abs(_getInvariantMass({0}1Pt,{0}1Eta,{0}1Phi,{0}3Pt,{0}3Eta,{0}3Phi)-{1}) > abs({0}1_{0}2_Mass-{1})) && '
+                        ' ({0}1Charge=={0}4Charge||abs(_getInvariantMass({0}1Pt,{0}1Eta,{0}1Phi,{0}4Pt,{0}4Eta,{0}4Phi)-{1}) > abs({0}1_{0}2_Mass-{1})) && '
+                        ' ({0}2Charge=={0}3Charge||abs(_getInvariantMass({0}2Pt,{0}2Eta,{0}2Phi,{0}3Pt,{0}3Eta,{0}3Phi)-{1}) > abs({0}1_{0}2_Mass-{1})) && '
+                        ' ({0}2Charge=={0}4Charge||abs(_getInvariantMass({0}2Pt,{0}2Eta,{0}2Phi,{0}4Pt,{0}4Eta,{0}4Phi)-{1}) > abs({0}1_{0}2_Mass-{1})))')
+_wrongZRejectionStr = {
+    'eeee' : _wrongZRejectionTemp.format('e', Z_MASS),
+    'mmmm' : _wrongZRejectionTemp.format('m', Z_MASS),
+    'eemm' : '1'
+    }
+
+
 # set up variables, selection, binnings etc.
 # (jet-related variables and selections done later)
 _variables = {
@@ -1077,7 +1088,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             #hUnfoldedAlt.title = 'Unfolded {}'.format(signalNameAlt)
             #_normalizeBins(hUnfoldedAlt)
 
-            hTrue = true[chan].makeHist(var, sel, binning, perUnitWidth=False)
+            if not sel:
+                selGen = _wrongZRejectionStr[chan]
+            elif isinstance(sel, str):
+                selGen = sel + ' && ' + _wrongZRejectionStr[chan]
+            else:
+                # better be an iterable of strings
+                selGen = [(s + ' && ' if s else '') + _wrongZRejectionStr[chan] for s in sel]
+
+            hTrue = true[chan].makeHist(var, selGen, binning, perUnitWidth=False)
             hTrue.fillcolor = '#99ccff'
             hTrue.linecolor = '#000099'
             hTrue.drawstyle = 'hist'
@@ -1087,7 +1106,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
             hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
             _normalizeBins(hTrue)
 
-            hTrueAlt = altTrue[chan].makeHist(var, sel, binning,
+            hTrueAlt = altTrue[chan].makeHist(var, selGen, binning,
                                               perUnitWidth=False)
             hTrueAlt.color = 'red'
             hTrueAlt.drawstyle = 'hist'
@@ -1225,7 +1244,17 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         #hTotAlt /= hTotAlt.Integral(0,hTotAlt.GetNbinsX()+1)
         #_normalizeBins(hTotAlt)
 
-        hTrue = true.makeHist(_variables[varName], _selections[varName],
+        selGen = {}
+        for chan in channels:
+            if not _selections[varName][chan]:
+                selGen[chan] = _wrongZRejectionStr[chan]
+            elif isinstance(_selections[varName][chan], str):
+                selGen[chan] = _selections[varName][chan] + ' && ' + _wrongZRejectionStr[chan]
+            else:
+                # better be an iterable of strings
+                selGen[chan] = [(s + ' && ' if s else '') + _wrongZRejectionStr[chan] for s in _selections[varName][chan]]
+
+        hTrue = true.makeHist(_variables[varName], selGen,
                               binning, perUnitWidth=False)
         hTrue.fillcolor = '#99ccff'
         hTrue.linecolor = '#000099'
@@ -1236,7 +1265,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter, redo,
         hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
         _normalizeBins(hTrue)
 
-        hTrueAlt = altTrue.makeHist(_variables[varName], _selections[varName],
+        hTrueAlt = altTrue.makeHist(_variables[varName], selGen,
                                     binning, perUnitWidth=False)
         hTrueAlt.color = 'r'
         hTrueAlt.drawstyle = 'hist'
