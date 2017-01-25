@@ -17,7 +17,11 @@ from os.path import isdir as _isdir
 from os.path import exists as _exists
 
 
-def moveAndRename(outdir, extension='.root', copy=False, **samples):
+def _printBeforeAndAfter(before, after):
+    print '{} becomes {}'.format(before, after)
+
+def moveAndRename(outdir, extension='.root', copy=False,
+                  dryRun=False, **samples):
     if not _exists(outdir):
         _mkdir(outdir)
     elif not _isdir(outdir):
@@ -27,6 +31,9 @@ def moveAndRename(outdir, extension='.root', copy=False, **samples):
         move = _cp
     else:
         move = _mv
+
+    if dryRun:
+        move = _printBeforeAndAfter
 
     for name, filePath in samples.iteritems():
         files = _glob(filePath)
@@ -54,6 +61,9 @@ if __name__ == '__main__':
                               'matching GLOB will be moved and renamed '
                               'NAME_n.root, where n is a counter so that each file '
                               'has a unique name.'))
+    parser.add_argument('--dryRun', '--dry-run', '--dry_run',
+                        action='store_true',
+                        help='Print the files that would move, but don\'t actually move them.')
 
     args = parser.parse_args()
 
@@ -63,4 +73,4 @@ if __name__ == '__main__':
 
     groups = dict(args.g)
 
-    moveAndRename(args.outdir[0], args.extension, args.cp, **groups)
+    moveAndRename(args.outdir[0], args.extension, args.cp, args.dryRun, **groups)
