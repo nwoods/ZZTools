@@ -33,7 +33,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
     puFile (str): Location of PU weights, relative to ZZTools/data/pileup
     lumi (float): integrated luminosity of data sample
     plot (bool): if True, draw plots
-    plotDir (std): absolute path of directory to put plots in, if applicable
+    plotDir (str): absolute path of directory to put plots in, if applicable
     '''
     if plot:
         style = _Style()
@@ -57,7 +57,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
         'mmm' : 'm1EffScaleFactor * m2EffScaleFactor * m3EffScaleFactor',
     }
 
-    mcSamples = ['DYJets', 'TTJets']
+    mcSamples = ['DYToLL-0J', 'DYToLL-1J', 'DYToLL-2J', 'TTTo2L2Nu']
     signalSamples = ['WZTo3LNu', 'ZZTo4L',
                      'GluGluZZTo4e','GluGluZZTo4mu','GluGluZZTo2e2mu']
 
@@ -102,7 +102,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
     for c in channels:
         samplesByEraLoose = {}
         samplesByEraTight = {}
-        for era in ['2016B','2016C','2016D']:
+        for era in ['2016'+let for let in 'BCDEFGH']:
             samplesByEraLoose[era] = DataSample('data{}'.format(era), c,
                                                 fStr.format('data', 'Loose',
                                                             'Run{}'.format(era)))
@@ -118,7 +118,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
     dataLoose.format(color='black',drawstyle='PE',legendstyle='LPE')
     dataTight.format(color='black',drawstyle='PE',legendstyle='LPE')
 
-    ptBinning = [5.,10.,30.,60.,200.]
+    ptBinning = [5.,10.,20.,30.,45.,80.,200.]
     etaBinning = [0.,0.8,1.47,2.5]
 
     ptVars = {
@@ -274,10 +274,10 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
 
             # fake rate vs pt
             cPt = Canvas(1000,1000)
-            fPtMC = ptMCTotTight.clone(name='MC')
+            fPtMC = ptMCTotTight.clone(name='MC', title='MC')
             fPtMC.Divide(ptMCTot)
             fPtMC.color = 'r'
-            fPtMC.drawstyle = 'hist'
+            fPtMC.drawstyle = 'LE'
 
             ptDataTotTight -= ptSigTotTight
             ptDataTot -= ptSigTot
@@ -298,7 +298,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
             legPt = makeLegend(cPt, fPtMC, fPt)
 
             draw([fPtMC, fPt], cPt, xtitle='p_{T} (GeV)', ytitle='Fake Rate',
-                 ylimits=(0.,1.))
+                 ylimits=(0.,.25))
             legPt.Draw("same")
             style.setCMSStyle(cPt, '', dataType='Preliminary', intLumi=lumi)
             cPt.Print('{}/{}FakeRate_pt.png'.format(plotDir, lep))
@@ -346,10 +346,10 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
 
             # fake rate vs eta
             cEta = Canvas(1000,1000)
-            fEtaMC = etaMCTotTight.clone(name='MC')
+            fEtaMC = etaMCTotTight.clone(name='MC', title='MC')
             fEtaMC.Divide(etaMCTot)
             fEtaMC.color = 'r'
-            fEtaMC.drawstyle = 'hist'
+            fEtaMC.drawstyle = 'LE'
 
             etaDataTotTight -= etaSigTotTight
             etaDataTot -= etaSigTot
@@ -361,7 +361,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
                     bDenom.value = 0.0000001
                     bDenom.error = 0.
 
-            fEta = etaDataTotTight.clone(name='Data')
+            fEta = etaDataTotTight.clone(name='Data', title='Data')
             fEta.Divide(etaDataTot)
             fEta.drawstyle = 'PE'
 
@@ -370,7 +370,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
             legEta = makeLegend(cEta, fEtaMC, fEta)
 
             draw([fEtaMC, fEta], cEta, xtitle='p_{T} (GeV)', ytitle='Fake Rate',
-                 ylimits=(0.,1.))
+                 ylimits=(0.,.25))
             legEta.Draw("same")
             style.setCMSStyle(cEta, '', dataType='Preliminary', intLumi=lumi)
             cEta.Print('{}/{}FakeRate_eta.png'.format(plotDir, lep))
