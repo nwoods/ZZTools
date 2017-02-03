@@ -10,6 +10,35 @@ sampleInfo['TTJets'] = {
         },
     }
 
+sampleInfo['TTJets-DiLept'] = {
+    'xsec' : 56.7,
+    'shortName' : 'TTJets',
+    'prettyName' : 't \\={t}\\text{ + Jets}',
+    'isSignal' : False,
+    'format' : {
+        'color' : 'limegreen',
+        },
+    }
+
+sampleInfo['TTTo2L2Nu'] = {
+    'xsec' : 87.31,
+    'shortName' : 'TTJets',
+    'prettyName' : 't \\={t}\\text{ + Jets}',
+    'isSignal' : False,
+    'format' : {
+        'color' : 'limegreen',
+        },
+    }
+
+sampleInfo['TTZ'] = {
+    'xsec' : 0.2529,
+    'prettyName' : 't#bar{t}Z',
+    'isSignal' : False,
+    'format' : {
+        'color' : 'pink',
+        },
+}
+
 sampleInfo['DYJets'] = {
     'xsec' : 5765.4, #5943.2, #6104.,
     'shortName' : 'DYJets',
@@ -17,6 +46,46 @@ sampleInfo['DYJets'] = {
     'isSignal' : False,
     'format' : {
         'color' : '#669966',
+        },
+    }
+
+sampleInfo['DYJets-madgraph'] = {
+    'xsec' : 5765.4, #5943.2, #6104.,
+    'shortName' : 'DYJets',
+    'prettyName' : '\\text{Z + Jets}',
+    'isSignal' : False,
+    'format' : {
+        'color' : '#669966',
+        },
+    }
+
+sampleInfo['DYToLL-0J'] = {
+    'xsec' : 4759.,
+    'shortName' : 'DY0J',
+    'prettyName' : 'Z + 0 jets',
+    'isSignal' : False,
+    'format' : {
+        'color' : '#669966',
+        },
+    }
+
+sampleInfo['DYToLL-1J'] = {
+    'xsec' : 881.,
+    'shortName' : 'DY1J',
+    'prettyName' : 'Z + 1 jet',
+    'isSignal' : False,
+    'format' : {
+        'color' : '#669944',
+        },
+    }
+
+sampleInfo['DYToLL-2J'] = {
+    'xsec' : 336.3,
+    'shortName' : 'DY2J',
+    'prettyName' : 'Z + 2 jets',
+    'isSignal' : False,
+    'format' : {
+        'color' : '#669922',
         },
     }
 
@@ -105,6 +174,17 @@ sampleInfo["ZZTo4L-amcatnlo"] = {
     'kFactor' : '1.1',
     }
 
+sampleInfo["ZZTo4L-sherpa"] = {
+    'xsec' : 0.455985,
+    'prettyName' : 'q#bar{q} #rightarrow ZZ (SHERPA)',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#99ccff',
+        'linecolor' : '#000099',
+        },
+    'kFactor' : '1.1',
+    }
+
 sampleInfo["WZTo3LNu"] = {
     'xsec' : 4.42965,
     'prettyName' : '\\text{WZ + Jets}',
@@ -114,9 +194,28 @@ sampleInfo["WZTo3LNu"] = {
         },
     }
 
+sampleInfo["WZTo3LNu-amcatnlo"] = {
+    'xsec' : 4.71,
+    'prettyName' : '\\text{WZ + Jets}',
+    'isSignal' : False,
+    'format' : {
+        'color' : 'violet',
+        },
+    }
+
 sampleInfo["ZZJJTo4L_EWK"] = {
     'xsec' : 0.0004404,
-    'prettyName' : 'ZZ + jets EWK',
+    'prettyName' : 'ZZ + 2 jets EWK',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#bbeeff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo["ZZJJTo4L_QCD"] = {
+    'xsec' : 0.009335,
+    'prettyName' : 'ZZ + 2 jets QCD',
     'isSignal' : True,
     'format' : {
         'fillcolor' : '#bbeeff',
@@ -143,12 +242,30 @@ sampleInfo['WWZ'] = {
         },
     }
 
-sampleInfo['TTZ'] = {
-    'xsec' : 0.2529,
-    'prettyName' : 't#bar{t}Z',
+sampleInfo['WZZ'] = {
+    'xsec' : 0.5565,
+    'prettyName' : 'WZZ',
     'isSignal' : False,
     'format' : {
-        'color' : 'pink',
+        'color' : 'indigo',
+        },
+    }
+
+sampleInfo['WZZ'] = {
+    'xsec' : 0.5565,
+    'prettyName' : 'WZZ',
+    'isSignal' : False,
+    'format' : {
+        'color' : 'indigo',
+        },
+    }
+
+sampleInfo['ZZZ'] = {
+    'xsec' : 0.01398,
+    'prettyName' : 'ZZZ',
+    'isSignal' : False,
+    'format' : {
+        'color' : 'darkorchid',
         },
     }
 
@@ -186,4 +303,14 @@ groupInfo['irreducible'] = {
         'linecolor' : 'black',
         },
     'prettyName' : 't#bar{t}Z, WWZ',
+    }
+
+groupInfo['DYToLL'] = {
+    'shortName' : 'DYJets',
+    'prettyName' : '\\text{Z + Jets}',
+    'isSignal' : False,
+    'format' : {
+        'fillcolor' : '#669966',
+        'linecolor' : '#003300',
+        },
     }
