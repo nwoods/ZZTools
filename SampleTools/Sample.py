@@ -23,6 +23,7 @@ from rootpy.io import root_open, TemporaryFile
 from rootpy.io import DoesNotExist as _RootpyDNE
 from rootpy.tree import Tree, TreeChain
 from rootpy.plotting import Hist, Hist2D, Canvas
+from rootpy.context import preserve_current_directory
 
 from glob import glob
 from math import sqrt
@@ -134,6 +135,7 @@ class NtupleSample(_SampleBase):
     def storeInputs(self, inputs):
         if isinstance(inputs, Tree):
             self.ntuple = inputs
+            self.files = [self.ntuple.GetCurrentFile().GetName()]
             return self.ntuple
 
         if isinstance(inputs, str):
@@ -162,7 +164,6 @@ class NtupleSample(_SampleBase):
             return self.ntupleFile.Get('{}/ntuple'.format(chan))
 
         return TreeChain('{}/ntuple'.format(chan), files)
-
 
     def addToHist(self, hist, var, selection):
         self.ntuple.Draw(var, selection, 'goff', hist)
@@ -362,6 +363,11 @@ class NtupleSample(_SampleBase):
 
     def __len__(self):
         return self.ntuple.GetEntries()
+
+
+    def getFileNames(self):
+        for fn in self.files:
+            yield fn
 
 
 

@@ -276,6 +276,24 @@ class SampleGroup(_SampleBase):
             yield x
 
 
+    def getFileNames(self):
+        for x in self.values():
+            for xx in x.getFileNames():
+                yield xx
+
+
+    def getBaseSamples(self):
+        '''
+        Get the lowest-level, non-composite samples.
+        '''
+        for s in self.values():
+            try:
+                for ss in s.getBaseSamples():
+                    yield ss
+            except AttributeError:
+                yield s
+
+
     def __getitem__(self, x):
         return self._samples[x]
 
@@ -424,6 +442,24 @@ class SampleStack(_SampleBase):
     def __iter__(self):
         for s in self._samples:
             yield s
+
+
+    def getBaseSamples(self):
+        '''
+        Get the lowest-level, non-composite samples.
+        '''
+        for s in self:
+            try:
+                for ss in s.getBaseSamples():
+                    yield ss
+            except AttributeError:
+                yield s
+
+
+    def getFileNames(self):
+        for x in self:
+            for xx in x.getFileNames():
+                yield xx
 
 
     def __getitem__(self, n):
