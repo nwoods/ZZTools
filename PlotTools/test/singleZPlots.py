@@ -21,19 +21,19 @@ from os import path as _path
 
 test = False
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/singleZ_rereco'
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/singleZ_24jan2017'
 if test:
     outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/test'
 
 style = _Style()
 
-lumi = 36773.
+lumi = 36810.
 
 channels = ['ee','mm']
 
 puWeight = WeightStringMaker('puWeight')
 fPU = root_open(_path.join(environ['zzt'], 'data', 'pileup',
-                           'puWeight_69200_16jan2017.root'))
+                           'puWeight_69200_24jan2017.root'))
 hPU = fPU.puScaleFactor
 strPU = puWeight.makeWeightStringFromHist(hPU, 'nTruePU')
 
@@ -53,13 +53,13 @@ else:
     for c in channels:
         byNJets = {
             '{}J'.format(nJ) : MCSample('DYToLL-{}J'.format(nJ), c,
-                                        '/data/nawoods/ntuples/uwvvSingleZ_mc_16jan2017/results/DYToLL-{}J_*.root'.format(nJ),
+                                        '/data/nawoods/ntuples/uwvvSingleZ_mc_24jan2017/results/DYToLL-{}J_*.root'.format(nJ),
                                         True, lumi) for nJ in range(3)}
         dyByChan[c] = SampleGroup('DYJets', c, byNJets, True)
 
     # dyByChan = {
     #     c : MCSample('DYJets', c,
-    #                  '/data/nawoods/ntuples/uwvvSingleZ_mc_16jan2017/results/DYJets*.root',
+    #                  '/data/nawoods/ntuples/uwvvSingleZ_mc_24jan2017/results/DYJets*.root',
     #                  True, lumi) for c in channels
     #     }
 
@@ -74,12 +74,12 @@ if test:
 else:
     ttByChan = {
         c : MCSample('TTTo2L2Nu', c,
-                     '/data/nawoods/ntuples/uwvvSingleZ_mc_16jan2017/results/TTTo2L2Nu*.root',
+                     '/data/nawoods/ntuples/uwvvSingleZ_mc_24jan2017/results/TTTo2L2Nu*.root',
                      True, lumi) for c in channels
         }
     # ttByChan = {
     #     c : MCSample('TTJets', c,
-    #                  '/data/nawoods/ntuples/uwvvSingleZ_mc_16jan2017/results/TTJets*.root',
+    #                  '/data/nawoods/ntuples/uwvvSingleZ_mc_24jan2017/results/TTJets*.root',
     #                  True, lumi) for c in channels
     #     }
 
@@ -98,7 +98,7 @@ for c in channels:
     else:
         for era in 'BCDEFGH':
             samplesByEra['2016{}'.format(era)] = DataSample('2016{}'.format(era), c,
-                                                            '/data/nawoods/ntuples/uwvvSingleZ_data_16jan2017/results/Run2016{}*.root'.format(era)
+                                                            '/data/nawoods/ntuples/uwvvSingleZ_data_24jan2017/results/Run2016{}*.root'.format(era)
                                                             )
 
 

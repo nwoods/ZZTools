@@ -21,27 +21,31 @@ from Analysis import standardZZSamples
 from os import environ
 from os import path as _path
 from os import makedirs as _mkdir
+from os.path import isdir as _isdir
+from os.path import exists as _exists
 from collections import OrderedDict
 from math import sqrt
 
 
-inData = 'uwvvNtuples_data_25nov2016'
-inMC = 'uwvvNtuples_mc_25nov2016'
+inData = 'uwvvNtuples_data_24jan2017'
+inMC = 'uwvvNtuples_mc_24jan2017'
 
-puWeightFile = 'puWeight_69200_08sep2016'
-fakeRateFile = 'fakeRate_08sep2016'
+puWeightFile = 'puWeight_69200_24jan2017'
+fakeRateFile = 'fakeRate_24jan2017'
 
-ana = 'full'
+ana = 'smp'
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_{}'.format(ana)
-try:
+_blind = False
+
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_24jan2017_{}'.format(ana)
+if not _exists(outdir):
     _mkdir(outdir)
-except OSError: # already exists
-    pass
+elif not _isdir(outdir):
+    raise IOError("There is already some non-directory object called {}.".format(outdir))
 
 style = _Style()
 
-lumi = 15937.
+lumi = 36810.
 
 amcatnlo=False
 if amcatnlo:
@@ -165,7 +169,8 @@ for v,t in xTitles.iteritems():
 # some distributions need the legend moved
 legParamsLeft = {
     'leftmargin' : 0.05,
-    'rightmargin' : 0.5,
+    'rightmargin' : 0.53,
+    'textsize' : 0.029,
     }
 
 
@@ -246,7 +251,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
         # blinding
         dataSelection = ''
-        if varName == 'Mass':
+        if _blind and varName == 'Mass':
             dataSelection = 'Mass < 500.'
             if selections4l[varName]:
                 dataSelection += ' && ' + selections4l[varName]
@@ -261,7 +266,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
         c = Canvas(1000,1000)
 
-        legParams = {}
+        legParams = {'textsize':0.029}
         if ana == 'z4l' and varName == 'Mass' or ana == 'smp' and varName == 'deltaRZZ':
             legParams = legParamsLeft.copy()
         leg = makeLegend(c, *toPlot, **legParams)
@@ -277,7 +282,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
                                                      xtitle=xTitle,
                                                      ytitle=yTitle)
         # blinding box
-        if varName == 'Mass' and binning4l['Mass'][-1] > 500.:
+        if _blind and varName == 'Mass' and binning4l['Mass'][-1] > 500.:
             box = TBox(max(xmin,500.), ymin, min(binning4l['Mass'][-1], xmax), ymax)
             box.SetFillColor(1)
             box.SetFillStyle(3002)
@@ -357,7 +362,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
                 legParams['entryheight'] = 0.02
                 legParams['entrysep'] = 0.008
-                legParams['textsize'] = 0.022
+                legParams['textsize'] = 0.02
                 legParams['leftmargin'] = 0.4
 
                 cTGC = Canvas(1000,1000)
@@ -369,7 +374,7 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
                                                              ytitle=yTitle,
                                                              logy=True)
                 # blinding box
-                if binning4l['Mass'][-1] > 500.:
+                if _blind and binning4l['Mass'][-1] > 500.:
                     box = TBox(max(xmin,500.), ymin, min(binning4l['Mass'][-1], xmax), ymax)
                     box.SetFillColor(1)
                     box.SetFillStyle(3002)
@@ -486,7 +491,7 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
 
         c = Canvas(1000,1000)
 
-        legParams = {}
+        legParams = {'textsize':0.029}
         if ana == 'full' and varName == 'Mass':
             legParams = legParamsLeft.copy()
         leg = makeLegend(c, hStack, dataPts, **legParams)
@@ -503,7 +508,7 @@ for z in ['z', 'ze', 'zm', 'z1', 'z2']:
                                                      ytitle=yTitle)
 
         # blinding box
-        if varName == 'Pt' and binning2l['Pt'][-1] > 200.:
+        if _blind and varName == 'Pt' and binning2l['Pt'][-1] > 200.:
             box = TBox(max(xmin,200.), ymin, min(binning2l['Pt'][-1], xmax), ymax)
             box.SetFillColor(1)
             box.SetFillStyle(3002)
@@ -598,7 +603,7 @@ for lep in varTemplates1l:
 
         c = Canvas(1000,1000)
 
-        leg = makeLegend(c, hStack, dataPts)
+        leg = makeLegend(c, hStack, dataPts, leftmargin=0.47)
 
         xTitle = xTitles[varName]
         if '{obj}' in xTitle:
