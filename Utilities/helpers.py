@@ -201,3 +201,9 @@ def deltaRString():
 
 def zMassDist(m):
     return abs(m - Z_MASS)
+
+
+def zeroNegativeBins(h):
+    for b in h:
+        b.value = max(0., b.value)
+
