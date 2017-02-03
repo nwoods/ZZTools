@@ -26,9 +26,9 @@ from rootpy import asrootpy
 from os import path, environ
 
 
-outputFileName = 'puWeight_69200_16jan2017.root'
+outputFileName = 'puWeight_69200_24jan2017.root'
 mcDistFileName = 'mix_2016_25ns_Moriond17MC_PoissonOOTPU.txt'
-dataDistFileTemplate = 'puDistData_{}_16jan2017.root'
+dataDistFileTemplate = 'puDistData_{}_24jan2017.root'
 dataDistFileName = dataDistFileTemplate.format(69200)
 dataDistFileNameDn = dataDistFileTemplate.format(66017)
 dataDistFileNameUp = dataDistFileTemplate.format(72383)
