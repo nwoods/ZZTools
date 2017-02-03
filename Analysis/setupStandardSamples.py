@@ -65,15 +65,19 @@ def standardZZMC(channel, inDir, sampleName, resultType, puWeightFile, lumi,
     return mc
 
 
-def standardZZData(channel, inDir, resultType):
+def standardZZData(channel, inDir, resultType, firstHalf=False):
     channels = _parseChannels(channel)
     dataFileTemp = _path.join('/data/nawoods/ntuples', inDir, # if mcDir is absolute, first argument is ignored
                               'results_{}'.format(resultType), 'Run2016{}_*.root')
 
+    eras = ['B', 'C', 'D', 'E', 'F', 'G', 'H']
+    if firstHalf:
+        eras = eras[:4]
+
     byChan = {}
     for c in channels:
         samplesByEra = {}
-        for era in ['B','C','D','E']:
+        for era in eras:
             samplesByEra['2016{}'.format(era)] = _Data('2016{}_{}'.format(era, c),
                                                        c, dataFileTemp.format(era)
                                                        )
@@ -371,7 +375,8 @@ def standardZZGen(channel, inDir, sampleName, resultType, lumi):
     return _Group(sampleName, channel+'Gen', byChan, True)
 
 
-def genZZSamples(channel, fileDir, resultType, lumi, amcatnlo=False):
+def genZZSamples(channel, fileDir, resultType, lumi, amcatnlo=False,
+                 higgs=False):
     qqZZSampleName = 'ZZTo4L'
     if amcatnlo:
         qqZZSampleName += '-amcatnlo'
@@ -383,17 +388,24 @@ def genZZSamples(channel, fileDir, resultType, lumi, amcatnlo=False):
     for c in channels:
         theseSamples = {}
         theseSamples[qqZZSampleName] = standardZZGen(c, fileDir,
-                                                     qqZZSampleName, 'smp',
+                                                     qqZZSampleName,
+                                                     resultType,
                                                      lumi)
 
         for fs in ['4e', '4mu', '2e2mu']:
             sample = 'GluGluZZTo{}'.format(fs)
-            theseSamples[sample] = standardZZGen(c, fileDir, sample, 'smp',
+            theseSamples[sample] = standardZZGen(c, fileDir, sample,
+                                                 resultType,
                                                  lumi)
 
         theseSamples['ZZJJTo4L_EWK'] = standardZZGen(c, fileDir,
-                                                     'ZZJJTo4L_EWK', 'smp',
+                                                     'ZZJJTo4L_EWK',
+                                                     resultType,
                                                      lumi)
+
+        if higgs:
+            theseSamples['ggHZZ'] = standardZZGen(c, fileDir, 'ggHZZ',
+                                                  resultType, lumi)
 
         samplesByChan[c] = _Group("GenZZ", c+'Gen', theseSamples, False)
 
