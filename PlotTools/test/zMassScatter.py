@@ -23,9 +23,9 @@ from os.path import exists, isdir, join
 from os import makedirs as mkdir
 
 
-inDir = 'uwvvNtuples_data_25nov2016'
-outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter'
-lumi = 15937.
+inDir = 'uwvvNtuples_data_24jan2017'
+outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter_rereco'
+lumi = 36810.
 
 colors = {'eeee':'b','eemm':'r','mmmm':'forestgreen'}
 markers = {'eeee':20,'eemm':21,'mmmm':22}
