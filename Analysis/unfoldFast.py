@@ -338,6 +338,7 @@ _legParams['deltaEtajj']['topmargin'] = .05
 _legParams['eta'] = _legParams['deltaEtajj'].copy()
 _legParams['lPt']['topmargin'] = 0.05
 _legParams['l1Pt']['topmargin'] = 0.05
+_legParams['l1Pt']['leftmargin'] = 0.45
 
 
 _uncertaintyTitles = {
