@@ -294,6 +294,15 @@ class SampleGroup(_SampleBase):
                 yield s
 
 
+    def rows(self):
+        '''
+        Get all rows from the base ntuples.
+        '''
+        for s in self.values():
+            for row in s.rows():
+                yield row
+
+
     def __getitem__(self, x):
         return self._samples[x]
 
@@ -454,6 +463,15 @@ class SampleStack(_SampleBase):
                     yield ss
             except AttributeError:
                 yield s
+
+
+    def rows(self):
+        '''
+        Get all rows from the base ntuples.
+        '''
+        for s in self:
+            for row in s.rows():
+                yield row
 
 
     def getFileNames(self):

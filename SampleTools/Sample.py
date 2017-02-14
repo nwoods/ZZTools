@@ -361,6 +361,11 @@ class NtupleSample(_SampleBase):
             yield row
 
 
+    def rows(self):
+        for row in self:
+            yield row
+
+
     def __len__(self):
         return self.ntuple.GetEntries()
 
