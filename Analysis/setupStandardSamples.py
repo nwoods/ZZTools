@@ -65,15 +65,10 @@ def standardZZMC(channel, inDir, sampleName, resultType, puWeightFile, lumi,
     return mc
 
 
-def standardZZData(channel, inDir, resultType, firstHalf=False):
+def standardZZData(channel, inDir, resultType, eras='BCDEFGH'):
     channels = _parseChannels(channel)
     dataFileTemp = _path.join('/data/nawoods/ntuples', inDir, # if mcDir is absolute, first argument is ignored
                               'results_{}'.format(resultType), 'Run2016{}_*.root')
-
-    eras = ['B', 'C', 'D', 'E', 'F', 'G', 'H']
-    if firstHalf:
-        eras = eras[:4]
-
     byChan = {}
     for c in channels:
         samplesByEra = {}
@@ -199,11 +194,14 @@ def zzIrreducibleBkg(channel, inDir, resultType, puWeightFile, lumi,
 
 def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                   fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
-                  puSyst='', eFakeRateSyst='', mFakeRateSyst=''):
+                  puSyst='', eFakeRateSyst='', mFakeRateSyst='',
+                  eras='BCDEFGH'):
     channels = _parseChannels(channel)
 
-    data2P2F = standardZZData(channel, dataDir, resultType+'_2P2F')
-    data3P1F = standardZZData(channel, dataDir, resultType+'_3P1F')
+    data2P2F = standardZZData(channel, dataDir, resultType+'_2P2F',
+                              eras=eras)
+    data3P1F = standardZZData(channel, dataDir, resultType+'_3P1F',
+                              eras=eras)
     mc2P2F = zzStackSignalOnly(channel, mcDir, resultType+'_2P2F', puWeightFile,
                                lumi, eEfficiencySyst, mEfficiencySyst, puSyst)
     mc3P1F = zzStackSignalOnly(channel, mcDir, resultType+'_3P1F', puWeightFile,
@@ -324,7 +322,7 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
                       fakeRateFile, lumi, eEfficiencySyst='',
                       mEfficiencySyst='', puSyst='', eFakeRateSyst='',
                       mFakeRateSyst='', amcatnlo=False, higgs=False,
-                      *extraSamples):
+                      eras='BCDEFGH', *extraSamples):
     '''
     Return dataSampleGroup, bkgAndMCStack for data files in
     [dataDir]/results_[resultType] and MC in [mcDir]/results[resultType],
@@ -346,7 +344,7 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
     for sampleName='fileGlob*.root'. The files are assumed to be in the MC
     directory.
     '''
-    data = standardZZData(channel, dataDir, resultType)
+    data = standardZZData(channel, dataDir, resultType, eras=eras)
 
     stack = standardZZStack(channel, dataDir, mcDir, resultType,
                             puWeightFile, fakeRateFile,
