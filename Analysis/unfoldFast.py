@@ -286,6 +286,10 @@ _responseClassNames = {
     'lPt' : {c:'AllLeptonBranchResponseMatrixMaker' for c in _channels},
     'l1Pt' : {c:'LeptonMaxBranchResponseMatrixMaker' for c in _channels},
     'zPt' : {c:'BothZsBranchResponseMatrixMaker' for c in _channels},
+    'jet1Pt' : {c:'FirstJetFloatResponseMatrixMaker' for c in _channels},
+    'jet2Pt' : {c:'SecondJetFloatResponseMatrixMaker' for c in _channels},
+    'jet1Eta' : {c:'FirstJetAbsFloatResponseMatrixMaker' for c in _channels},
+    'jet2Eta' : {c:'SecondJetAbsFloatResponseMatrixMaker' for c in _channels},
     }
 
 # Variable names usable by response maker classes
@@ -308,6 +312,10 @@ _varNamesForResponseMaker = {
     'lPt' : {c:'Pt' for c in _channels},
     'l1Pt' : {c:'Pt' for c in _channels},
     'zPt' : {c:'Pt' for c in _channels},
+    'jet1Pt' : {c:'jetPt' for c in _channels},
+    'jet2Pt' : {c:'jetPt' for c in _channels},
+    'jet1Eta' : {c:'jetEta' for c in _channels},
+    'jet2Eta' : {c:'jetEta' for c in _channels},
 }
 
 
@@ -418,19 +426,19 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
 
     except:
         print "It broke!"
-        print hSig.Integral(), hBkg.Integral(), hTrue.Integral(), hResponse.Integral()
-        c = Canvas(1000,1000)
-        hSig.draw()
-        c.Print("sig.png")
-        hBkg.draw()
-        c.Print("bkg.png")
-        hTrue.draw()
-        c.Print("true.png")
-        hData.draw()
-        c.Print("data.png")
-        hResponse.drawstyle = 'colz'
-        hResponse.draw()
-        c.Print("resp.png")
+        # print hSig.Integral(), hBkg.Integral(), hTrue.Integral(), hResponse.Integral()
+        # c = Canvas(1000,1000)
+        # hSig.draw()
+        # c.Print("sig.png")
+        # hBkg.draw()
+        # c.Print("bkg.png")
+        # hTrue.draw()
+        # c.Print("true.png")
+        # hData.draw()
+        # c.Print("data.png")
+        # hResponse.drawstyle = 'colz'
+        # hResponse.draw()
+        # c.Print("resp.png")
 
 
     hDataMinusBkg = hData - hBkg

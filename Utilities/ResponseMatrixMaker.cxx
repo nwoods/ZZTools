@@ -229,7 +229,8 @@ void ResponseMatrixMakerBase<T>::setup()
   for(const auto& fn : fileNames)
     trueTree->Add(fn.c_str());
 
-  UPtr<UMap<size_t, T> > trueVals = this->getTrueValues(*trueTree);
+  UPtr<UMap<size_t, T> > trueVals = this->getTrueValues(*trueTree.get());
+
   trueTree.reset(); // gone -- don't use any more
 
   // Set up common branches
@@ -238,7 +239,8 @@ void ResponseMatrixMakerBase<T>::setup()
   lSF = Vec<float>(objects.size());
   lSFErr = Vec<float>(objects.size());
   setCommonBranches(*recoTree, objects);
-  this->setRecoBranches(*recoTree, objects);
+
+  this->setRecoBranches(*recoTree.get(), objects);
 
   bool doPUWt = (puWeightHists.find("") != puWeightHists.end());
   bool doPUWtUp = (puWeightHists.find("up") != puWeightHists.end());
@@ -397,6 +399,7 @@ void ResponseMatrixMakerBase<T>::setup()
 
       setCommonBranches(*t, objects);
       this->setRecoBranches(*t, objects);
+
       for(size_t row = 0; row < size_t(std::abs(t->GetEntries())); ++row)
         {
           t->GetEntry(row);
@@ -420,8 +423,10 @@ void ResponseMatrixMakerBase<T>::setup()
            //   }
 
           auto iTrue = trueVals->find(evt);
+
           if(iTrue == trueVals->end())
             continue;
+
           const T& trueVal = iTrue->second;
 
           if(this->selectEvent(systName))
@@ -431,6 +436,9 @@ void ResponseMatrixMakerBase<T>::setup()
             }
         }
     } // new tree disappears here
+
+  trueVals.reset();
+
 }
 
 
@@ -1157,6 +1165,7 @@ LeptonMaxBranchResponseMatrixMaker::getEventResponse(const Str& option) const
   return max;
 }
 
+
 Vec<Str>
 LeptonMaxBranchResponseMatrixMaker::constructVarNames(const Str& channel,
                                                       const Str& var) const
@@ -1178,6 +1187,84 @@ LeptonMaxBranchResponseMatrixMaker::constructVarNames(const Str& channel,
 }
 
 
+template<typename T, size_t _N>
+NthJetResponseMatrixMaker<T,_N>::NthJetResponseMatrixMaker(const Str& channel, const Str& varName,
+                                                           const Vec<float>& binning) :
+  SimpleValueResponseMatrixMakerBase<T>(channel, varName, binning)
+{
+  allJetValues[""] = &allJetValues_object;
+  allJetValues["jes_up"] = &allJetValues_jesUp_object;
+  allJetValues["jes_dn"] = &allJetValues_jesDn_object;
+  allJetValues["jer_up"] = &allJetValues_jerUp_object;
+  allJetValues["jer_dn"] = &allJetValues_jerDn_object;
+
+  gROOT->ProcessLine("#include<vector>");
+}
+
+
+template<typename T, size_t _N>
+UPtr<UMap<size_t, T> >
+NthJetResponseMatrixMaker<T,_N>::getTrueValues(TChain& t, const Str& syst) const
+{
+  UPtr<UMap<size_t, T> > out(new UMap<size_t, T>());
+
+  unsigned long long trueEvt;
+
+  // some pointer bullshit to make ROOT happy
+  Vec<T> allJetsTrue_object;
+  Vec<T>* allJetsTrue = &allJetsTrue_object;
+  t.SetBranchAddress("evt", &trueEvt);
+  t.SetBranchAddress(this->getVar().c_str(), &allJetsTrue);
+
+  for(size_t row = 0; row < size_t(std::abs(t.GetEntries())); ++row)
+    {
+      t.GetEntry(row);
+
+      if(allJetsTrue->size() > _N)
+        (*out)[trueEvt] = allJetsTrue->at(_N);
+    }
+
+  return std::move(out);
+}
+
+
+template<typename T, size_t _N> void
+NthJetResponseMatrixMaker<T,_N>::setRecoBranches(TChain& t, const Vec<Str>& objects)
+{
+  allJetValues.clear();
+
+  t.SetBranchAddress(this->getVar().c_str(), &allJetValues[""]);
+  t.SetBranchAddress((this->getVar()+"_jesUp").c_str(), &allJetValues["jes_up"]);
+  t.SetBranchAddress((this->getVar()+"_jesDown").c_str(), &allJetValues["jes_dn"]);
+  t.SetBranchAddress((this->getVar()+"_jerUp").c_str(), &allJetValues["jer_up"]);
+  t.SetBranchAddress((this->getVar()+"_jerDown").c_str(), &allJetValues["jer_dn"]);
+}
+
+
+template<typename T, size_t _N> T
+NthJetResponseMatrixMaker<T,_N>::getEventResponse(const Str& syst) const
+{
+  // size will already be checked
+
+  auto iVal = allJetValues.find(syst);
+
+  if(iVal == allJetValues.end())
+    return allJetValues.at("")->at(_N);
+
+  return iVal->second->at(_N);
+}
+
+
+template<typename T, size_t _N> bool
+NthJetResponseMatrixMaker<T,_N>::selectEvent(const Str& syst) const
+{
+  auto iVal = allJetValues.find(syst);
+
+  if(iVal == allJetValues.end())
+    return allJetValues.at("")->size() > _N;
+
+  return iVal->second->size() > _N;
+}
 
 
 
@@ -1189,6 +1276,10 @@ typedef AbsValueResponseMatrixMaker<DijetBranchResponseMatrixMaker> AbsDijetBran
 typedef JetBranchResponseMatrixMakerBase<unsigned int> JetUIntBranchResponseMatrixMaker;
 typedef JetBranchResponseMatrixMakerBase<float> JetFloatBranchResponseMatrixMaker;
 typedef AbsValueResponseMatrixMaker<ZZDeltaPhiResponseMatrixMaker> ZZAbsDeltaPhiResponseMatrixMaker;
+typedef NthJetResponseMatrixMaker<float,0> FirstJetFloatResponseMatrixMaker;
+typedef NthJetResponseMatrixMaker<float,1> SecondJetFloatResponseMatrixMaker;
+typedef AbsValueResponseMatrixMaker<FirstJetFloatResponseMatrixMaker> FirstJetAbsFloatResponseMatrixMaker;
+typedef AbsValueResponseMatrixMaker<SecondJetFloatResponseMatrixMaker> SecondJetAbsFloatResponseMatrixMaker;
 
 
 #if defined(__ROOTCLING__)
@@ -1209,4 +1300,8 @@ typedef AbsValueResponseMatrixMaker<ZZDeltaPhiResponseMatrixMaker> ZZAbsDeltaPhi
 #pragma link C++ class AllLeptonBranchResponseMatrixMaker;
 #pragma link C++ class LeptonMaxBranchResponseMatrixMaker;
 #pragma link C++ class BothZsBranchResponseMatrixMaker;
+#pragma link C++ class FirstJetFloatResponseMatrixMaker;
+#pragma link C++ class SecondJetFloatResponseMatrixMaker;
+#pragma link C++ class FirstJetAbsFloatResponseMatrixMaker;
+#pragma link C++ class SecondJetAbsFloatResponseMatrixMaker;
 #endif

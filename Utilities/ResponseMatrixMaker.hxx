@@ -4,6 +4,7 @@
 #include "TH2D.h"
 #include "TH3D.h"
 #include "TChain.h"
+#include "TROOT.h"
 
 #include<vector>
 #include<unordered_map>
@@ -11,6 +12,7 @@
 #include<string>
 #include<memory>
 
+#include<iostream>
 
 // less typing
 template <typename T, typename U>
@@ -674,3 +676,32 @@ class LeptonMaxBranchResponseMatrixMaker : public SimpleValueResponseMatrixMaker
 };
 
 
+template<typename T, size_t _N>
+class NthJetResponseMatrixMaker : public SimpleValueResponseMatrixMakerBase<T>
+{
+ public:
+  NthJetResponseMatrixMaker(const Str& channel, const Str& varName,
+                            const Vec<float>& binning);
+  virtual ~NthJetResponseMatrixMaker(){;}
+
+ protected:
+  typedef typename SimpleValueResponseMatrixMakerBase<T>::ValType ValType;
+
+  virtual UPtr<UMap<size_t, T> > getTrueValues(TChain& trueTree,
+                                               const Str& syst = "") const;
+
+  virtual void setRecoBranches(TChain& t, const Vec<Str>& objects);
+
+  virtual T getEventResponse(const Str& syst = "") const;
+
+  virtual bool selectEvent(const Str& syst = "") const;
+
+ private:
+  // some pointer bullshit to appease the gods of ROOT
+  UMap<Str,Vec<T>*> allJetValues; // values keyed to systematic
+  Vec<T> allJetValues_object;
+  Vec<T> allJetValues_jesUp_object;
+  Vec<T> allJetValues_jesDn_object;
+  Vec<T> allJetValues_jerUp_object;
+  Vec<T> allJetValues_jerDn_object;
+};
