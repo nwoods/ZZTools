@@ -5,12 +5,14 @@ logging.basicConfig(level=logging.WARNING)
 rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 rlog["/ROOT.TROOT.Append"].setLevel(rlog.ERROR)
 
+from rootpy.ROOT import gROOT
+gROOT.SetBatch(True)
+
 from rootpy import asrootpy
 from rootpy.io import root_open
 from rootpy.plotting import Canvas, Legend, Hist, HistStack, Graph
 from rootpy.plotting.utils import draw
 from rootpy.ROOT import cout, TDecompSVD, TBox, TLatex
-from rootpy.ROOT import gSystem, TString, gCling
 from rootpy.ROOT import RooUnfoldResponse as Response
 from rootpy.ROOT import RooUnfoldBayes as RooUnfoldIter # it's frequentist!
 from rootpy.context import preserve_current_directory
@@ -40,8 +42,8 @@ try:
 except KeyError:
     rlog.error("Can't find ZZTools base directory. Is your area set up properly?")
     raise
-#gCling.AddIncludePath(_join(_zztBaseDir, 'RooUnfold-1.1.1'))
-#gSystem.Load(_join(_zztBaseDir, 'RooUnfold-1.1.1', 'libRooUnfold'))
+
+_style = _Style()
 
 
 _channels = ['eeee','eemm', 'mmmm']
@@ -281,7 +283,7 @@ _responseClassNames = {
               'eemm':'Z2ByMassResponseMatrixMaker',},
     'zHigherPt' : {c:'Z1ByPtResponseMatrixMaker' for c in _channels},
     'zLowerPt' : {c:'Z2ByPtResponseMatrixMaker' for c in _channels},
-    'deltaPhiZZ' : {c:'ZZDeltaPhiResponseMatrixMaker' for c in _channels},
+    'deltaPhiZZ' : {c:'ZZAbsDeltaPhiResponseMatrixMaker' for c in _channels},
     'deltaRZZ' : {c:'ZZDeltaRResponseMatrixMaker' for c in _channels},
     'lPt' : {c:'AllLeptonBranchResponseMatrixMaker' for c in _channels},
     'l1Pt' : {c:'LeptonMaxBranchResponseMatrixMaker' for c in _channels},
@@ -451,15 +453,20 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
 
         c = Canvas(1000,1000)
         hSig.draw()
+        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
         c.Print("sig.png")
         hBkg.draw()
+        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
         c.Print("bkg.png")
         hTrue.draw()
+        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
         c.Print("true.png")
         hData.draw()
+        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
         c.Print("data.png")
         hResponse.drawstyle = 'colz'
         hResponse.draw()
+        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
         c.Print("resp.png")
 
     hOut = unf.Hreco()
@@ -475,9 +482,11 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
 
 
 def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
-         amcatnlo=False, ana='smp', *varNames, **kwargs):
+         amcatnlo=False, ana='smp', useSFHists=False, *varNames, **kwargs):
 
     classesNeeded = list(set(cls  for v in varNames for cls in _responseClassNames[v].values()))
+    if useSFHists:
+        classesNeeded = ['SFHist'+cn for cn in classesNeeded]
     _rootComp.register_file(_join(_zztBaseDir, 'Utilities',
                                   'ResponseMatrixMaker.cxx'),
                             classesNeeded)
@@ -485,9 +494,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
     # force compilation
     _C = getattr(_rootComp, classesNeeded[0])
 
-    style = _Style()
-
-    channels = _channels
+    channels = _channels[:]
 
     puWeightStr, puWt = puWeight(puWeightFile, '')
     puWeightStrUp, puWtUp = puWeight(puWeightFile, 'up')
@@ -507,13 +514,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                         higgs=(ana=='full'))
     reco = zzStackSignalOnly('zz', inMC, ana, puWeightFile,
                              lumi, amcatnlo=amcatnlo, asGroup=True,
-                             higgs=(ana=='full'))
+                             higgs=(ana=='full'),
+                             scaleFactorsFromHists=useSFHists)
     sigFileNames = {s.name : [f for f in s.getFileNames()]
                     for s in reco.values()[0].getBaseSamples()}
     sigConstWeights = {s.name : s.xsec * s.intLumi * float(s.kFactor) / s.sumW
                        for s in reco.values()[0].getBaseSamples()}
 
-    bkgMC = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi)
+    bkgMC = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
+                             scaleFactorsFromHists=useSFHists)
     bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                         fakeRateFile, lumi)
     bkgSyst = {
@@ -531,7 +540,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
     altReco = zzStackSignalOnly('zz', inMC, ana, puWeightFile, lumi,
                                 amcatnlo=(not amcatnlo), asGroup=True,
-                                higgs=(ana=='full'))
+                                higgs=(ana=='full'),
+                                scaleFactorsFromHists=useSFHists)
     altSigFileNames = {s.name : [f for f in s.getFileNames()]
                        for s in altReco.values()[0].getBaseSamples()}
     altSigConstWeights = {s.name : s.xsec * s.intLumi * float(s.kFactor) / s.sumW
@@ -560,20 +570,45 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                  'eRhoResDn', 'ePhiResUp']:
         recoSyst[syst] = zzStackSignalOnly('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
                                            ana, puWeightFile, lumi, amcatnlo=amcatnlo,
-                                           asGroup=True, higgs=(ana=='full'))
+                                           asGroup=True, higgs=(ana=='full'),
+                                           scaleFactorsFromHists=useSFHists)
         sigFileNamesSyst[syst] = {s.name : [f for f in s.getFileNames()]
                         for s in recoSyst[syst].values()[0].getBaseSamples()}
         bkgMCSyst[syst] = zzIrreducibleBkg('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                           ana, puWeightFile, lumi)
+                                           ana, puWeightFile, lumi,
+                                           scaleFactorsFromHists=useSFHists)
 
     for syst in ['mClosureUp','mClosureDn']:
         recoSyst[syst] = zzStackSignalOnly('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
                                            ana, puWeightFile, lumi, amcatnlo=amcatnlo,
-                                           asGroup=True, higgs=(ana=='full'))
+                                           asGroup=True, higgs=(ana=='full'),
+                                           scaleFactorsFromHists=useSFHists)
         sigFileNamesSyst[syst] = {s.name : [f for f in s.getFileNames()]
                                   for s in recoSyst[syst].values()[0].getBaseSamples()}
         bkgMCSyst[syst] = zzIrreducibleBkg('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                           ana, puWeightFile, lumi)
+                                           ana, puWeightFile, lumi,
+                                           scaleFactorsFromHists=useSFHists)
+
+    if useSFHists:
+        with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
+                                  'eleSelectionSF_HZZ_Moriond17.root')) as fEleSel:
+            hEleSelSF = asrootpy(fEleSel.EGamma_SF2D).clone()
+            hEleSelSF.SetDirectory(0)
+        with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
+                             'eleSelectionSFGap_HZZ_Moriond17.root')) as fEleSelGap:
+            hEleSelGapSF = asrootpy(fEleSelGap.EGamma_SF2D).clone()
+            hEleSelGapSF.SetDirectory(0)
+        with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
+                             'eleRecoSF_HZZ_Moriond17.root')) as fEleReco:
+            hEleRecoSF = asrootpy(fEleReco.EGamma_SF2D).clone()
+            hEleRecoSF.SetDirectory(0)
+        with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
+                             # 'muEfficiencySF_all_HZZ_ICHEP16_final_withErrors.root')) as fMuSF:
+                             'muSelectionAndRecoSF_HZZ_Moriond17.root')) as fMuSF:
+            hMuSF = asrootpy(fMuSF.FINAL).clone()
+            hMuSF.SetDirectory(0)
+            hMuSFErr = asrootpy(fMuSF.ERROR).clone()
+            hMuSFErr.SetDirectory(0)
 
 
     for varName in varNames:
@@ -607,7 +642,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             sel = _selections[varName][chan]
             selTrue = sel #combineWeights(sel, _wrongZRejectionStr[chan], selections=True)
 
-            ResponseMakerClass = getattr(_rootComp, _responseClassNames[varName][chan])
+            respClassName = _responseClassNames[varName][chan]
+            if useSFHists:
+                respClassName = 'SFHist'+respClassName
+            ResponseMakerClass = getattr(_rootComp, respClassName)
 
             responseMakers = {}
             for sample, fNameList in sigFileNames.iteritems():
@@ -625,6 +663,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 resp.registerPUWeights(hPUWtUp, 'up')
                 resp.registerPUWeights(hPUWtDn, 'dn')
                 resp.setConstantScale(sigConstWeights[sample])
+                if useSFHists:
+                    resp.registerElectronSelectionSFHist(hEleSelSF)
+                    resp.registerElectronSelectionGapSFHist(hEleSelGapSF)
+                    resp.registerElectronRecoSFHist(hEleRecoSF)
+                    resp.registerMuonSFHist(hMuSF)
+                    resp.registerMuonSFErrorHist(hMuSFErr)
+
                 responseMakers[sample] = resp
 
             altResponseMakers = {}
@@ -639,6 +684,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 resp.registerPUWeights(hPUWt)
                 resp.setConstantScale(altSigConstWeights[sample])
                 resp.setSkipSystematics()
+                if useSFHists:
+                    resp.registerElectronSelectionSFHist(hEleSelSF)
+                    resp.registerElectronSelectionGapSFHist(hEleSelGapSF)
+                    resp.registerElectronRecoSFHist(hEleRecoSF)
+                    resp.registerMuonSFHist(hMuSF)
+                    resp.registerMuonSFErrorHist(hMuSFErr)
+
                 altResponseMakers[sample] = resp
 
             ### Do all the unfolding
@@ -646,7 +698,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hData = data[chan].makeHist(var, sel, binning, perUnitWidth=False)
 
             # regular weight, no systematics. Apply just in case.
-            nominalWeight = baseMCWeight(chan, puWeightFile)
+            nominalWeight = baseMCWeight(chan, puWeightFile,
+                                         scaleFactorsFromHists=useSFHists)
             reco[chan].applyWeight(nominalWeight, True)
             altReco[chan].applyWeight(nominalWeight, True)
             bkgMC[chan].applyWeight(nominalWeight, True)
@@ -660,10 +713,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                perUnitWidth=False)
             hSigNominal = reco[chan].makeHist(var, sel, binning, perUnitWidth=False)
             hBkgMCNominal = bkgMC[chan].makeHist(var, sel, binning, perUnitWidth=False)
-            hBkgNominal = bkg[chan].makeHist(var, sel, binning, perUnitWidth=False)
+            hBkgNominal = bkg[chan].makeHist(var, sel, binning, perUnitWidth=False,
+                                             postprocess=True)
             hResponseNominal = {s:asrootpy(resp()) for s,resp in responseMakers.iteritems()}
             hResponseNominalTotal = sum(resp for resp in hResponseNominal.values())
-            hDataNoBkgNominal = hData - hBkgMCNominal - hBkgNominal
 
             # also get covariance and response matrices for later plotting
             hUnfolded[chan][''], hCov, hResp = _getUnfolded(hSigNominal,
@@ -672,10 +725,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                             hResponseNominalTotal,
                                                             hData, nIter, True)
 
-
             # PU reweight uncertainty
             for sys in ['up','dn']:
-                wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys)
+                wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys,
+                                     scaleFactorsFromHists=useSFHists)
                 reco[chan].applyWeight(wtStr, True)
                 bkgMC[chan].applyWeight(wtStr, True)
 
@@ -698,7 +751,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             for lep in set(chan):
                 for sys in ['up','dn']:
                     wtArg = {lep+'Syst':sys}
-                    wtStr = baseMCWeight(chan, puWeightFile, **wtArg)
+                    wtStr = baseMCWeight(chan, puWeightFile,
+                                         scaleFactorsFromHists=useSFHists,
+                                         **wtArg)
                     reco[chan].applyWeight(wtStr, True)
                     bkgMC[chan].applyWeight(wtStr, True)
 
@@ -736,7 +791,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                         hData, nIter)
 
             # luminosity
-            lumiUnc = 0.062
+            lumiUnc = 0.024#62
             lumiScale = {'up':1.+lumiUnc,'dn':1.-lumiUnc}
             for sys, scale in lumiScale.iteritems():
                 hSig = hSigNominal * scale
@@ -753,7 +808,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             # lepton fake rate uncertainty
             for lep in set(chan):
                 for sys in ['up','dn']:
-                    hBkg = bkgSyst[lep+sys][chan].makeHist(var, sel, binning, perUnitWidth=False)
+                    hBkg = bkgSyst[lep+sys][chan].makeHist(var, sel, binning,
+                                                           perUnitWidth=False,
+                                                           postprocess=True)
 
                     hUnfolded[chan][lep+'FR_'+sys] = _getUnfolded(hSigNominal,
                                                                   hBkgMCNominal+hBkg,
@@ -1070,7 +1127,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
             leg.Draw('same')
-            style.setCMSStyle(cErrUp, '', dataType='Preliminary', intLumi=lumi)
+            _style.setCMSStyle(cErrUp, '', dataType='Preliminary', intLumi=lumi)
             cErrUp.Print(_join(plotDir, 'errUp_{}_{}.png'.format(varName, chan)))
             cErrUp.Print(_join(plotDir, 'errUp_{}_{}.C'.format(varName, chan)))
 
@@ -1081,7 +1138,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
             leg.Draw('same')
-            style.setCMSStyle(cErrDn, '', dataType='Preliminary', intLumi=lumi)
+            _style.setCMSStyle(cErrDn, '', dataType='Preliminary', intLumi=lumi)
             cErrDn.Print(_join(plotDir, 'errDown_{}_{}.png'.format(varName, chan)))
             cErrDn.Print(_join(plotDir, 'errDown_{}_{}.C'.format(varName, chan)))
 
@@ -1207,7 +1264,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             fixRatioAxes(xaxis,yaxis,ratio1X,ratio1Y, mainPad.height, ratioPad1.height)
             fixRatioAxes(ratio1X,ratio1Y,ratio2X,ratio2Y, ratioPad1.height, ratioPad2.height)
 
-            style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
+            _style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
             cUnf.Print(_join(plotDir, "unfold_{}_{}.png".format(varName, chan)))
             cUnf.Print(_join(plotDir, "unfold_{}_{}.C".format(varName, chan)))
 
@@ -1216,13 +1273,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hResp.xaxis.title = '\\text{Reco} '+_xTitle[varName]
             hResp.yaxis.title = '\\text{True} '+_xTitle[varName]
             hResp.draw()
-            style.setCMSStyle(cRes, '', dataType='Preliminary Simulation', intLumi=lumi)
+            _style.setCMSStyle(cRes, '', dataType='Preliminary Simulation', intLumi=lumi)
             cRes.Print(_join(plotDir, "response_{}_{}.png".format(varName, chan)))
             cRes.Print(_join(plotDir, "response_{}_{}.C".format(varName, chan)))
 
             cCov = Canvas(1000,1000)
             hCov.Draw("colztext")
-            style.setCMSStyle(cCov, '', dataType='Preliminary', intLumi=lumi)
+            _style.setCMSStyle(cCov, '', dataType='Preliminary', intLumi=lumi)
             cCov.Print(_join(plotDir, "covariance_{}_{}.png".format(varName, chan)))
             cCov.Print(_join(plotDir, "covariance_{}_{}.C".format(varName, chan)))
 
@@ -1377,7 +1434,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         fixRatioAxes(xaxis,yaxis,ratio1X,ratio1Y, mainPad.height, ratioPad1.height)
         fixRatioAxes(ratio1X,ratio1Y,ratio2X,ratio2Y, ratioPad1.height, ratioPad2.height)
 
-        style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
+        _style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
         cUnf.Print(_join(plotDir, "unfold_{}.png".format(varName)))
         cUnf.Print(_join(plotDir, "unfold_{}.C".format(varName)))
 
@@ -1419,6 +1476,8 @@ if __name__ == "__main__":
                         default=_varList,
                         help=('Names of variables to use. If not specified, '
                               'all are used ({})').format(', '.join(_varList)))
+    parser.add_argument('--sfHists', action='store_true',
+                        help='Get lepton scale factors from files instead of directly from the ntuples.')
 
     args=parser.parse_args()
 
@@ -1429,5 +1488,5 @@ if __name__ == "__main__":
 
     main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
          args.puWeightFile, args.lumi, args.nIter, args.amcatnlo,
-         args.analysis, *args.variables)
+         args.analysis, args.sfHists, *args.variables)
 

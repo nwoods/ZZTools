@@ -24,6 +24,79 @@ namespace
     float dEta = eta1 - eta2;
     return std::sqrt(dPhi * dPhi + dEta * dEta);
   }
+
+  template<class HType>
+  int getBinIndex(HType& h, float x)
+  {
+    int bin = h.FindBin(x); // root wants a signed int for some reason
+    if(h.IsBinUnderflow(bin))
+      bin = 1;
+    else if(h.IsBinOverflow(bin))
+      bin -= 1;
+
+    return bin;
+  }
+
+  template<class HType>
+  int getBinIndex(HType& h, float x, float y)
+  {
+    int bin = h.FindBin(x, y);
+
+    if(h.IsBinOverflow(bin))
+      {
+        int binx, biny, binz;
+        h.GetBinXYZ(bin, binx, biny, binz);
+        if(binx > h.GetNbinsX())
+          binx -= 1;
+        if(biny > h.GetNbinsY())
+          biny -= 1;
+
+        bin = h.GetBin(binx, biny, binz);
+      }
+    if(h.IsBinUnderflow(bin))
+      {
+        int binx, biny, binz;
+        h.GetBinXYZ(bin, binx, biny, binz);
+        if(!binx)
+          binx += 1;
+        if(!biny)
+          biny += 1;
+
+        bin = h.GetBin(binx, biny, binz);
+      }
+
+    return bin;
+  }
+
+  template<class HType>
+  float getContentFromHist(HType& h, float x)
+  {
+    int bin = getBinIndex(h, x);
+    return h.GetBinContent(bin);
+  }
+
+  template<class HType>
+  float getContentFromHist(HType& h, float x, float y)
+  {
+    int bin = getBinIndex(h, x, y);
+
+    return h.GetBinContent(bin);
+  }
+
+  template<class HType>
+  float getErrorFromHist(HType& h, float x)
+  {
+    int bin = getBinIndex(h, x);
+    return h.GetBinError(bin);
+  }
+
+  template<class HType>
+  float getErrorFromHist(HType& h, float x, float y)
+  {
+    int bin = getBinIndex(h, x, y);
+
+    return h.GetBinError(bin);
+  }
 };
 
 
@@ -203,9 +276,8 @@ void ResponseMatrixMakerBase<T>::setup()
 
           auto scaleWtPtr = &scaleWeights;
           auto pdfWtPtr = &pdfAndAlphaSWeights;
-          recoTree->SetBranchAddress("scaleWeights", &scaleWtPtr);//&&scaleWeights);
-          recoTree->SetBranchAddress("pdfWeights", &pdfWtPtr);//&&pdfAndAlphaSWeights);
-
+          recoTree->SetBranchAddress("scaleWeights", &scaleWtPtr);
+          recoTree->SetBranchAddress("pdfWeights", &pdfWtPtr);
 
           systs.push_back("alphaS_up");
           systs.push_back("alphaS_dn");
@@ -234,10 +306,6 @@ void ResponseMatrixMakerBase<T>::setup()
   trueTree.reset(); // gone -- don't use any more
 
   // Set up common branches
-  // lPt = Vec<float>(objects.size());
-  // lEta = Vec<float>(objects.size());
-  lSF = Vec<float>(objects.size());
-  lSFErr = Vec<float>(objects.size());
   setCommonBranches(*recoTree, objects);
 
   this->setRecoBranches(*recoTree.get(), objects);
@@ -252,43 +320,40 @@ void ResponseMatrixMakerBase<T>::setup()
       recoTree->GetEntry(row);
 
       // elements needed for event weights
-      float puWt = (doPUWt ? getBinFromHist(puWeightHists.at(""), truePU) : 1.);
-      float puWtUp = (doPUWtUp ? getBinFromHist(puWeightHists.at("up"), truePU) : 1.);
-      float puWtDn = (doPUWtDn ? getBinFromHist(puWeightHists.at("dn"), truePU) : 1.);
+      float puWt = (doPUWt ? ::getContentFromHist(puWeightHists.at(""), truePU) : 1.);
+      float puWtUp = (doPUWtUp ? ::getContentFromHist(puWeightHists.at("up"), truePU) : 1.);
+      float puWtDn = (doPUWtDn ? ::getContentFromHist(puWeightHists.at("dn"), truePU) : 1.);
 
-      float lepSF = 1.;
+      float lepSF = this->getLepSF(objects);
       float lepSFEUp = 1.;
       float lepSFEDn = 1.;
       float lepSFMUp = 1.;
       float lepSFMDn = 1.;
-      for(size_t i = 0; i < lSF.size(); ++i)
+
+      if(hasE)
         {
-          lepSF *= lSF.at(i);
-          if(objects.at(i).compare(0,1,"e") == 0)
-            {
-              lepSFEUp *= lSF.at(i) + lSFErr.at(i);
-              lepSFEDn *= lSF.at(i) - lSFErr.at(i);
-            }
-          if(objects.at(i).compare(0,1,"m") == 0)
-            {
-              lepSFMUp *= lSF.at(i) + lSFErr.at(i);
-              lepSFMDn *= lSF.at(i) - lSFErr.at(i);
-            }
+          lepSFEUp = this->getLepSF(objects, 1., 0.);
+          lepSFEDn = this->getLepSF(objects, -1., 0.);
+        }
+      if(hasMu)
+        {
+          lepSFMUp = this->getLepSF(objects, 0., 1.);
+          lepSFMDn = this->getLepSF(objects, 0., -1.);
         }
 
       // for(size_t i = 0; i < objects.size(); ++i)
       //   {
       //     if(objects.at(i)[0] == "e")
       //       {
-      //         lepSF *= getBinFromHist(leptonSFHists["e"][""], lPt.at(i), std::abs(lEta.at(i)));
-      //         lepSFEUp *= getBinFromHist(leptonSFHists["e"]["up"], lPt.at(i), std::abs(lEta.at(i)));
-      //         lepSFEDn *= getBinFromHist(leptonSFHists["e"]["dn"], lPt.at(i), std::abs(lEta.at(i)));
+      //         lepSF *= ::getContentFromHist(leptonSFHists["e"][""], lPt.at(i), std::abs(lEta.at(i)));
+      //         lepSFEUp *= ::getContentFromHist(leptonSFHists["e"]["up"], lPt.at(i), std::abs(lEta.at(i)));
+      //         lepSFEDn *= ::getContentFromHist(leptonSFHists["e"]["dn"], lPt.at(i), std::abs(lEta.at(i)));
       //       }
       //     if(objects.at(i)[0] == "m")
       //       {
-      //         lepSF *= getBinFromHist(leptonSFHists["m"][""], lPt.at(i), lEta.at(i));
-      //         lepSFMUp *= getBinFromHist(leptonSFHists["m"]["up"], lPt.at(i), lEta.at(i));
-      //         lepSFMDn *= getBinFromHist(leptonSFHists["m"]["dn"], lPt.at(i), lEta.at(i));
+      //         lepSF *= ::getContentFromHist(leptonSFHists["m"][""], lPt.at(i), lEta.at(i));
+      //         lepSFMUp *= ::getContentFromHist(leptonSFHists["m"]["up"], lPt.at(i), lEta.at(i));
+      //         lepSFMDn *= ::getContentFromHist(leptonSFHists["m"]["dn"], lPt.at(i), lEta.at(i));
       //       }
       //   }
 
@@ -302,7 +367,7 @@ void ResponseMatrixMakerBase<T>::setup()
           // Nominal value
           const T val = this->getEventResponse();
 
-          float nominalWeight = scale * puWt * lepSF * genWeight;
+          const float nominalWeight = scale * puWt * lepSF * genWeight;
 
           // fill histos that use nominal value but with different weights
           this->fillResponse(responses[""], val, trueVal, nominalWeight);
@@ -404,21 +469,19 @@ void ResponseMatrixMakerBase<T>::setup()
         {
           t->GetEntry(row);
 
-          float puWt = (doPUWt ? getBinFromHist(puWeightHists.at(""), truePU) : 1.);
+          float puWt = (doPUWt ? ::getContentFromHist(puWeightHists.at(""), truePU) : 1.);
 
-          float lepSF = 1.;
-          for(size_t i = 0; i < objects.size(); ++i)
-            lepSF *= lSF.at(i);
+          float lepSF = this->getLepSF(objects);
 
            // for(size_t i = 0; i < objects.size(); ++i)
            //   {
            //     if(objects.at(i)[0] == "e")
            //       {
-           //         lepSF *= getBinFromHist(leptonSFHists["e"][""], lPt.at(i), std::abs(lEta.at(i)));
+           //         lepSF *= ::getContentFromHist(leptonSFHists["e"][""], lPt.at(i), std::abs(lEta.at(i)));
            //       }
            //     if(objects.at(i)[0] == "m")
            //       {
-           //         lepSF *= getBinFromHist(leptonSFHists["m"][""], lPt.at(i), lEta.at(i));
+           //         lepSF *= ::getContentFromHist(leptonSFHists["m"][""], lPt.at(i), lEta.at(i));
            //       }
            //   }
 
@@ -438,7 +501,24 @@ void ResponseMatrixMakerBase<T>::setup()
     } // new tree disappears here
 
   trueVals.reset();
+}
 
+
+template<typename T>
+float ResponseMatrixMakerBase<T>::getLepSF(const Vec<Str>& objects,
+                                           float eSyst, float mSyst)
+{
+  float out = 1.;
+
+  for(size_t i = 0; i < objects.size(); ++i)
+    {
+      if(objects.at(i).compare(0,1,"e") == 0)
+        out *= lSF.at(i) + eSyst * lSFErr.at(i);
+      else if(objects.at(i).compare(0,1,"m") == 0)
+        out *= lSF.at(i) + mSyst * lSFErr.at(i);
+    }
+
+  return out;
 }
 
 
@@ -1267,6 +1347,196 @@ NthJetResponseMatrixMaker<T,_N>::selectEvent(const Str& syst) const
 }
 
 
+template<class R>
+UseSFHists<R>::UseSFHists(const Str& channel, const Str& varName,
+                          const Vec<float>& binning) :
+  R(channel, varName, binning)
+{
+  // set some defaults to things don't break
+  hEleSelSF.reset(new TH2F("eSelSFDefault", "", 1, 0., 1000., 1, 0., 1000.));
+  hEleSelSF->SetBinContent(4, 1.);
+  hEleSelGapSF.reset(new TH2F("eSelGapSFDefault", "", 1, 0., 1000., 1, 0., 1000.));
+  hEleSelGapSF->SetBinContent(4, 1.);
+  hEleRecoSF.reset(new TH2F("eRecoSFDefault", "", 1, 0., 1000., 1, 0., 1000.));
+  hEleRecoSF->SetBinContent(4, 1.);
+  hMuSF.reset(new TH2F("mSFDefault", "", 1, 0., 1000., 1, 0., 1000.));
+  hMuSF->SetBinContent(4, 1.);
+  hMuSFErr.reset(new TH2F("mSFErrDefault", "", 1, 0., 1000., 1, 0., 1000.));
+}
+
+
+template<class R> void
+UseSFHists<R>::registerElectronSelectionSFHist(const TH2F& h)
+{
+  hEleSelSF.reset((TH2F*)h.Clone());
+}
+
+
+template<class R> void
+UseSFHists<R>::registerElectronSelectionGapSFHist(const TH2F& h)
+{
+  hEleSelGapSF.reset((TH2F*)h.Clone());
+}
+
+
+template<class R> void
+UseSFHists<R>::registerElectronRecoSFHist(const TH2F& h)
+{
+  hEleRecoSF.reset((TH2F*)h.Clone());
+}
+
+
+template<class R> void
+UseSFHists<R>::registerMuonSFHist(const TH2F& h)
+{
+  hMuSF.reset((TH2F*)h.Clone());
+}
+
+
+template<class R> void
+UseSFHists<R>::registerMuonSFErrorHist(const TH2F& h)
+{
+  hMuSFErr.reset((TH2F*)h.Clone());
+}
+
+
+template<class R> void
+UseSFHists<R>::setupOneLepton(TChain& t, const Str& obj,
+                              float*& ptPtr, float& ptVal,
+                              float*& etaPtr, float& etaVal,
+                              bool*& isGapPtr, bool& isGapVal)
+{
+  Str ptName = obj+"Pt";
+  if(t.GetBranch(ptName.c_str())->GetAddress())
+    ptPtr = (float*)(t.GetBranch(ptName.c_str())->GetAddress());
+  else
+    {
+      ptPtr = &ptVal;
+      t.SetBranchAddress(ptName.c_str(), ptPtr);
+    }
+
+  Str etaName = "";
+  Str isGapName = obj+"IsGap";
+  if(obj.compare(0,1,"e") == 0)
+    {
+      etaName = obj+"SCEta";
+
+      if(t.GetBranch(isGapName.c_str())->GetAddress())
+        isGapPtr = (bool*)(t.GetBranch(isGapName.c_str())->GetAddress());
+      else
+        {
+          isGapPtr = &isGapVal;
+          t.SetBranchAddress(isGapName.c_str(), isGapPtr);
+        }
+    }
+  else
+    {
+      isGapPtr = &isGapVal;
+      isGapVal = false; // just in case
+
+      etaName = obj+"Eta";
+    }
+
+  if(t.GetBranch(etaName.c_str())->GetAddress())
+    etaPtr = (float*)(t.GetBranch(etaName.c_str())->GetAddress());
+  else
+    {
+      etaPtr = &etaVal;
+      t.SetBranchAddress(etaName.c_str(), etaPtr);
+    }
+}
+
+
+template<class R> void
+UseSFHists<R>::setRecoBranches(TChain& t, const Vec<Str>& objects)
+{
+  R::setRecoBranches(t, objects);
+
+  lPtsSF.resize(4);
+  lEtasSF.resize(4);
+  lIsGapSF.resize(4);
+
+  setupOneLepton(t, objects.at(0),
+                 lPtsSF.at(0), l1PtSF_value,
+                 lEtasSF.at(0), l1EtaSF_value,
+                 lIsGapSF.at(0), l1IsGapSF_value);
+  setupOneLepton(t, objects.at(1),
+                 lPtsSF.at(1), l2PtSF_value,
+                 lEtasSF.at(1), l2EtaSF_value,
+                 lIsGapSF.at(1), l2IsGapSF_value);
+  setupOneLepton(t, objects.at(2),
+                 lPtsSF.at(2), l3PtSF_value,
+                 lEtasSF.at(2), l3EtaSF_value,
+                 lIsGapSF.at(2), l3IsGapSF_value);
+  setupOneLepton(t, objects.at(3),
+                 lPtsSF.at(3), l4PtSF_value,
+                 lEtasSF.at(3), l4EtaSF_value,
+                 lIsGapSF.at(3), l4IsGapSF_value);
+}
+
+
+template<class R> float
+UseSFHists<R>::getLepSF(const Vec<Str>& leptons,
+                        float eSyst, float mSyst)
+{
+  float out = 1.;
+
+ for(size_t i = 0; i < leptons.size(); ++i)
+    {
+      if(leptons.at(i).compare(0,1,"e") == 0)
+        {
+          float sf = 1.;
+          float err = 0.;
+
+          if(*lIsGapSF.at(i))
+            {
+              sf *= ::getContentFromHist(*hEleSelGapSF, *lEtasSF.at(i),
+                                         *lPtsSF.at(i));
+              if(eSyst)
+                err += ::getErrorFromHist(*hEleSelGapSF, *lEtasSF.at(i),
+                                          *lPtsSF.at(i));
+            }
+          else
+            {
+              sf *= ::getContentFromHist(*hEleSelSF, *lEtasSF.at(i),
+                                         *lPtsSF.at(i));
+              if(eSyst)
+                err += ::getErrorFromHist(*hEleSelSF, *lEtasSF.at(i),
+                                          *lPtsSF.at(i));
+            }
+
+          sf *= ::getContentFromHist(*hEleRecoSF, *lEtasSF.at(i),
+                                     *lPtsSF.at(i));
+
+          if(eSyst)
+            {
+              float recoErr = ::getErrorFromHist(*hEleRecoSF,
+                                                 *lEtasSF.at(i),
+                                                 *lPtsSF.at(i));
+              if(*lPtsSF.at(i) < 20. || *lPtsSF.at(i) > 75.)
+                recoErr += 0.01;
+              err = eSyst * std::sqrt(err*err + recoErr*recoErr);
+            }
+
+          out *= (sf + err);
+        }
+      else if(leptons.at(i).compare(0,1,"m") == 0)
+        {
+          float sf = ::getContentFromHist(*hMuSF, *lEtasSF.at(i),
+                                          *lPtsSF.at(i));
+          if(mSyst)
+              sf += mSyst * ::getContentFromHist(*hMuSFErr,
+                                                 *lEtasSF.at(i),
+                                                 *lPtsSF.at(i));
+
+          out *= sf;
+        }
+    }
+
+  return out;
+}
+
+
 
 typedef SimpleValueResponseMatrixMakerBase<float> FloatResponseMatrixMakerBase;
 typedef BranchValueResponseMatrixMaker<float> FloatBranchResponseMatrixMaker;
@@ -1281,12 +1551,31 @@ typedef NthJetResponseMatrixMaker<float,1> SecondJetFloatResponseMatrixMaker;
 typedef AbsValueResponseMatrixMaker<FirstJetFloatResponseMatrixMaker> FirstJetAbsFloatResponseMatrixMaker;
 typedef AbsValueResponseMatrixMaker<SecondJetFloatResponseMatrixMaker> SecondJetAbsFloatResponseMatrixMaker;
 
+typedef UseSFHists<FloatBranchResponseMatrixMaker>       SFHistFloatBranchResponseMatrixMaker;
+typedef UseSFHists<AbsFloatBranchResponseMatrixMaker>    SFHistAbsFloatBranchResponseMatrixMaker;
+typedef UseSFHists<UIntBranchResponseMatrixMaker>        SFHistUIntBranchResponseMatrixMaker;
+typedef UseSFHists<DijetBranchResponseMatrixMaker>       SFHistDijetBranchResponseMatrixMaker;
+typedef UseSFHists<AbsDijetBranchResponseMatrixMaker>    SFHistAbsDijetBranchResponseMatrixMaker;
+typedef UseSFHists<JetUIntBranchResponseMatrixMaker>     SFHistJetUIntBranchResponseMatrixMaker;
+typedef UseSFHists<JetFloatBranchResponseMatrixMaker>    SFHistJetFloatBranchResponseMatrixMaker;
+typedef UseSFHists<Z1ByMassResponseMatrixMaker>          SFHistZ1ByMassResponseMatrixMaker;
+typedef UseSFHists<Z2ByMassResponseMatrixMaker>          SFHistZ2ByMassResponseMatrixMaker;
+typedef UseSFHists<Z1ByPtResponseMatrixMaker>            SFHistZ1ByPtResponseMatrixMaker;
+typedef UseSFHists<Z2ByPtResponseMatrixMaker>            SFHistZ2ByPtResponseMatrixMaker;
+typedef UseSFHists<ZZDeltaRResponseMatrixMaker>          SFHistZZDeltaRResponseMatrixMaker;
+typedef UseSFHists<ZZAbsDeltaPhiResponseMatrixMaker>     SFHistZZAbsDeltaPhiResponseMatrixMaker;
+typedef UseSFHists<AllLeptonBranchResponseMatrixMaker>   SFHistAllLeptonBranchResponseMatrixMaker;
+typedef UseSFHists<LeptonMaxBranchResponseMatrixMaker>   SFHistLeptonMaxBranchResponseMatrixMaker;
+typedef UseSFHists<BothZsBranchResponseMatrixMaker>      SFHistBothZsBranchResponseMatrixMaker;
+typedef UseSFHists<FirstJetFloatResponseMatrixMaker>     SFHistFirstJetFloatResponseMatrixMaker;
+typedef UseSFHists<SecondJetFloatResponseMatrixMaker>    SFHistSecondJetFloatResponseMatrixMaker;
+typedef UseSFHists<FirstJetAbsFloatResponseMatrixMaker>  SFHistFirstJetAbsFloatResponseMatrixMaker;
+typedef UseSFHists<SecondJetAbsFloatResponseMatrixMaker> SFHistSecondJetAbsFloatResponseMatrixMaker;
 
 #if defined(__ROOTCLING__)
 #pragma link C++ class FloatBranchResponseMatrixMaker;
-#pragma link C++ class FloatResponseMatrixMaker;
-#pragma link C++ class AbsFloatResponseMatrixMaker;
-#pragma link C++ class UIntResponseMatrixMaker;
+#pragma link C++ class AbsFloatBranchResponseMatrixMaker;
+#pragma link C++ class UIntBranchResponseMatrixMaker;
 #pragma link C++ class DijetBranchResponseMatrixMaker;
 #pragma link C++ class AbsDijetBranchResponseMatrixMaker;
 #pragma link C++ class JetUIntBranchResponseMatrixMaker;
@@ -1304,4 +1593,25 @@ typedef AbsValueResponseMatrixMaker<SecondJetFloatResponseMatrixMaker> SecondJet
 #pragma link C++ class SecondJetFloatResponseMatrixMaker;
 #pragma link C++ class FirstJetAbsFloatResponseMatrixMaker;
 #pragma link C++ class SecondJetAbsFloatResponseMatrixMaker;
+
+#pragma link C++ class SFHistFloatBranchResponseMatrixMaker;
+#pragma link C++ class SFHistAbsFloatBranchResponseMatrixMaker;
+#pragma link C++ class SFHistUIntBranchResponseMatrixMaker;
+#pragma link C++ class SFHistDijetBranchResponseMatrixMaker;
+#pragma link C++ class SFHistAbsDijetBranchResponseMatrixMaker;
+#pragma link C++ class SFHistJetUIntBranchResponseMatrixMaker;
+#pragma link C++ class SFHistJetFloatBranchResponseMatrixMaker;
+#pragma link C++ class SFHistZ1ByMassResponseMatrixMaker;
+#pragma link C++ class SFHistZ2ByMassResponseMatrixMaker;
+#pragma link C++ class SFHistZ1ByPtResponseMatrixMaker;
+#pragma link C++ class SFHistZ2ByPtResponseMatrixMaker;
+#pragma link C++ class SFHistZZDeltaRResponseMatrixMaker;
+#pragma link C++ class SFHistZZAbsDeltaPhiResponseMatrixMaker;
+#pragma link C++ class SFHistAllLeptonBranchResponseMatrixMaker;
+#pragma link C++ class SFHistLeptonMaxBranchResponseMatrixMaker;
+#pragma link C++ class SFHistBothZsBranchResponseMatrixMaker;
+#pragma link C++ class SFHistFirstJetFloatResponseMatrixMaker;
+#pragma link C++ class SFHistSecondJetFloatResponseMatrixMaker;
+#pragma link C++ class SFHistFirstJetAbsFloatResponseMatrixMaker;
+#pragma link C++ class SFHistSecondJetAbsFloatResponseMatrixMaker;
 #endif

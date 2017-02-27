@@ -13,6 +13,7 @@ from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
 from PlotTools import PlotStyle as _Style
 from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes
 from Utilities import WeightStringMaker
+from Analysis.weightHelpers import baseMCWeight
 
 from os import environ
 from os import path as _path
@@ -21,26 +22,22 @@ from os import path as _path
 
 test = False
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/singleZ_24jan2017'
+sfFromHists = True
+
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/singleZ_24jan2017_sfFromHists'
 if test:
     outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/test'
 
 style = _Style()
 
-lumi = 36810.
+lumi = 35860.
 
 channels = ['ee','mm']
 
-puWeight = WeightStringMaker('puWeight')
-fPU = root_open(_path.join(environ['zzt'], 'data', 'pileup',
-                           'puWeight_69200_24jan2017.root'))
-hPU = fPU.puScaleFactor
-strPU = puWeight.makeWeightStringFromHist(hPU, 'nTruePU')
+puWeightFile = 'puWeight_69200_24jan2017.root'
 
-mcWeight = {
-    'ee' : 'e1EffScaleFactor * e2EffScaleFactor * {}'.format(strPU),
-    'mm' : 'm1EffScaleFactor * m2EffScaleFactor * {}'.format(strPU),
-    }
+mcWeight = baseMCWeight('ee,mm', puWeightFile,
+                        scaleFactorsFromHists=sfFromHists)
 
 if test:
     dyByChan = {

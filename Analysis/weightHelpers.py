@@ -10,6 +10,7 @@ from Utilities.helpers import parseChannels as _parseChannels
 from Utilities.helpers import mapObjects as _mapObjects
 from Utilities import WeightStringMaker as _Weight
 
+from rootpy import asrootpy as _asRP
 from rootpy.io import root_open as _open
 
 from os import environ as _env
@@ -35,6 +36,102 @@ def leptonEfficiencyWeights(channel, eSystematic='', mSystematic=''):
 
     out = {
         c : ' * '.join([sfTemp[obj[0]].format(lep=obj) for obj in _mapObjects(c)]) for c in channels
+        }
+
+    if len(channels) == 1:
+        return out[channels[0]]
+
+    return out
+
+
+_sfStrings = {'e':{},'m':{}}
+
+def leptonEfficiencyWeightsFromHists(channel, eSystematic='', mSystematic=''):
+    global _sfStrings
+
+    channels = _parseChannels(channel)
+
+    sfTemp = {}
+
+    if any('e' in chan for chan in channels):
+        if eSystematic not in _sfStrings['e']:
+            with _open(_path.join(_env['zzt'],'data','leptonScaleFactors',
+                                  'eleSelectionSF_HZZ_Moriond17.root')) as fEleSel:
+                hEleSel = _asRP(fEleSel.EGamma_SF2D).clone()
+                hEleSel.SetDirectory(0)
+            with _open(_path.join(_env['zzt'],'data','leptonScaleFactors',
+                                  'eleSelectionSFGap_HZZ_Moriond17.root')) as fEleSelGap:
+                hEleSelGap = _asRP(fEleSelGap.EGamma_SF2D).clone()
+                hEleSelGap.SetDirectory(0)
+            with _open(_path.join(_env['zzt'],'data','leptonScaleFactors',
+                                  'eleRecoSF_HZZ_Moriond17.root')) as fEleReco:
+                hEleReco = _asRP(fEleReco.EGamma_SF2D).clone()
+                hEleReco.SetDirectory(0)
+
+            wtMaker = _Weight('leptonSFs')
+
+            eSelTemp = wtMaker.makeWeightStringFromHist(hEleSel, '{obj}SCEta', '{obj}Pt')
+            eSelGapTemp = wtMaker.makeWeightStringFromHist(hEleSelGap, '{obj}SCEta', '{obj}Pt')
+            eRecoTemp = wtMaker.makeWeightStringFromHist(hEleReco, '{obj}SCEta', '100.')#{obj}Pt')
+            eSFTemp = '({} * (({{obj}}IsGap)*{} + (!{{obj}}IsGap)*{}))'.format(eRecoTemp,
+                                                                               eSelGapTemp,
+                                                                               eSelTemp)
+            if eSystematic:
+                eSelErrTemp = wtMaker.makeWeightStringFromHist(hEleSel, '{obj}SCEta', '{obj}Pt', getError=True)
+                eSelErrGapTemp = wtMaker.makeWeightStringFromHist(hEleSelGap, '{obj}SCEta', '{obj}Pt', getError=True)
+                eRecoErrTemp = wtMaker.makeWeightStringFromHist(hEleReco, '{obj}SCEta', '100', getError=True)
+                eSFErrTemp = ('sqrt(({} + ({{obj}}Pt < 20. || {{obj}}Pt > 75.)*0.01)^2 * '
+                              '(({{obj}}IsGap)*{} + (!{{obj}}IsGap)*{})^2)').format(eRecoErrTemp,
+                                                                                    eSelErrGapTemp,
+                                                                                    eSelErrTemp)
+                if eSystematic.lower() == 'up':
+                    sign = '+'
+                elif eSystematic.lower() in ['dn','down']:
+                    sign = '-'
+                else:
+                    raise ValueError("Unknown electron efficiency systematic {}".format(eSystematic))
+
+                eSFTemp = '({} {} {})'.format(eSFTemp, sign, eSFErrTemp)
+
+            _sfStrings['e'][eSystematic] = eSFTemp
+
+        sfTemp['e'] = _sfStrings['e'][eSystematic]
+
+    if any('m' in chan for chan in channels):
+        if mSystematic not in _sfStrings['m']:
+            with _open(_path.join(_env['zzt'],'data','leptonScaleFactors',
+                                  # 'muEfficiencySF_all_HZZ_ICHEP16_final_withErrors.root')) as fMuSF:
+                                  'muSelectionAndRecoSF_HZZ_Moriond17.root')) as fMuSF:
+                hMuSF = _asRP(fMuSF.FINAL).clone()
+                hMuSF.SetDirectory(0)
+                if mSystematic:
+                    hMuSFErr = _asRP(fMuSF.ERROR).clone()
+                    hMuSFErr.SetDirectory(0)
+
+            wtMaker = _Weight('leptonSFs')
+
+            muSFTemp = wtMaker.makeWeightStringFromHist(hMuSF, '{obj}Eta', '{obj}Pt')
+
+            if mSystematic:
+                muSFErrTemp = wtMaker.makeWeightStringFromHist(hMuSFErr,
+                                                               '{obj}Eta',
+                                                               '{obj}Pt')
+
+                if mSystematic.lower() == 'up':
+                    sign = '+'
+                elif mSystematic.lower() in ['dn','down']:
+                    sign = '-'
+                else:
+                    raise ValueError("Unknown muon efficiency systematic {}".format(mSystematic))
+
+                muSFTemp = '({} {} {})'.format(muSFTemp, sign, muSFErrTemp)
+
+            _sfStrings['m'][mSystematic] = muSFTemp
+
+        sfTemp['m'] = _sfStrings['m'][mSystematic]
+
+    out = {
+        c : ' * '.join([sfTemp[obj[0]].format(obj=obj) for obj in _mapObjects(c)]) for c in channels
         }
 
     if len(channels) == 1:
@@ -73,8 +170,12 @@ def puWeight(weightFile, systematic=''):
     return wtStr, wtFunc
 
 
-def baseMCWeight(channel, puWeightFile, eSyst='', mSyst='', puSyst=''):
-    lepWeights = leptonEfficiencyWeights(channel, eSyst, mSyst)
+def baseMCWeight(channel, puWeightFile, eSyst='', mSyst='', puSyst='',
+                 scaleFactorsFromHists=False):
+    if scaleFactorsFromHists:
+        lepWeights = leptonEfficiencyWeightsFromHists(channel, eSyst, mSyst)
+    else:
+        lepWeights = leptonEfficiencyWeights(channel, eSyst, mSyst)
     puWtStr, puWtFun = puWeight(puWeightFile, puSyst)
 
     if isinstance(lepWeights, str):

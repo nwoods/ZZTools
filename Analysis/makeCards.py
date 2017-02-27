@@ -31,12 +31,16 @@ def _getYield(sample, errorToo=False):
     return hYield.Integral()
 
 
-def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
+def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
+         sfFromHists=False):
 
-    reco = {c:zzStackSignalOnly(c, inMC, ana, puWeightFile, lumi) for c in _channels}
+    reco = {c:zzStackSignalOnly(c, inMC, ana, puWeightFile,
+                                lumi, scaleFactorsFromHists=sfFromHists)
+            for c in _channels}
     bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                         fakeRateFile, lumi)
-    irreducible = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi)
+    irreducible = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
+                                   scaleFactorsFromHists=sfFromHists)
 
     bkgSyst = {
         'eup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
@@ -57,23 +61,27 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi):
                  'eRhoResDn', 'ePhiResUp']:
         recoSyst[syst.lower()] = {
             c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
-                            ana, puWeightFile, lumi)
+                                ana, puWeightFile, lumi,
+                                scaleFactorsFromHists=sfFromHists)
             for c in ['eeee','eemm']
             }
         irreducibleSyst[syst.lower()] = zzIrreducibleBkg('eeee,eemm',
                                                          inMC.replace('mc_','mc_{}_'.format(syst)),
                                                          ana, puWeightFile,
-                                                         lumi)
+                                                         lumi,
+                                                         scaleFactorsFromHists=sfFromHists)
     for syst in ['mClosureUp','mClosureDn']:
         recoSyst[syst.lower()] = {
             c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
-                                ana, puWeightFile, lumi)
+                                ana, puWeightFile, lumi,
+                                scaleFactorsFromHists=sfFromHists)
             for c in ['eemm','mmmm']
             }
         irreducibleSyst[syst.lower()] = zzIrreducibleBkg('eemm,mmmm',
                                                          inMC.replace('mc_','mc_{}_'.format(syst)),
                                                          ana, puWeightFile,
-                                                         lumi)
+                                                         lumi,
+                                                         scaleFactorsFromHists=sfFromHists)
 
     sigYield = {c:0. for c in _channels}
     bkgYield = {c:0. for c in _channels}
@@ -401,10 +409,12 @@ if __name__ == "__main__":
                               'data directory unless full path is specified)'))
     parser.add_argument('--lumi', type=float, nargs='?', default=15937.,
                         help='Integrated luminosity of sample (in pb^-1)')
+    parser.add_argument('--sfHists', action='store_true',
+                        help='Get lepton scale factors from files instead of directly from the ntuples.')
 
     args=parser.parse_args()
 
     cardName = _join(defaultPath, args.cardName)
 
     main(args.dataDir, args.mcDir, args.analysis, cardName, args.fakeRateFile,
-         args.puWeightFile, args.lumi)
+         args.puWeightFile, args.lumi, args.sfHists)

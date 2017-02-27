@@ -33,11 +33,13 @@ inMC = 'uwvvNtuples_mc_24jan2017'
 puWeightFile = 'puWeight_69200_24jan2017'
 fakeRateFile = 'fakeRate_24jan2017'
 
-ana = 'smp'
+leptonSFFromHists=True
+
+ana = 'z4l'
 
 _blind = False
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_24jan2017_{}'.format(ana)
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_24jan2017_sfFromHists_{}'.format(ana)
 if not _exists(outdir):
     _mkdir(outdir)
 elif not _isdir(outdir):
@@ -45,7 +47,7 @@ elif not _isdir(outdir):
 
 style = _Style()
 
-lumi = 36810.
+lumi = 35860.
 
 amcatnlo=False
 if amcatnlo:
@@ -53,7 +55,8 @@ if amcatnlo:
 
 data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile,
                                 fakeRateFile, lumi, amcatnlo=amcatnlo,
-                                higgs=(ana=='full'))
+                                higgs=(ana=='full'),
+                                scaleFactorsFromHists=leptonSFFromHists)
 
 # # count events
 # tot = OrderedDict()

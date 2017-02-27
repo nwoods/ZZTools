@@ -40,11 +40,13 @@ def _ensureNonneg(h):
 
 
 def standardZZMC(channel, inDir, sampleName, resultType, puWeightFile, lumi,
-                 eEfficiencySyst='', mEfficiencySyst='', puSyst=''):
+                 eEfficiencySyst='', mEfficiencySyst='', puSyst='',
+                 scaleFactorsFromHists=False):
     channels = _parseChannels(channel)
 
     mcWeight = _baseMCWeight(channel, puWeightFile, eEfficiencySyst,
-                             mEfficiencySyst, puSyst)
+                             mEfficiencySyst, puSyst,
+                             scaleFactorsFromHists=scaleFactorsFromHists)
 
     mcFiles = _path.join('/data/nawoods/ntuples', inDir, # if inDir is absolute, first argument is ignored
                          'results_{}'.format(resultType),
@@ -91,6 +93,7 @@ def standardZZData(channel, inDir, resultType, eras='BCDEFGH'):
 def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
                       eEfficiencySyst='', mEfficiencySyst='', puSyst='',
                       amcatnlo=False, higgs=False, asGroup=False,
+                      scaleFactorsFromHists=False,
                       *extraSamples):
     qqZZSampleName = 'ZZTo4L'
     if amcatnlo:
@@ -104,7 +107,8 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
     samplesByChan[qqZZSampleName] = {
         c : standardZZMC(c, inDir, qqZZSampleName, resultType, puWeightFile,
                          lumi, eEfficiencySyst, mEfficiencySyst,
-                         puSyst) for c in channels
+                         puSyst,
+                         scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
         }
 
     # gg->ZZ
@@ -114,7 +118,8 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
             fs : standardZZMC(c, inDir, 'GluGluZZTo{}'.format(fs),
                               resultType, puWeightFile, lumi,
                               eEfficiencySyst, mEfficiencySyst,
-                              puSyst) for fs in ['4e', '4mu', '2e2mu']
+                              puSyst,
+                              scaleFactorsFromHists=scaleFactorsFromHists) for fs in ['4e', '4mu', '2e2mu']
             }
         ggZZByChan[c] = _Group('GluGluZZ', c, ggZZByFS, True)
     samplesByChan['GluGluZZ'] = ggZZByChan
@@ -124,7 +129,8 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
         samplesByChan['ZZJJTo4L_EWK'] = {
             c : standardZZMC(c, inDir, 'ZZJJTo4L_EWK', resultType,
                              puWeightFile, lumi, eEfficiencySyst,
-                             mEfficiencySyst, puSyst) for c in channels
+                             mEfficiencySyst, puSyst,
+                             scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
             }
     except IOError:
         pass
@@ -134,7 +140,8 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
         samplesByChan['ggHZZ'] = {
             c : standardZZMC(c, inDir, 'ggHZZ', resultType, puWeightFile,
                              lumi, eEfficiencySyst, mEfficiencySyst,
-                             puSyst) for c in channels
+                             puSyst,
+                             scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
             }
 
     # anything else
@@ -142,7 +149,8 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
         samplesByChan[name] = {
             c : standardZZMC(c, inDir, name, resultType, puWeightFile, lumi,
                              eEfficiencySyst, mEfficiencySyst,
-                             puSyst) for c in channels
+                             puSyst,
+                             scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
             }
 
     if asGroup:
@@ -163,7 +171,8 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
 
 
 def zzIrreducibleBkg(channel, inDir, resultType, puWeightFile, lumi,
-                     eEfficiencySyst='', mEfficiencySyst='', puSyst=''):
+                     eEfficiencySyst='', mEfficiencySyst='', puSyst='',
+                     scaleFactorsFromHists=False):
     channels = _parseChannels(channel)
 
     samplesByChan = _ODict()
@@ -171,13 +180,15 @@ def zzIrreducibleBkg(channel, inDir, resultType, puWeightFile, lumi,
     samplesByChan['TTZ'] = {
         c : standardZZMC(c, inDir, 'TTZ', resultType, puWeightFile,
                          lumi, eEfficiencySyst, mEfficiencySyst,
-                         puSyst) for c in channels
+                         puSyst,
+                         scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
         }
 
     samplesByChan['WWZ'] = {
         c : standardZZMC(c, inDir, 'WWZ', resultType, puWeightFile,
                          lumi, eEfficiencySyst, mEfficiencySyst,
-                         puSyst) for c in channels
+                         puSyst,
+                         scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
         }
 
     groupByChan = {
@@ -195,7 +206,8 @@ def zzIrreducibleBkg(channel, inDir, resultType, puWeightFile, lumi,
 def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                   fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
                   puSyst='', eFakeRateSyst='', mFakeRateSyst='',
-                  eras='BCDEFGH'):
+                  eras='BCDEFGH',
+                  scaleFactorsFromHists=False):
     channels = _parseChannels(channel)
 
     data2P2F = standardZZData(channel, dataDir, resultType+'_2P2F',
@@ -203,9 +215,11 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
     data3P1F = standardZZData(channel, dataDir, resultType+'_3P1F',
                               eras=eras)
     mc2P2F = zzStackSignalOnly(channel, mcDir, resultType+'_2P2F', puWeightFile,
-                               lumi, eEfficiencySyst, mEfficiencySyst, puSyst)
+                               lumi, eEfficiencySyst, mEfficiencySyst, puSyst,
+                               scaleFactorsFromHists=scaleFactorsFromHists)
     mc3P1F = zzStackSignalOnly(channel, mcDir, resultType+'_3P1F', puWeightFile,
-                               lumi, eEfficiencySyst, mEfficiencySyst, puSyst)
+                               lumi, eEfficiencySyst, mEfficiencySyst, puSyst,
+                               scaleFactorsFromHists=scaleFactorsFromHists)
 
     if  '.root' not in fakeRateFile:
         fakeRateFile = fakeRateFile + '.root'
@@ -286,10 +300,12 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
 def zzStackBkgOnly(channel, dataDir, mcDir, resultType, puWeightFile,
                    fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
                    puSyst='', eFakeRateSyst='', mFakeRateSyst='',
-                   amcatnlo=False, higgs=False, *extraSamples):
+                   amcatnlo=False, higgs=False,
+                   scaleFactorsFromHists=False, *extraSamples):
     irreducible = zzIrreducibleBkg(channel, mcDir, resultType, puWeightFile,
                                    lumi, eEfficiencySyst, mEfficiencySyst,
-                                   puSyst)
+                                   puSyst,
+                                   scaleFactorsFromHists=scaleFactorsFromHists)
     reducible = standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                               fakeRateFile, lumi, eEfficiencySyst,
                               mEfficiencySyst, puSyst, eFakeRateSyst,
@@ -301,13 +317,17 @@ def zzStackBkgOnly(channel, dataDir, mcDir, resultType, puWeightFile,
 def standardZZStack(channel, dataDir, mcDir, resultType, puWeightFile,
                     fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
                     puSyst='', eFakeRateSyst='', mFakeRateSyst='',
-                    amcatnlo=False, higgs=False, *extraSamples):
+                    amcatnlo=False, higgs=False,
+                    scaleFactorsFromHists=False, *extraSamples):
     stack = zzStackSignalOnly(channel, mcDir, resultType, puWeightFile, lumi,
                               eEfficiencySyst, mEfficiencySyst, puSyst, amcatnlo,
-                              higgs=higgs, *extraSamples)
+                              higgs=higgs,
+                              scaleFactorsFromHists=scaleFactorsFromHists,
+                              *extraSamples)
     irreducible = zzIrreducibleBkg(channel, mcDir, resultType, puWeightFile,
                                    lumi, eEfficiencySyst, mEfficiencySyst,
-                                   puSyst)
+                                   puSyst,
+                                   scaleFactorsFromHists=scaleFactorsFromHists)
     reducible = standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                               fakeRateFile, lumi, eEfficiencySyst,
                               mEfficiencySyst, puSyst, eFakeRateSyst,
@@ -322,7 +342,9 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
                       fakeRateFile, lumi, eEfficiencySyst='',
                       mEfficiencySyst='', puSyst='', eFakeRateSyst='',
                       mFakeRateSyst='', amcatnlo=False, higgs=False,
-                      eras='BCDEFGH', *extraSamples):
+                      eras='BCDEFGH',
+                      scaleFactorsFromHists=False,
+                      *extraSamples):
     '''
     Return dataSampleGroup, bkgAndMCStack for data files in
     [dataDir]/results_[resultType] and MC in [mcDir]/results[resultType],
@@ -350,7 +372,9 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
                             puWeightFile, fakeRateFile,
                             lumi, eEfficiencySyst, mEfficiencySyst, puSyst,
                             eFakeRateSyst, mFakeRateSyst, amcatnlo,
-                            higgs=higgs, *extraSamples)
+                            higgs=higgs,
+                            scaleFactorsFromHists=scaleFactorsFromHists,
+                            *extraSamples)
 
     return data, stack
 

@@ -25,7 +25,7 @@ from os import makedirs as mkdir
 
 inDir = 'uwvvNtuples_data_24jan2017'
 outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter_rereco'
-lumi = 36810.
+lumi = 35860.
 
 colors = {'eeee':'b','eemm':'r','mmmm':'forestgreen'}
 markers = {'eeee':20,'eemm':21,'mmmm':22}

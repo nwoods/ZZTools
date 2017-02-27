@@ -96,82 +96,9 @@ class ResponseMatrixMakerBase
 
   virtual bool selectEvent(const Str& option = "") const = 0;
 
-  static float getBinFromHist(TH1F& h, float x)
-  {
-    int bin = h.FindBin(x); // root wants a signed int for some reason
-    if(h.IsBinUnderflow(bin))
-      bin = 1;
-    else if(h.IsBinOverflow(bin))
-      bin -= 1;
-
-    return h.GetBinContent(bin);
-  }
-  static float getBinFromHist(TH2F& h, float x, float y)
-  {
-    int bin = h.FindBin(x, y);
-    if(h.IsBinOverflow(bin))
-      {
-        int binx, biny, binz;
-        h.GetBinXYZ(bin, binx, biny, binz);
-        if(binx > h.GetNbinsX())
-          binx -= 1;
-        if(biny > h.GetNbinsY())
-          biny -= 1;
-
-        bin = h.GetBin(binx, biny, binz);
-      }
-    if(h.IsBinUnderflow(bin))
-      {
-        int binx, biny, binz;
-        h.GetBinXYZ(bin, binx, biny, binz);
-        if(!binx)
-          binx += 1;
-        if(!biny)
-          biny += 1;
-
-        bin = h.GetBin(binx, biny, binz);
-      }
-
-    return h.GetBinContent(bin);
-  }
-  static float getBinFromHist(TH1D& h, float x)
-  {
-    int bin = h.FindBin(x); // root wants a signed int for some reason
-    if(h.IsBinUnderflow(bin))
-      bin = 1;
-    else if(h.IsBinOverflow(bin))
-      bin -= 1;
-
-    return h.GetBinContent(bin);
-  }
-  static float getBinFromHist(TH2D& h, float x, float y)
-  {
-    int bin = h.FindBin(x, y);
-    if(h.IsBinOverflow(bin))
-      {
-        int binx, biny, binz;
-        h.GetBinXYZ(bin, binx, biny, binz);
-        if(binx > h.GetNbinsX())
-          binx -= 1;
-        if(biny > h.GetNbinsY())
-          biny -= 1;
-
-        bin = h.GetBin(binx, biny, binz);
-      }
-    if(h.IsBinUnderflow(bin))
-      {
-        int binx, biny, binz;
-        h.GetBinXYZ(bin, binx, biny, binz);
-        if(!binx)
-          binx += 1;
-        if(!biny)
-          biny += 1;
-
-        bin = h.GetBin(binx, biny, binz);
-      }
-
-    return h.GetBinContent(bin);
-  }
+  virtual float getLepSF(const Vec<Str>& leptons,
+                         float electronSystematic = 0.,
+                         float muonSystematic = 0.);
 
   UMap<Str,TH2D> responses;
   TH3D pdfResponses;
@@ -704,4 +631,56 @@ class NthJetResponseMatrixMaker : public SimpleValueResponseMatrixMakerBase<T>
   Vec<T> allJetValues_jesDn_object;
   Vec<T> allJetValues_jerUp_object;
   Vec<T> allJetValues_jerDn_object;
+};
+
+
+template<class R> // R is the type of the wrapped response maker
+class UseSFHists : public R
+{
+ public:
+  UseSFHists(const Str& channel, const Str& varName,
+             const Vec<float>& binning);
+  virtual ~UseSFHists(){;}
+
+  void registerElectronSelectionSFHist(const TH2F& h);
+  void registerElectronSelectionGapSFHist(const TH2F& h);
+  void registerElectronRecoSFHist(const TH2F& h);
+  void registerMuonSFHist(const TH2F& h);
+  void registerMuonSFErrorHist(const TH2F& h);
+
+ protected:
+  virtual float getLepSF(const Vec<Str>& leptons,
+                         float eSyst=0., float mSyst=0.);
+
+  virtual void setRecoBranches(TChain& t, const Vec<Str>& objects);
+
+ private:
+  void setupOneLepton(TChain& t, const Str& obj,
+                      float*& ptPtr, float& ptVal,
+                      float*& etaPtr, float& etaVal,
+                      bool*& isGapPtr, bool& isGapVal);
+
+  UPtr<TH2F> hEleSelSF;
+  UPtr<TH2F> hEleSelGapSF;
+  UPtr<TH2F> hEleRecoSF;
+  UPtr<TH2F> hMuSF;
+  UPtr<TH2F> hMuSFErr;
+
+  // pointers will point to floats below if this class makes the branches,
+  // or to existing branch addresses if they're already made by the base class
+  Vec<float*> lPtsSF;
+  Vec<float*> lEtasSF; // supercluster etas for electrons
+  Vec<bool*> lIsGapSF;
+  float l1PtSF_value;
+  float l2PtSF_value;
+  float l3PtSF_value;
+  float l4PtSF_value;
+  float l1EtaSF_value;
+  float l2EtaSF_value;
+  float l3EtaSF_value;
+  float l4EtaSF_value;
+  bool l1IsGapSF_value;
+  bool l2IsGapSF_value;
+  bool l3IsGapSF_value;
+  bool l4IsGapSF_value;
 };

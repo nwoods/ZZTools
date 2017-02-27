@@ -21,6 +21,9 @@ try:
     gROOT = _gROOT._gROOT
 except AttributeError:
     gROOT = _gROOT
+from rootpy.plotting import Hist as _Hist, Hist2D as _Hist2D
+
+
 
 class _WeightStringSingleton(type):
     '''
@@ -50,7 +53,48 @@ class WeightStringMaker(object):
             #include "TROOT.h"
             #include <iostream>
 
-            double {}{{0}}({{1}})
+            int _getBinIndex_{0}{{0}}_1(TH1* h, float x)
+            {{{{
+              int bin = h->FindBin(x); // root wants a signed int for some reason
+              if(h->IsBinUnderflow(bin))
+                bin = 1;
+              else if(h->IsBinOverflow(bin))
+                bin -= 1;
+
+              return bin;
+            }}}}
+
+            int _getBinIndex_{0}{{0}}_2(TH1* h, float x, float y)
+            {{{{
+              int bin = h->FindBin(x, y);
+
+              if(h->IsBinOverflow(bin))
+                {{{{
+                  int binx, biny, binz;
+                  h->GetBinXYZ(bin, binx, biny, binz);
+                  if(binx > h->GetNbinsX())
+                    binx -= 1;
+                  if(biny > h->GetNbinsY())
+                    biny -= 1;
+
+                  bin = h->GetBin(binx, biny, binz);
+                }}}}
+              if(h->IsBinUnderflow(bin))
+                {{{{
+                  int binx, biny, binz;
+                  h->GetBinXYZ(bin, binx, biny, binz);
+                  if(!binx)
+                    binx += 1;
+                  if(!biny)
+                    biny += 1;
+
+                  bin = h->GetBin(binx, biny, binz);
+                }}}}
+
+              return bin;
+            }}}}
+
+            double {0}{{0}}({{1}})
             {{{{
               TH1* h = (TH1*)gROOT->Get("{{2}}");
               if(h == 0)
@@ -58,13 +102,15 @@ class WeightStringMaker(object):
                   std::cout << "Can't find {{2}}!" << std::endl;
                   return 0.;
                 }}}}
-              return h->GetBinContent(h->FindBin({{3}}));
+              return h->GetBin{{contentOrError}}(_getBinIndex_{0}{{0}}_{{4}}(h,{{3}}));
             }}}}'''.format(self.fName)
 
     def makeWeightStringFromHist(self, h, *variables, **kwargs):
         '''
         Return a string that weights an event by the value of histogram h in
         the bin that would be filled by variables.
+        Optional bool argument getError gets the uncertainty of the bin
+        instead of the content.
         '''
         # make a copy so we can change directory, save it in global scope
         hCopy = h.clone()
@@ -73,11 +119,17 @@ class WeightStringMaker(object):
 
         iName = "{0}{1}".format(self.fName, self._counter)
 
+        contentOrErr = 'Content'
+        if kwargs.pop('getError', False):
+            contentOrErr = 'Error'
+
         _comp.register_code(
             self.codeBase.format(self._counter,
                                  ', '.join('double x%d'%i for i in range(len(variables))),
                                  hCopy.GetName(),
-                                 ', '.join("x%d"%i for i in range(len(variables)))),
+                                 ', '.join("x%d"%i for i in range(len(variables))),
+                                 len(variables),
+                                 contentOrError=contentOrErr),
             [iName,])
         out = '{0}({1})'.format(iName, ', '.join(variables))
 

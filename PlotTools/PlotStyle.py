@@ -32,7 +32,7 @@ class PlotStyle(object):
         # Tick marks on all sides
         gStyle.SetPadTickX(1)
         gStyle.SetPadTickY(1)
-    
+
         # Everything has white backgrounds
         gStyle.SetLegendFillColor(0)
 
@@ -58,6 +58,9 @@ class PlotStyle(object):
         TGaxis.SetExponentOffset(-0.060, 0.008, "y")
         TGaxis.SetExponentOffset(-0.055, -0.062, "x") # will overlap with title unless title is centered
 
+        # Format of numbers printed on histograms with the "text" option
+        gStyle.SetPaintTextFormat(".3f")
+
 
     def setCMSStyle(self, canvas, author='N. Woods', textRight=True, dataType='Preliminary Simulation', energy=13, intLumi=19710.):
         '''
@@ -70,7 +73,7 @@ class PlotStyle(object):
 
         # Make sure that temperature plot scales don't run off the right side
         self.fixZScale(canvas)
-        
+
         # Put "Preliminary" or similar on the plots
         if dataType:
             CMS_lumi.relPosX = 0.12
@@ -84,7 +87,7 @@ class PlotStyle(object):
         except TypeError:
             assert isinstance(energy,list) and all(isinstance(e, int) for e in energy), \
                 "Energy must be an integer or list of integers"
-            
+
         try:
             intLumi = [float(intLumi)]
         except TypeError:
@@ -105,7 +108,7 @@ class PlotStyle(object):
             else:
                 iLStr = ""
                 unit = ""
-                
+
             if e == 13:
                 iPeriod += 4
                 CMS_lumi.lumi_13TeV = CMS_lumi.lumi_13TeV.replace("20.1","%s"%iLStr).replace("fb^{-1}", unit)
@@ -115,7 +118,7 @@ class PlotStyle(object):
             if energy == 7:
                 iPeriod += 1
                 CMS_lumi.lumi_7TeV = CMS_lumi.lumi_7TeV.replace("5.1","%.1f"%iLStr).replace("fb^{-1}", unit)
-                
+
         # Put "CMS preliminary simulation" or whatever above the left side of the plot
         iPos = 0
 
@@ -132,7 +135,7 @@ class PlotStyle(object):
         latex.SetTextAlign(12)
         latex.DrawLatex(0.01, 0.05, author)
 #        latex.DrawLatex(0.01, 0.02, "U. Wisconsin Preliminary Exam")
-        
+
 #         # Make frame and tick marks thicker
 #         gStyle.SetFrameLineWidth(3)
 #         gStyle.SetLineWidth(3)
@@ -140,9 +143,9 @@ class PlotStyle(object):
 
     def fixXExponent(self,canvas):
         '''
-        If there's an exponent on the Y axis, it will either be in a weird 
+        If there's an exponent on the Y axis, it will either be in a weird
         place or it will overlap with the axis title. We fix the placement in
-        __init__(), but we still have to move the title if need be.        
+        __init__(), but we still have to move the title if need be.
         Recursive, so we find histograms in pads in pads.
         '''
         for obj in canvas.GetListOfPrimitives():
@@ -157,9 +160,9 @@ class PlotStyle(object):
 
     def fixZScale(self, canvas, width=0.09):
         '''
-        Temperature plot scales may run off the right side of the canvas. Fix 
+        Temperature plot scales may run off the right side of the canvas. Fix
         that if applicable.
-        width is the minimum fraction of the canvas taken up by the axis and 
+        width is the minimum fraction of the canvas taken up by the axis and
         its labels.
         '''
         for obj in canvas.GetListOfPrimitives():
