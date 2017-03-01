@@ -96,7 +96,8 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
 
     for chan in _channels:
         cardNameChan = cardName + '_' + chan + '.txt'
-        nominalWeight = baseMCWeight(chan, puWeightFile)
+        nominalWeight = baseMCWeight(chan, puWeightFile,
+                                     scaleFactorsFromHists=sfFromHists)
 
         with open(cardNameChan, 'w') as f:
             nSigSamples = len(reco[chan])
@@ -151,7 +152,8 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
             # PU uncertainty
             yield_puShift = {}
             for sys in ['up','dn']:
-                wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys)
+                wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys,
+                                     scaleFactorsFromHists=sfFromHists)
                 reco[chan].applyWeight(wtStr, True)
                 irreducible[chan].applyWeight(wtStr, True)
                 yield_puShift[sys] = [_getYield(s) for s in reco[chan]]+[_getYield(irreducible[chan])]
@@ -176,7 +178,9 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
                 yield_lepEff = {}
                 for sys in ['up','dn']:
                     wtOpts = {lep+'Syst':sys}
-                    wtStr = baseMCWeight(chan, puWeightFile, **wtOpts)
+                    wtStr = baseMCWeight(chan, puWeightFile,
+                                         scaleFactorsFromHists=sfFromHists,
+                                         **wtOpts)
                     reco[chan].applyWeight(wtStr, True)
                     irreducible[chan].applyWeight(wtStr, True)
                     yield_lepEff[sys] = [_getYield(s) for s in reco[chan]]+[_getYield(irreducible[chan])]
