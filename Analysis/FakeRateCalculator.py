@@ -16,6 +16,7 @@ from rootpy.plotting import Canvas
 from rootpy.plotting.utils import draw
 
 from os import path as _path
+from os import makedirs as _mkdir
 from os import environ
 
 
@@ -37,6 +38,11 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
     '''
     if plot:
         style = _Style()
+        if not _path.exists(plotDir):
+            _mkdir(plotDir)
+        elif not _path.isdir(plotDir):
+            raise IOError("There is already some non-directory object called {}.".format(plotDir))
+
 
     fStr = '/data/nawoods/ntuples/uwvvZPlusl_{{}}_{}/results{{}}/{{}}*.root'.format(sampleID)
     outFile = _path.join(_path.join(environ['zzt'], 'data', 'fakeRate'), outFile)
@@ -118,8 +124,14 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
     dataLoose.format(color='black',drawstyle='PE',legendstyle='LPE')
     dataTight.format(color='black',drawstyle='PE',legendstyle='LPE')
 
-    ptBinning = [5.,10.,20.,30.,45.,80.,200.]
-    etaBinning = [0.,0.8,1.47,2.5]
+    ptBinning = {
+        'e' : [7.,]+[8.+2.*i for i in range(6)]+[20.+5.*i for i in range(6)]+[50.+10.*i for i in range(4)]+[200.,],
+        'm' : [5.+1.*i for i in range(5)]+[10.,20.,30.,70.,200.],#[10.+5.*i for i in range(4)]+[30.,50.,60.,80.,200.],
+        }
+    etaBinning = {
+        'e' : [0.,0.8,1.47,2.,2.5],
+        'm' : [0.,1.2,2.4,2.5],
+        }
 
     ptVars = {
         'e' : {
@@ -146,11 +158,13 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
     for lep in ptVars:
         # MC
         mcNumStack = mcStackTight.makeHist2(etaVars[lep], ptVars[lep], '',
-                                            etaBinning, ptBinning, mcWeight)
+                                            etaBinning[lep], ptBinning[lep],
+                                            mcWeight)
         mcNum = asrootpy(mcNumStack.GetStack().Last())
 
         mcDenomStack = mcStackLoose.makeHist2(etaVars[lep], ptVars[lep], '',
-                                              etaBinning, ptBinning, mcWeight)
+                                              etaBinning[lep], ptBinning[lep],
+                                              mcWeight)
         mcDenom = asrootpy(mcDenomStack.GetStack().Last())
 
         fMC = mcNum.clone(name='fakeRateMC_{}'.format(lep))
@@ -167,22 +181,24 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
         writeOut.append(mcFakeFactor)
 
         # ZZ/WZ MC to subtract from data
-        signalNumStack = signalStackTight.makeHist2(etaVars[lep], ptVars[lep], '',
-                                                    etaBinning, ptBinning,
+        signalNumStack = signalStackTight.makeHist2(etaVars[lep], ptVars[lep],
+                                                    '', etaBinning[lep],
+                                                    ptBinning[lep],
                                                     mcWeight)
         signalNum = asrootpy(signalNumStack.GetStack().Last())
 
         signalDenomStack = signalStackLoose.makeHist2(etaVars[lep],
                                                       ptVars[lep], '',
-                                                      etaBinning, ptBinning,
+                                                      etaBinning[lep],
+                                                      ptBinning[lep],
                                                       mcWeight)
         signalDenom = asrootpy(signalDenomStack.GetStack().Last())
 
         # data
         num = dataTight.makeHist2(etaVars[lep], ptVars[lep], '',
-                                  etaBinning, ptBinning)
+                                  etaBinning[lep], ptBinning[lep])
         denom = dataLoose.makeHist2(etaVars[lep], ptVars[lep], '',
-                                    etaBinning, ptBinning)
+                                    etaBinning[lep], ptBinning[lep])
 
         print "{} Loose: {}".format(lep, denom.GetEntries())
         print "{} Tight: {}".format(lep, num.GetEntries())
@@ -214,34 +230,38 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
         if plot:
             # MC fake rate 2D
             c2DMC = Canvas(1200,1000)
+            c2DMC.SetLogy()
             fMC.xaxis.title = '|#eta|'
             fMC.yaxis.title = 'p_{T}'
-            fMC.drawstyle = 'colztext'
+            fMC.drawstyle = 'colztexte'
             fMC.draw()
             style.setCMSStyle(c2DMC, '', dataType='Preliminary', intLumi=lumi)
             c2DMC.Print('{}/{}fakeRateMC.png'.format(plotDir, lep))
 
             # data fake rate 2D
             c2D = Canvas(1200,1000)
+            c2D.SetLogy()
             f.xaxis.title = '|#eta|'
             f.yaxis.title = 'p_{T}'
-            f.drawstyle = 'colztext'
+            f.drawstyle = 'colztexte'
             f.draw()
             style.setCMSStyle(c2D, '', dataType='Preliminary', intLumi=lumi)
             c2D.Print('{}/{}fakeRate.png'.format(plotDir, lep))
 
             # denominator vs pt
             cPtDenom = Canvas(1000,1000)
-            ptMC = mcStackLoose.makeHist(ptVars[lep], '', ptBinning, mcWeight)
+            ptMC = mcStackLoose.makeHist(ptVars[lep], '', ptBinning[lep],
+                                         mcWeight)
             ptMCTot = asrootpy(ptMC.GetStack().Last()).clone() # for ratio
-            ptSig = signalStackLoose.makeHist(ptVars[lep], '', ptBinning, mcWeight)
+            ptSig = signalStackLoose.makeHist(ptVars[lep], '', ptBinning[lep],
+                                              mcWeight)
             ptSigTot = asrootpy(ptSig.GetStack().Last()).clone() # for ratio
             ptMC += ptSig
 
-            ptData = dataLoose.makeHist(ptVars[lep], '', ptBinning,
+            ptData = dataLoose.makeHist(ptVars[lep], '', ptBinning[lep],
                                         poissonErrors=True)
 
-            ptDataTot = dataLoose.makeHist(ptVars[lep], '', ptBinning) # for ratio
+            ptDataTot = dataLoose.makeHist(ptVars[lep], '', ptBinning[lep]) # for ratio
 
             legPtDenom = makeLegend(cPtDenom, ptMC, ptData)
 
@@ -252,17 +272,18 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
 
             # numerator vs pt
             cPtNum = Canvas(1000,1000)
-            ptMCTight = mcStackTight.makeHist(ptVars[lep], '', ptBinning, mcWeight)
+            ptMCTight = mcStackTight.makeHist(ptVars[lep], '', ptBinning[lep],
+                                              mcWeight)
             ptMCTotTight = asrootpy(ptMCTight.GetStack().Last()).clone() # for ratio
             ptSigTight = signalStackTight.makeHist(ptVars[lep], '',
-                                                   ptBinning, mcWeight)
+                                                   ptBinning[lep], mcWeight)
             ptSigTotTight = asrootpy(ptSigTight.GetStack().Last()).clone() # for ratio
             ptMCTight += ptSigTight
 
-            ptDataTight = dataTight.makeHist(ptVars[lep], '', ptBinning,
+            ptDataTight = dataTight.makeHist(ptVars[lep], '', ptBinning[lep],
                                              poissonErrors=True)
             ptDataTotTight = dataTight.makeHist(ptVars[lep], '', # for ratio
-                                                ptBinning)
+                                                ptBinning[lep])
 
             legPtNum = makeLegend(cPtNum, ptMCTight, ptDataTight)
 
@@ -305,36 +326,42 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
 
             # denominator vs eta
             cEtaDenom = Canvas(1000,1000)
-            etaMC = mcStackLoose.makeHist(etaVars[lep], '', etaBinning, mcWeight)
+            etaMC = mcStackLoose.makeHist(etaVars[lep], '', etaBinning[lep],
+                                          mcWeight)
             etaMCTot = asrootpy(etaMC.GetStack().Last()).clone() # for ratio
-            etaSig = signalStackLoose.makeHist(etaVars[lep], '', etaBinning, mcWeight)
+            etaSig = signalStackLoose.makeHist(etaVars[lep], '',
+                                               etaBinning[lep], mcWeight)
             etaSigTot = asrootpy(etaSig.GetStack().Last()).clone() # for ratio
             etaMC += etaSig
 
-            etaData = dataLoose.makeHist(etaVars[lep], '', etaBinning,
+            etaData = dataLoose.makeHist(etaVars[lep], '', etaBinning[lep],
                                         poissonErrors=True)
-            etaDataTot = dataLoose.makeHist(etaVars[lep], '', etaBinning) # for ratio
+            etaDataTot = dataLoose.makeHist(etaVars[lep], '', etaBinning[lep]) # for ratio
 
             legEtaDenom = makeLegend(cEtaDenom, etaMC, etaData)
 
-            draw([etaMC, etaData], cEtaDenom, xtitle='p_{T} (GeV)', ytitle='Leptons')
+            draw([etaMC, etaData], cEtaDenom, xtitle='p_{T} (GeV)',
+                 ytitle='Leptons')
             legEtaDenom.Draw("same")
-            style.setCMSStyle(cEtaDenom, '', dataType='Preliminary', intLumi=lumi)
+            style.setCMSStyle(cEtaDenom, '', dataType='Preliminary',
+                              intLumi=lumi)
             cEtaDenom.Print('{}/{}EtaLoose.png'.format(plotDir, lep))
 
             # numerator vs eta
             cEtaNum = Canvas(1000,1000)
-            etaMCTight = mcStackTight.makeHist(etaVars[lep], '', etaBinning, mcWeight)
+            etaMCTight = mcStackTight.makeHist(etaVars[lep], '',
+                                               etaBinning[lep], mcWeight)
             etaMCTotTight = asrootpy(etaMCTight.GetStack().Last()).clone() # for ratio
             etaSigTight = signalStackTight.makeHist(etaVars[lep], '',
-                                                   etaBinning, mcWeight)
+                                                    etaBinning[lep], mcWeight)
             etaSigTotTight = asrootpy(etaSigTight.GetStack().Last()).clone() # for ratio
             etaMCTight += etaSigTight
 
-            etaDataTight = dataTight.makeHist(etaVars[lep], '', etaBinning,
-                                             poissonErrors=True)
+            etaDataTight = dataTight.makeHist(etaVars[lep], '',
+                                              etaBinning[lep],
+                                              poissonErrors=True)
             etaDataTotTight = dataTight.makeHist(etaVars[lep], '', # for ratio
-                                                etaBinning)
+                                                 etaBinning[lep])
 
             legEtaNum = makeLegend(cEtaNum, etaMCTight, etaDataTight)
 
