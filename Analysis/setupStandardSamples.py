@@ -126,8 +126,8 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
 
     # EWK ZZ+2jets (if it's not there, just skip it)
     try:
-        samplesByChan['ZZJJTo4L_EWK'] = {
-            c : standardZZMC(c, inDir, 'ZZJJTo4L_EWK', resultType,
+        samplesByChan['ZZJJTo4L-EWK'] = {
+            c : standardZZMC(c, inDir, 'ZZJJTo4L-EWK', resultType,
                              puWeightFile, lumi, eEfficiencySyst,
                              mEfficiencySyst, puSyst,
                              scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
@@ -420,8 +420,8 @@ def genZZSamples(channel, fileDir, resultType, lumi, amcatnlo=False,
                                                  resultType,
                                                  lumi)
 
-        theseSamples['ZZJJTo4L_EWK'] = standardZZGen(c, fileDir,
-                                                     'ZZJJTo4L_EWK',
+        theseSamples['ZZJJTo4L-EWK'] = standardZZGen(c, fileDir,
+                                                     'ZZJJTo4L-EWK',
                                                      resultType,
                                                      lumi)
 

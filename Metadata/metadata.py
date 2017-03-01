@@ -100,7 +100,29 @@ sampleInfo['GluGluZZTo4e'] = {
         },
     }
 
+sampleInfo['GluGluZZTo4e-HZZPythiaTune'] = {
+    'xsec' : 0.001586,
+    'prettyName' : '\\text{gg}\\!\\!\\rightarrow \\!\\! \\text{ZZ}\\!\\!\\rightarrow \\!\\! 4e',
+    'isSignal' : True,
+    'kFactor' : '1.7',
+    'format' : {
+        'fillcolor' : '#4b78ff',
+        'linecolor' : '#000099',
+        },
+    }
+
 sampleInfo['GluGluZZTo4mu'] = {
+    'xsec' : 0.001586,
+    'prettyName' : '\\text{gg}\\!\\!\\rightarrow \\!\\! \\text{ZZ}\\!\\!\\rightarrow \\!\\! 4\\mu',
+    'isSignal' : True,
+    'kFactor' : '1.7',
+    'format' : {
+        'fillcolor' : '#4b78ff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo['GluGluZZTo4mu-HZZPythiaTune'] = {
     'xsec' : 0.001586,
     'prettyName' : '\\text{gg}\\!\\!\\rightarrow \\!\\! \\text{ZZ}\\!\\!\\rightarrow \\!\\! 4\\mu',
     'isSignal' : True,
@@ -122,6 +144,17 @@ sampleInfo['GluGluZZTo4tau'] = {
     }
 
 sampleInfo['GluGluZZTo2e2mu'] = {
+    'xsec' : 0.00319364,
+    'prettyName' : '\\text{gg}\\!\\!\\rightarrow \\!\\! \\text{ZZ}\\!\\!\\rightarrow \\!\\! 2e2\\mu',
+    'isSignal' : True,
+    'kFactor' : '1.7',
+    'format' : {
+        'fillcolor' : '#4b78ff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo['GluGluZZTo2e2mu-HZZPythiaTune'] = {
     'xsec' : 0.00319364,
     'prettyName' : '\\text{gg}\\!\\!\\rightarrow \\!\\! \\text{ZZ}\\!\\!\\rightarrow \\!\\! 2e2\\mu',
     'isSignal' : True,
@@ -174,15 +207,34 @@ sampleInfo["ZZTo4L-amcatnlo"] = {
     'kFactor' : '1.1',
     }
 
-sampleInfo["ZZTo4L-sherpa"] = {
-    'xsec' : 0.455985,
-    'prettyName' : 'q#bar{q} #rightarrow ZZ (SHERPA)',
+sampleInfo["ZZTo4L-0J"] = {
+    'xsec' : 0.0421,
+    'prettyName' : 'ZZ + 0 jets',
     'isSignal' : True,
     'format' : {
         'fillcolor' : '#99ccff',
         'linecolor' : '#000099',
         },
-    'kFactor' : '1.1',
+    }
+
+sampleInfo["ZZTo4L-1J"] = {
+    'xsec' : 0.01693,
+    'prettyName' : 'ZZ + 1 jet',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#99ccff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo["ZZTo4L-2J"] = {
+    'xsec' : 0.008758,
+    'prettyName' : 'ZZ + 2 jets',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#99ccff',
+        'linecolor' : '#000099',
+        },
     }
 
 sampleInfo["WZTo3LNu"] = {
@@ -203,7 +255,7 @@ sampleInfo["WZTo3LNu-amcatnlo"] = {
         },
     }
 
-sampleInfo["ZZJJTo4L_EWK"] = {
+sampleInfo["ZZJJTo4L-EWK"] = {
     'xsec' : 0.0004404,
     'prettyName' : 'ZZ + 2 jets EWK',
     'isSignal' : True,
@@ -213,9 +265,39 @@ sampleInfo["ZZJJTo4L_EWK"] = {
         },
     }
 
-sampleInfo["ZZJJTo4L_QCD"] = {
+sampleInfo["ZZJJTo4L-QCD"] = {
     'xsec' : 0.009335,
     'prettyName' : 'ZZ + 2 jets QCD',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#bbeeff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo['ZZJJTo4e-EWK-phantom'] = {
+    'xsec' : 0.000418,
+    'prettyName' : 'EWK ZZ/H + 2 jets (4e)',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#bbeeff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo['ZZJJTo4mu-EWK-phantom'] = {
+    'xsec' : 0.000418,
+    'prettyName' : 'EWK ZZ/H + 2 jets (4#mu)',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#bbeeff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo['ZZJJTo2e2mu-EWK-phantom'] = {
+    'xsec' : 0.000836,
+    'prettyName' : 'EWK ZZ/H + 2 jets (2e2#mu)',
     'isSignal' : True,
     'format' : {
         'fillcolor' : '#bbeeff',
@@ -269,6 +351,433 @@ sampleInfo['ZZZ'] = {
         },
     }
 
+# so many aTGC samples!
+sampleInfo["ZZTo4L-sherpa"] = {
+    'xsec' : 0.455985,
+    'prettyName' : 'q#bar{q} #rightarrow ZZ (SHERPA)',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#99ccff',
+        'linecolor' : '#000099',
+        },
+    'kFactor' : '1.1',
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0-fz0p0015'] = {
+    'xsec' : 4.614e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0-fz0p003'] = {
+    'xsec' : 4.628e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0-fzm0p0015'] = {
+    'xsec' : 4.616e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0-fzm0p003'] = {
+    'xsec' : 4.634e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0'] = {
+    'xsec' : 4.615e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0p0015'] = {
+    'xsec' : 4.628e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0p003'] = {
+    'xsec' : 4.634e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fzm0p0015'] = {
+    'xsec' : 4.630e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fzm0p003'] = {
+    'xsec' : 4.624e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0'] = {
+    'xsec' : 4.628e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p0015'] = {
+    'xsec' : 4.636e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p003'] = {
+    'xsec' : 4.647e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fzm0p0015'] = {
+    'xsec' : 4.623e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fzm0p003'] = {
+    'xsec' : 4.635e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0'] = {
+    'xsec' : 4.624e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0p0015'] = {
+    'xsec' : 4.613e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0p003'] = {
+    'xsec' : 4.622e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fzm0p0015'] = {
+    'xsec' : 4.623e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fzm0p003'] = {
+    'xsec' : 4.623e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0'] = {
+    'xsec' : 4.611e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0p0015'] = {
+    'xsec' : 4.606e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0p003'] = {
+    'xsec' : 4.632e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fzm0p0015'] = {
+    'xsec' : 4.634e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fzm0p003'] = {
+    'xsec' : 4.637e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0-fz0p0015'] = {
+    'xsec' : 4.632e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0-fzm0p0015'] = {
+    'xsec' : 4.620e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0-fzm0p003'] = {
+    'xsec' : 4.624e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0'] = {
+    'xsec' : 4.620e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0p0015'] = {
+    'xsec' : 4.591e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fzm0p0015'] = {
+    'xsec' : 4.620e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fzm0p003'] = {
+    'xsec' : 4.623e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0'] = {
+    'xsec' : 4.627e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p0015'] = {
+    'xsec' : 4.628e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p003'] = {
+    'xsec' : 4.653e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fzm0p0015'] = {
+    'xsec' : 4.627e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fzm0p003'] = {
+    'xsec' : 4.618e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0'] = {
+    'xsec' : 4.627e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0p0015'] = {
+    'xsec' : 4.626e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0p003'] = {
+    'xsec' : 4.616e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fzm0p0015'] = {
+    'xsec' : 4.622e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fzm0p003'] = {
+    'xsec' : 4.621e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0'] = {
+    'xsec' : 4.634e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0p0015'] = {
+    'xsec' : 4.620e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0p003'] = {
+    'xsec' : 4.621e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fzm0p0015'] = {
+    'xsec' : 4.636e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fzm0p003'] = {
+    'xsec' : 4.644e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    }
+
+
 groupInfo = {}
 
 groupInfo['GluGluZZ'] = {
@@ -276,6 +785,24 @@ groupInfo['GluGluZZ'] = {
     'prettyName' : 'gg #rightarrow ZZ, Z#gamma*',
     'format' : {
         'fillcolor' : '#4b78ff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo['ZZJJTo4L-EWK-phantom'] = {
+    'prettyName' : 'EWK ZZ/H + 2 jets',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#bbeeff',
+        'linecolor' : '#000099',
+        },
+    }
+
+sampleInfo["ZZTo4L-nJ"] = {
+    'prettyName' : 'ZZ + jets',
+    'isSignal' : True,
+    'format' : {
+        'fillcolor' : '#99ccff',
         'linecolor' : '#000099',
         },
     }

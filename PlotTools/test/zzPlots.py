@@ -27,19 +27,19 @@ from collections import OrderedDict
 from math import sqrt
 
 
-inData = 'uwvvNtuples_data_24jan2017'
-inMC = 'uwvvNtuples_mc_24jan2017'
+inData = 'uwvvNtuples_data_20feb2017'
+inMC = 'uwvvNtuples_mc_20feb2017'
 
 puWeightFile = 'puWeight_69200_24jan2017'
-fakeRateFile = 'fakeRate_24jan2017'
+fakeRateFile = 'fakeRate_20feb2017'
 
-leptonSFFromHists=True
+leptonSFFromHists=False
 
 ana = 'z4l'
 
 _blind = False
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_24jan2017_sfFromHists_{}'.format(ana)
+outdir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zz_20feb2017_{}'.format(ana)
 if not _exists(outdir):
     _mkdir(outdir)
 elif not _isdir(outdir):
@@ -280,6 +280,12 @@ for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
 
         yTitle = 'Events / {} {}'.format(makeNumberPretty(binNormWidth4l[varName], 2),
                                          units[varName])
+
+        # cure inexplicable crash with inexplicable fix
+        if chan == 'eeee' and varName == 'deltaPhiZZ':
+            cTemp = Canvas(1000,1000)
+            c.cd()
+
 
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c,
                                                      xtitle=xTitle,

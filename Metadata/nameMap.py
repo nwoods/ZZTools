@@ -42,25 +42,38 @@ nameMap.add("ZZTo4L-amcatnlo", "ZZTo4L_13TeV-amcatnloFXFX-pythia8")
 nameMap.add("ZZTo4L-sherpa", "ZZTo4L_13TeV-sherpa")
 nameMap.add("ZZTo4L", "ZZTo4L_13TeV_powheg_pythia8")
 nameMap.add("ggHZZ", "GluGluHToZZTo4L_M125_13TeV_powheg2_JHUgenV6_pythia8")
+nameMap.add("ggHZZ-minloHJ", "GluGluHToZZTo4L_M125_13TeV_powheg2_minloHJ_NNLOPS_JHUgenV702_pythia8")
 nameMap.add("ggHZZ-minloHJJ", "GluGluHToZZTo4L_M125_13TeV_powheg2_minloHJJ_JHUgenV6_pythia8")
-nameMap.add("ZZJJTo4L_EWK", "ZZJJTo4L_EWK_13TeV-madgraph-pythia8")
-nameMap.add("ZZJJTo4L_QCD", "ZZJJTo4L_QCD_13TeV-madgraph-pythia8")
+nameMap.add("ZZJJTo4L-EWK", "ZZJJTo4L_EWK_13TeV-madgraph-pythia8")
+nameMap.add("ZZJJTo4L-QCD", "ZZJJTo4L_QCD_13TeV-madgraph-pythia8")
 nameMap.add("WWZ", "WWZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8")
 nameMap.add("WZZ", "WZZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8")
 nameMap.add("ZZZ", "ZZZ_TuneCUETP8M1_13TeV-amcatnlo-pythia8")
 nameMap.add("TTZ", "TTZToLLNuNu_M-10_TuneCUETP8M1_13TeV-amcatnlo-pythia8")
 
 for fs in ['4e', '4mu', '4tau', '2e2mu', '2e2tau', '2mu2tau']:
-    nameMap.add("GluGluZZTo{}".format(fs),
+    _name = "GluGluZZTo{}".format(fs)
+    if 'tau' not in fs:
+        _name += "-HZZPythiaTune"
+    nameMap.add(_name,
                 "GluGluToContinToZZTo{}_13TeV_MCFM701_pythia8".format(fs))
-nameMap.add("GluGluZZTo4mu-defaultShower", "GluGluToContinToZZTo4mu_13TeV_DefaultShower_MCFM701_pythia8")
-nameMap.add("GluGluZZTo2e2mu-defaultShower", "GluGluToContinZZTo2e2mu_13TeV_DefaultShower_MCFM701_pythia8")
+nameMap.add("GluGluZZTo4mu", "GluGluToContinToZZTo4mu_13TeV_DefaultShower_MCFM701_pythia8")
+nameMap.add("GluGluZZTo4e", "GluGluToContinToZZTo4e_13TeV_DefaultShower_MCFM701_pythia8")
+nameMap.add("GluGluZZTo2e2mu", "GluGluToContinZZTo2e2mu_13TeV_DefaultShower_MCFM701_pythia8")
 
-for width in ['0', '0p1', '0p2', '0p3']:
-    for mass in [750, 800, 1200, 2000, 3000, 4000]:
-        nameMap.add("Grav2PB_width{}_M{}".format(width, mass),
-                    "Graviton2PBToZZTo4L_width{}_M-{}_13TeV-JHUgenV6-pythia8".format(width, mass))
+nameMap.add("ZZTo4L-0J", "ZZTo4L_0Jets_ZZOnShell_13TeV-amcatnloFXFX-madspin-pythia8")
+nameMap.add("ZZTo4L-1J", "ZZTo4L_1Jets_ZZOnShell_13TeV-amcatnloFXFX-madspin-pythia8")
+nameMap.add("ZZTo4L-2J", "ZZTo4L_2Jets_ZZOnShell_13TeV-amcatnloFXFX-madspin-pythia8")
 
+nameMap.add("ZZJJTo4e-EWK-phantom", "VBFToHiggs0PMContinToZZTo4eJJ_M125_GaSM_13TeV_phantom_pythia8")
+nameMap.add("ZZJJTo4mu-EWK-phantom", "VBFToHiggs0PMContinToZZTo4muJJ_M125_GaSM_13TeV_phantom_pythia8")
+nameMap.add("ZZJJTo2e2mu-EWK-phantom", "VBFToHiggs0PMContinToZZTo2e2muJJ_M125_GaSM_13TeV_phantom_pythia8")
+
+for param in ['f4','f5']:
+    for fg in ['0', '0p0038', 'm0p0019', 'm0p0038', '0p0019']:
+        for fz in ['0', '0p0015', '0p003', 'm0p0015', 'm0p003']:
+            nameMap.add('ZZTo4L-aTGC-{param}-fg{fg}-fz{fz}'.format(param=param,fg=fg,fz=fz),
+                        'ZZTo4L_aTGC-{param}_fg-{fg}_fz-{fz}_13TeV-sherpa'.format(param=param,fg=fg,fz=fz))
 
 systNameMap = _TwoWayMap()
 
