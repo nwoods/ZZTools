@@ -125,7 +125,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
     dataTight.format(color='black',drawstyle='PE',legendstyle='LPE')
 
     ptBinning = {
-        'e' : [7.,]+[8.+2.*i for i in range(6)]+[20.+5.*i for i in range(6)]+[50.+10.*i for i in range(4)]+[200.,],
+        'e' : [7.+1.*i for i in range(5)]+[12.+2.*i for i in range(5)]+[20.+5.*i for i in range(6)]+[50.+10.*i for i in range(3)]+[200.,],
         'm' : [5.+1.*i for i in range(5)]+[10.,20.,30.,70.,200.],#[10.+5.*i for i in range(4)]+[30.,50.,60.,80.,200.],
         }
     etaBinning = {
