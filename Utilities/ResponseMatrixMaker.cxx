@@ -301,7 +301,8 @@ void ResponseMatrixMakerBase<T>::setup()
   for(const auto& fn : fileNames)
     trueTree->Add(fn.c_str());
 
-  UPtr<UMap<size_t, T> > trueVals = this->getTrueValues(*trueTree.get());
+  UPtr<UMap<size_t, T> > trueVals = this->getTrueValues(*trueTree.get(),
+                                                        objects);
 
   trueTree.reset(); // gone -- don't use any more
 
@@ -505,6 +506,28 @@ void ResponseMatrixMakerBase<T>::setup()
 
 
 template<typename T>
+bool ResponseMatrixMakerBase<T>::selectTrueEvent(float mZ1, float mZ2) const
+{
+  return mZ1 > 60. && mZ1 < 120. && mZ2 > 60. && mZ2 < 120.;
+}
+
+
+template<typename T>
+float *
+ResponseMatrixMakerBase<T>::getmZPtr(TChain& t,
+                                     const Str& obj1, const Str& obj2,
+                                     float& maybeUseThis) const
+{
+  Str bName = obj1+"_"+obj2+"_"+"Mass";
+
+  if(!t.GetBranch(bName.c_str())->GetAddress())
+    t.SetBranchAddress(bName.c_str(), &maybeUseThis);
+
+  return (float* const)(t.GetBranch(bName.c_str())->GetAddress());
+}
+
+
+template<typename T>
 float ResponseMatrixMakerBase<T>::getLepSF(const Vec<Str>& objects,
                                            float eSyst, float mSyst)
 {
@@ -556,7 +579,9 @@ BranchValueResponseMatrixMaker<T>::BranchValueResponseMatrixMaker(const Str& cha
 
 template<typename T>
 UPtr<UMap<size_t, T> >
-BranchValueResponseMatrixMaker<T>::getTrueValues(TChain& t, const Str& syst) const
+BranchValueResponseMatrixMaker<T>::getTrueValues(TChain& t,
+                                                 const Vec<Str>& objects,
+                                                 const Str& syst) const
 {
   UPtr<UMap<size_t, T> > out(new UMap<size_t, T>());
 
@@ -565,9 +590,19 @@ BranchValueResponseMatrixMaker<T>::getTrueValues(TChain& t, const Str& syst) con
   t.SetBranchAddress("evt", &trueEvt);
   t.SetBranchAddress(this->getVar().c_str(), &val);
 
+  float _doNotUse1 = 0.;
+  float _doNotUse2 = 0.;
+  float *const mZ1 = this->getmZPtr(t, objects.at(0), objects.at(1),
+                                    _doNotUse1);
+  float *const mZ2 = this->getmZPtr(t, objects.at(2), objects.at(3),
+                                    _doNotUse2);
+
   for(size_t row = 0; row < size_t(std::abs(t.GetEntries())); ++row)
     {
       t.GetEntry(row);
+
+      if(!this->selectTrueEvent(*mZ1,*mZ2))
+        continue;
 
       (*out)[trueEvt] = val;
     }
@@ -601,9 +636,12 @@ AbsValueResponseMatrixMaker<R>::AbsValueResponseMatrixMaker(const Str& channel,
 template<class R>
 UPtr<UMap<size_t, typename R::ValType> >
 AbsValueResponseMatrixMaker<R>::getTrueValues(TChain& trueTree,
+                                              const Vec<Str>& objects,
                                               const Str& syst) const
 {
-  UPtr<UMap<size_t, typename R::ValType> > out = R::getTrueValues(trueTree, syst);
+  UPtr<UMap<size_t, typename R::ValType> > out = R::getTrueValues(trueTree,
+                                                                  objects,
+                                                                  syst);
   for(auto& val : *out)
     this->doAbs(val.second);
 
@@ -677,6 +715,7 @@ DijetBranchResponseMatrixMaker::DijetBranchResponseMatrixMaker(const Str& channe
 
 UPtr<UMap<size_t, float> >
 DijetBranchResponseMatrixMaker::getTrueValues(TChain& trueTree,
+                                              const Vec<Str>& objects,
                                               const Str& syst) const
 {
   UPtr<UMap<size_t, float> > out(new UMap<size_t, float>());
@@ -688,9 +727,19 @@ DijetBranchResponseMatrixMaker::getTrueValues(TChain& trueTree,
   trueTree.SetBranchAddress(this->getVar().c_str(), &trueVal);
   trueTree.SetBranchAddress("nJets", &trueNJets);
 
+  float _doNotUse1 = 0.;
+  float _doNotUse2 = 0.;
+  float *const mZ1 = this->getmZPtr(trueTree, objects.at(0), objects.at(1),
+                                    _doNotUse1);
+  float *const mZ2 = this->getmZPtr(trueTree, objects.at(2), objects.at(3),
+                                    _doNotUse2);
+
   for(size_t row = 0; row < size_t(std::abs(trueTree.GetEntries())); ++row)
     {
       trueTree.GetEntry(row);
+
+      if(!this->selectTrueEvent(*mZ1,*mZ2))
+        continue;
 
       if(trueNJets >= 2)
         (*out)[trueEvt] = trueVal;
@@ -747,6 +796,7 @@ SelectedZResponseMatrixMakerBase::SelectedZResponseMatrixMakerBase(const Str& ch
 
 UPtr<UMap<size_t, float> >
 SelectedZResponseMatrixMakerBase::getTrueValues(TChain& trueTree,
+                                                const Vec<Str>& objects,
                                                 const Str& syst) const
 {
   UPtr<UMap<size_t, float> > out(new UMap<size_t, float>());
@@ -762,6 +812,14 @@ SelectedZResponseMatrixMakerBase::getTrueValues(TChain& trueTree,
   trueTree.SetBranchAddress("evt", &trueEvt);
   trueTree.SetBranchAddress(z1CompVarName.c_str(), &z1CompTrue);
   trueTree.SetBranchAddress(z2CompVarName.c_str(), &z2CompTrue);
+
+  float _doNotUse1 = 0.;
+  float _doNotUse2 = 0.;
+  float *const mZ1 = this->getmZPtr(trueTree, objects.at(0), objects.at(1),
+                                    _doNotUse1);
+  float *const mZ2 = this->getmZPtr(trueTree, objects.at(2), objects.at(3),
+                                    _doNotUse2);
+
   if(compIsResp)
     {
       z1RespTruePtr = &z1CompTrue;
@@ -778,6 +836,9 @@ SelectedZResponseMatrixMakerBase::getTrueValues(TChain& trueTree,
   for(size_t row = 0; row < size_t(std::abs(trueTree.GetEntries())); ++row)
     {
       trueTree.GetEntry(row);
+
+      if(!this->selectTrueEvent(*mZ1,*mZ2))
+        continue;
 
       (*out)[trueEvt] = (this->z1IsBetter(z1CompTrue, z2CompTrue) ?
                          *z1RespTruePtr :
@@ -911,6 +972,7 @@ ZZCompositeResponseMatrixMakerBase::ZZCompositeResponseMatrixMakerBase(const Str
 
 UPtr<UMap<size_t, float> >
 ZZCompositeResponseMatrixMakerBase::getTrueValues(TChain& trueTree,
+                                                  const Vec<Str>& objects,
                                                   const Str& syst) const
 {
   UPtr<UMap<size_t, float> > out(new UMap<size_t, float>());
@@ -923,9 +985,19 @@ ZZCompositeResponseMatrixMakerBase::getTrueValues(TChain& trueTree,
   trueTree.SetBranchAddress(z1VarName.c_str(), &z1VarTrue);
   trueTree.SetBranchAddress(z2VarName.c_str(), &z2VarTrue);
 
+  float _doNotUse1 = 0.;
+  float _doNotUse2 = 0.;
+  float *const mZ1 = this->getmZPtr(trueTree, objects.at(0), objects.at(1),
+                                    _doNotUse1);
+  float *const mZ2 = this->getmZPtr(trueTree, objects.at(2), objects.at(3),
+                                    _doNotUse2);
+
   for(size_t row = 0; row < size_t(std::abs(trueTree.GetEntries())); ++row)
     {
       trueTree.GetEntry(row);
+
+      if(!this->selectTrueEvent(*mZ1,*mZ2))
+        continue;
 
       (*out)[trueEvt] = this->calculateZZVar(z1VarTrue, z2VarTrue);
     }
@@ -999,6 +1071,7 @@ ZZDeltaRResponseMatrixMaker::ZZDeltaRResponseMatrixMaker(const Str& channel,
 
 UPtr<UMap<size_t, float> >
 ZZDeltaRResponseMatrixMaker::getTrueValues(TChain& trueTree,
+                                           const Vec<Str>& objects,
                                            const Str& syst) const
 {
   UPtr<UMap<size_t, float> > out(new UMap<size_t, float>());
@@ -1015,9 +1088,19 @@ ZZDeltaRResponseMatrixMaker::getTrueValues(TChain& trueTree,
   trueTree.SetBranchAddress(z1PhiBranchName.c_str(), &z1PhiTrue);
   trueTree.SetBranchAddress(z2PhiBranchName.c_str(), &z2PhiTrue);
 
+  float _doNotUse1 = 0.;
+  float _doNotUse2 = 0.;
+  float *const mZ1 = this->getmZPtr(trueTree, objects.at(0), objects.at(1),
+                                    _doNotUse1);
+  float *const mZ2 = this->getmZPtr(trueTree, objects.at(2), objects.at(3),
+                                    _doNotUse2);
+
   for(size_t row = 0; row < size_t(std::abs(trueTree.GetEntries())); ++row)
     {
       trueTree.GetEntry(row);
+
+      if(!this->selectTrueEvent(*mZ1,*mZ2))
+        continue;
 
       (*out)[trueEvt] = ::deltaR(z1EtaTrue, z1PhiTrue, z2EtaTrue, z2PhiTrue);
     }
@@ -1075,6 +1158,7 @@ MultiBranchResponseMatrixMakerBase<T>::MultiBranchResponseMatrixMakerBase(const 
 template<typename T>
 UPtr<UMap<size_t, Vec<T> > >
 MultiBranchResponseMatrixMakerBase<T>::getTrueValues(TChain& trueTree,
+                                                     const Vec<Str>& objects,
                                                      const Str& syst) const
 {
   UPtr<UMap<size_t, Vec<T> > > out(new UMap<size_t, Vec<T> >());
@@ -1089,9 +1173,19 @@ MultiBranchResponseMatrixMakerBase<T>::getTrueValues(TChain& trueTree,
   for(size_t i = 0; i < varNames.size(); ++i)
     trueTree.SetBranchAddress(varNames[i].c_str(), &trueValues[i]);
 
+  float _doNotUse1 = 0.;
+  float _doNotUse2 = 0.;
+  float *const mZ1 = this->getmZPtr(trueTree, objects.at(0), objects.at(1),
+                                    _doNotUse1);
+  float *const mZ2 = this->getmZPtr(trueTree, objects.at(2), objects.at(3),
+                                    _doNotUse2);
+
   for(size_t row = 0; row < size_t(std::abs(trueTree.GetEntries())); ++row)
     {
       trueTree.GetEntry(row);
+
+      if(!this->selectTrueEvent(*mZ1,*mZ2))
+        continue;
 
       // copies elements so should be safe
       (*out)[trueEvt] = trueValues;
@@ -1190,6 +1284,7 @@ LeptonMaxBranchResponseMatrixMaker::LeptonMaxBranchResponseMatrixMaker(const Str
 
 UPtr<UMap<size_t, float> >
 LeptonMaxBranchResponseMatrixMaker::getTrueValues(TChain& trueTree,
+                                                  const Vec<Str>& objects,
                                                   const Str& syst) const
 {
   UPtr<UMap<size_t, float> > out(new UMap<size_t, float>());
@@ -1201,9 +1296,19 @@ LeptonMaxBranchResponseMatrixMaker::getTrueValues(TChain& trueTree,
   for(size_t i = 0; i < varNames.size(); ++i)
     trueTree.SetBranchAddress(varNames[i].c_str(), &trueValues[i]);
 
+  float _doNotUse1 = 0.;
+  float _doNotUse2 = 0.;
+  float *const mZ1 = this->getmZPtr(trueTree, objects.at(0), objects.at(1),
+                                    _doNotUse1);
+  float *const mZ2 = this->getmZPtr(trueTree, objects.at(2), objects.at(3),
+                                    _doNotUse2);
+
   for(size_t row = 0; row < size_t(std::abs(trueTree.GetEntries())); ++row)
     {
       trueTree.GetEntry(row);
+
+      if(!this->selectTrueEvent(*mZ1,*mZ2))
+        continue;
 
       float max = -999999999.;
       for(const auto& val : trueValues)
@@ -1284,7 +1389,9 @@ NthJetResponseMatrixMaker<T,_N>::NthJetResponseMatrixMaker(const Str& channel, c
 
 template<typename T, size_t _N>
 UPtr<UMap<size_t, T> >
-NthJetResponseMatrixMaker<T,_N>::getTrueValues(TChain& t, const Str& syst) const
+NthJetResponseMatrixMaker<T,_N>::getTrueValues(TChain& trueTree,
+                                               const Vec<Str>& objects,
+                                               const Str& syst) const
 {
   UPtr<UMap<size_t, T> > out(new UMap<size_t, T>());
 
@@ -1293,12 +1400,22 @@ NthJetResponseMatrixMaker<T,_N>::getTrueValues(TChain& t, const Str& syst) const
   // some pointer bullshit to make ROOT happy
   Vec<T> allJetsTrue_object;
   Vec<T>* allJetsTrue = &allJetsTrue_object;
-  t.SetBranchAddress("evt", &trueEvt);
-  t.SetBranchAddress(this->getVar().c_str(), &allJetsTrue);
+  trueTree.SetBranchAddress("evt", &trueEvt);
+  trueTree.SetBranchAddress(this->getVar().c_str(), &allJetsTrue);
 
-  for(size_t row = 0; row < size_t(std::abs(t.GetEntries())); ++row)
+  float _doNotUse1 = 0.;
+  float _doNotUse2 = 0.;
+  float *const mZ1 = this->getmZPtr(trueTree, objects.at(0), objects.at(1),
+                                    _doNotUse1);
+  float *const mZ2 = this->getmZPtr(trueTree, objects.at(2), objects.at(3),
+                                    _doNotUse2);
+
+  for(size_t row = 0; row < size_t(std::abs(trueTree.GetEntries())); ++row)
     {
-      t.GetEntry(row);
+      trueTree.GetEntry(row);
+
+      if(!this->selectTrueEvent(*mZ1,*mZ2))
+        continue;
 
       if(allJetsTrue->size() > _N)
         (*out)[trueEvt] = allJetsTrue->at(_N);
@@ -1537,6 +1654,12 @@ UseSFHists<R>::getLepSF(const Vec<Str>& leptons,
 }
 
 
+template<class R>
+RelaxGenZCuts<R>::RelaxGenZCuts(const Str& channel, const Str& varName,
+                                const Vec<float>& binning) :
+  R(channel, varName, binning)
+{;}
+
 
 typedef SimpleValueResponseMatrixMakerBase<float> FloatResponseMatrixMakerBase;
 typedef BranchValueResponseMatrixMaker<float> FloatBranchResponseMatrixMaker;
@@ -1571,6 +1694,8 @@ typedef UseSFHists<FirstJetFloatResponseMatrixMaker>     SFHistFirstJetFloatResp
 typedef UseSFHists<SecondJetFloatResponseMatrixMaker>    SFHistSecondJetFloatResponseMatrixMaker;
 typedef UseSFHists<FirstJetAbsFloatResponseMatrixMaker>  SFHistFirstJetAbsFloatResponseMatrixMaker;
 typedef UseSFHists<SecondJetAbsFloatResponseMatrixMaker> SFHistSecondJetAbsFloatResponseMatrixMaker;
+
+typedef RelaxGenZCuts<FloatBranchResponseMatrixMaker> FullSpectrumFloatResponseMatrixMaker;
 
 #if defined(__ROOTCLING__)
 #pragma link C++ class FloatBranchResponseMatrixMaker;
@@ -1614,4 +1739,6 @@ typedef UseSFHists<SecondJetAbsFloatResponseMatrixMaker> SFHistSecondJetAbsFloat
 #pragma link C++ class SFHistSecondJetFloatResponseMatrixMaker;
 #pragma link C++ class SFHistFirstJetAbsFloatResponseMatrixMaker;
 #pragma link C++ class SFHistSecondJetAbsFloatResponseMatrixMaker;
+
+#pragma link C++ class FullSpectrumFloatResponseMatrixMaker;
 #endif

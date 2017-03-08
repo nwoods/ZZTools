@@ -22,7 +22,7 @@ _VFloat = _Vec('float')
 
 from PlotTools import PlotStyle as _Style
 from PlotTools import makeLegend, addPadsBelow, makeRatio, fixRatioAxes, makeErrorBand
-from Utilities import WeightStringMaker, Z_MASS, deltaRString, deltaPhiString, zeroNegativeBins
+from Utilities import WeightStringMaker, Z_MASS, deltaRString, deltaPhiString, zeroNegativeBins, combineWeights
 from Analysis.setupStandardSamples import *
 # from Analysis.unfoldingHelpers import getResponse, getResponsePDFErrors, \
 #     getResponseScaleErrors, getResponseAlphaSErrors
@@ -53,6 +53,7 @@ _channels = ['eeee','eemm', 'mmmm']
 _variables = {
     'pt' : {c:'Pt' for c in _channels},
     'mass' : {c:'Mass' for c in _channels},
+    'massFull' : {c:'Mass' for c in _channels},
     'eta' : {c:'abs(Eta)' for c in _channels},
     'z1Mass' : {'eeee':'e1_e2_Mass', 'mmmm':'m1_m2_Mass',
                 'eemm':['e1_e2_Mass','m1_m2_Mass']},
@@ -105,6 +106,7 @@ _binning = {
     'pt' : [25.*i for i in range(4)] + [100., 150., 200., 300.],
     'nJets' : [6,-0.5,5.5],
     'mass' : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.],
+    'massFull' : [80.,100.,120.,130.,150.,180.,200.,240.,300.,400.,1000],
     'eta' : [6,0.,6.],
     'jet1Pt' : [0., 50., 100., 200., 300., 500.],
     'jet1Eta' : [0., 1.5, 3., 4.7],
@@ -122,18 +124,14 @@ _binning = {
     'deltaPhiZZ' : [0., 1.5] + [2.+.25*i for i in range(6)],
     'deltaRZZ' : [6, 0., 6.],
     'lPt' : [15, 0., 150.],
-    'l1Pt' : [15, 0., 150.],
+    'l1Pt' : [0.,15.,30.,40.,50.]+[60.+15.*i for i in range(9)]+[195.,225.],#[14,0.,210.],#[15, 0., 150.],
     }
-
-_binningFull = _binning.copy()
-_binningFull['mass'] = [80.,100.,120.,130.,150.,180.,200.,240.,300.,400.,1000]
-_binningFull['z1Mass'] = [40,40.,120.]
-_binningFull['z1Mass'] = [60,0.,120.]
 
 _units = {
     'pt' : 'GeV',
     'nJets' : '',
     'mass' : 'GeV',
+    'massFull' : 'GeV',
     'eta' : '',
     'jet1Pt' : 'GeV',
     'jet1Eta' : '',
@@ -158,6 +156,7 @@ _prettyVars = {
     'pt' : 'p_T^{4\\ell}',
     'nJets' : '# jets',
     'mass' : 'm_{4\\ell}',
+    'massFull' : 'm_{4\\ell}',
     'eta' : '\\eta_{4\\ell}',
     'jet1Pt' : 'p_T^\\text{j1}',
     'jet1Eta' : '\\eta_\\text{j1}',
@@ -180,22 +179,30 @@ _prettyVars = {
 
 _xTitle = {}
 _yTitle = {}
-_yTitleTemp = '\\frac{{1}}{{\\sigma_{{\\text{{fid}}}}}} \\frac{{d\\sigma_{{\\text{{fid}}}}}}{{d{xvar}}} {units}'
+_yTitleNoNorm = {}
+_yTitleTemp = '{prefix} \\frac{{d\\sigma_{{\\text{{fid}}}}}}{{d{xvar}}} {units}'
 for var, prettyVar in _prettyVars.iteritems():
     xt = prettyVar
     if _units[var]:
         xt += ' \\, \\text{{[{}]}}'.format(_units[var])
         yt = _yTitleTemp.format(xvar=prettyVar,
+                                prefix='\\frac{1}{\\sigma_{\\text{fid}}}',
                                 units='\\, \\left[ \\frac{{1}}{{\\text{{{unit}}}}} \\right]'.format(unit=_units[var]))
+        ytnn = _yTitleTemp.format(xvar=prettyVar, prefix='',
+                                  units='\\, \\left[ \\frac{{\\text{{fb}}}}{{\\text{{{unit}}}}} \\right]'.format(unit=_units[var]))
     else:
-        yt = _yTitleTemp.format(xvar=prettyVar, units='')
+        yt = _yTitleTemp.format(prefix='\\frac{1}{\\sigma_{\\text{fid}}}',
+                                xvar=prettyVar, units='')
+        ytnn = _yTitleTemp.format(prefix='', xvar=prettyVar, units='\\left[ \\text{fb} \\right]')
 
     _xTitle[var] = xt
     _yTitle[var] = yt
+    _yTitleNoNorm[var] = ytnn
 
 _selections = {
     'pt' : {c:'' for c in _channels},
     'mass' : {c:'' for c in _channels},
+    'massFull' : {c:'' for c in _channels},
     'eta' : {c:'' for c in _channels},
     'z1Mass' : {'eeee':'','mmmm':'',
                 'eemm':['abs(e1_e2_Mass - {0}) < abs(m1_m2_Mass - {0})'.format(Z_MASS),
@@ -230,6 +237,7 @@ _selections = {
     'l1Pt' : {c:'' for c in _channels},
     }
 
+
 # do jet variables separately because we have to deal with systematics
 for sys in ['', '_jerUp', '_jerDown', '_jesUp','_jesDown']:
     for varName in ['nJets', 'mjj', 'deltaEtajj']:
@@ -259,11 +267,21 @@ for sys in ['', '_jerUp', '_jerDown', '_jesUp','_jesDown']:
             _variables[varName] = {c:var for c in _channels}
             _selections[varName] = {c:'nJets{} >= {}'.format(sys,j) for c in _channels}
 
+_trueSelections = {
+    v : {
+        'eeee' : 'e1_e2_Mass > 60. && e3_e4_Mass > 60.',
+        'eemm' : 'e1_e2_Mass > 60. && m1_m2_Mass > 60.',
+        'mmmm' : 'm1_m2_Mass > 60. && m3_m4_Mass > 60.',
+        } for v in _selections
+    }
+_trueSelections['massFull'] = {c:'' for c in _channels}
+
 # Names of compiled C++ classes to make response matrices fast
 # (this is extremely slow in Python because it requires a combination of
 # information from multiple trees, which can't be done with TTree::Draw())
 _responseClassNames = {
     'mass' : {c:'FloatBranchResponseMatrixMaker' for c in _channels},
+    'massFull' : {c:'FullSpectrumFloatResponseMatrixMaker' for c in _channels},
     'pt' : {c:'FloatBranchResponseMatrixMaker' for c in _channels},
     'eta' : {c:'AbsFloatBranchResponseMatrixMaker' for c in _channels},
     'nJets' : {c:'JetUIntBranchResponseMatrixMaker' for c in _channels},
@@ -297,6 +315,7 @@ _responseClassNames = {
 # Variable names usable by response maker classes
 _varNamesForResponseMaker = {
     'mass' : {c:'Mass' for c in _channels},
+    'massFull' : {c:'Mass' for c in _channels},
     'pt' : {c:'Pt' for c in _channels},
     'eta' : {c:'Eta' for c in _channels},
     'nJets' : {c:'nJets' for c in _channels},
@@ -482,7 +501,26 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
 
 
 def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
-         amcatnlo=False, ana='smp', useSFHists=False, *varNames, **kwargs):
+         amcatnlo=False, useSFHists=False, norm=True, *varNames, **kwargs):
+    lumifb = lumi / 1000.
+
+    ana = 'smp'
+    if 'massFull' in varNames:
+        # massFull is totally different from everything else. Instead of
+        # trying to make them play nicely, just do massFull totally separately
+        if len(varNames) != 1:
+            varNames = [v for v in varNames if v != 'massFull']
+            try:
+                main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi,
+                     nIter, amcatnlo, useSFHists, 'massFull', **kwargs)
+            except:
+                print "**************************************************"
+                print "**************************************************"
+                print "Full mass failed! Moving on."
+                print "**************************************************"
+                print "**************************************************"
+        else:
+            ana = 'full'
 
     classesNeeded = list(set(cls  for v in varNames for cls in _responseClassNames[v].values()))
     if useSFHists:
@@ -613,10 +651,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
     for varName in varNames:
 
-        if ana == 'full':
-            binning = _binningFull[varName]
-        else:
-            binning = _binning[varName]
+        binning = _binning[varName]
         vBinning = _VFloat()
         if len(binning) == 3:
             binningTemp = [binning[1] + i * (binning[2] - binning[1])/float(binning[0]) for i in xrange(binning[0]+1)]
@@ -640,7 +675,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
             var = _variables[varName][chan]
             sel = _selections[varName][chan]
-            selTrue = sel #combineWeights(sel, _wrongZRejectionStr[chan], selections=True)
+            if isinstance(sel,str):
+                selTrue = combineWeights(sel, _trueSelections[varName][chan], selections=True)
+            else:
+                selTrue = [combineWeights(s, _trueSelections[varName][chan], selections=True) for s in sel]
 
             respClassName = _responseClassNames[varName][chan]
             if useSFHists:
@@ -718,6 +756,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hResponseNominal = {s:asrootpy(resp()) for s,resp in responseMakers.iteritems()}
             hResponseNominalTotal = sum(resp for resp in hResponseNominal.values())
 
+
             # also get covariance and response matrices for later plotting
             hUnfolded[chan][''], hCov, hResp = _getUnfolded(hSigNominal,
                                                             hBkgMCNominal+hBkgNominal,
@@ -791,7 +830,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                         hData, nIter)
 
             # luminosity
-            lumiUnc = 0.024#62
+            lumiUnc = 0.026
             lumiScale = {'up':1.+lumiUnc,'dn':1.-lumiUnc}
             for sys, scale in lumiScale.iteritems():
                 hSig = hSigNominal * scale
@@ -861,10 +900,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                         if sys == 'ePhiRes':
                             storeAs = sys
                         hUnfolded[chan][storeAs] = _getUnfolded(hSig,
-                                                                      hBkgMC+hBkgNominal,
-                                                                      hTrueNominal,
-                                                                      hResponse,
-                                                                      hData, nIter)
+                                                                hBkgMC+hBkgNominal,
+                                                                hTrueNominal,
+                                                                hResponse,
+                                                                hData, nIter)
             if 'm' in chan:
                 sys = 'mClosure'
                 for shift in ['up','dn']:
@@ -887,12 +926,12 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             # PDF uncertainties
             hSigVariations = []
             for s in reco[chan].values():
-                if 'GluGluZZ' not in s.name:
+                if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
                     hSigVariations.append(s.makeHist2(var, 'Iteration$', sel, binning,
                                                       [100,0.,100.], 'pdfWeights', False))
             hResponseVariations = []
             for s, resp in responseMakers.iteritems():
-                if "GluGluZZ" not in s:
+                if "GluGluZZ" not in s and 'phantom' not in s:
                     hResponseVariations.append(asrootpy(resp.getPDFResponses()))
             # for each var bin in each sample, get the RMS across all the variations
             allSigRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hSigVariations]
@@ -922,8 +961,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hTrueDn = hTrueNominal.clone()
             hTrueVariations = []
             for s in true[chan].values():
-                if 'GluGluZZ' not in s.name:
-                    hTrueVariations.append(s.makeHist2(var, 'Iteration$', sel, binning,
+                if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
+                    hTrueVariations.append(s.makeHist2(var, 'Iteration$', selTrue, binning,
                                                        [100,0.,100.], 'pdfWeights', False))
             allTrueRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hTrueVariations]
             binTrueRMSes = [sum(rmses) for rmses in zip(*allTrueRMSes)]
@@ -997,7 +1036,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                         },
                                  perUnitWidth=False)
                     for i in alphaSIndices]
-            hTrues = [reco[chan].makeHist(var, sel, binning,
+            hTrues = [true[chan].makeHist(var, selTrue, binning,
                                   {
                         'ZZTo4L':'pdfWeights[{}]'.format(i),
                         'ZZTo4L-amcatnlo':'pdfWeights[{}]'.format(i),
@@ -1053,10 +1092,6 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                                 hTrue,
                                                                 hResponse,
                                                                 hData, nIter)
-
-            # Normalize all the things
-            for sys, hUnf in hUnfolded[chan].iteritems():
-                hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
 
             # Make uncertainties out of the unfolded histos
             hErr[chan] = {'up':{},'dn':{}}
@@ -1121,8 +1156,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
             # Make plots of uncertainties (added linearly)
             cErrUp = Canvas(1000,1000)
+            drawOpts = {
+                'xtitle' : _xTitle[varName],
+                'ytitle' : "+Error (%)",
+                'yerror_in_padding' : False,
+                }
+            if ana == 'full':
+                drawOpts['logx'] = True
             errStackUp = HistStack(hErr[chan]['up'].values(), drawstyle = 'histnoclear')
-            draw(errStackUp, cErrUp, xtitle=_xTitle[varName], ytitle="+Error (%)",yerror_in_padding=False)
+            draw(errStackUp, cErrUp, **drawOpts)
             leg = makeLegend(cErrUp, *hErr[chan]['up'].values(), leftmargin=0.25,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
@@ -1132,8 +1174,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             cErrUp.Print(_join(plotDir, 'errUp_{}_{}.C'.format(varName, chan)))
 
             cErrDn = Canvas(1000,1000)
+            drawOpts = {
+                'xtitle' : _xTitle[varName],
+                'ytitle' : "-Error (%)",
+                'yerror_in_padding' : False,
+                }
+            if ana == 'full':
+                drawOpts['logx'] = True
             errStackDn = HistStack(hErr[chan]['dn'].values(), drawstyle = 'histnoclear')
-            draw(errStackDn, cErrDn, xtitle=_xTitle[varName], ytitle="-Error (%)",yerror_in_padding=False)
+            draw(errStackDn, cErrDn, **drawOpts)
             leg = makeLegend(cErrDn, *hErr[chan]['dn'].values(), leftmargin=0.25,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
@@ -1150,9 +1199,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
             ### plot
             hUnf = hUnfolded[chan][''].clone()
+
+            if norm:
+                hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
+            else:
+                hUnf /= lumifb
+
             hUnf.color = 'black'
-            hUnf.drawstyle = 'PE'
-            hUnf.legendstyle = 'LPE'
+            hUnf.drawstyle = 'PE1'
+            hUnf.legendstyle = 'LPE1'
             hUnf.title = 'Data + stat. unc.'
             _normalizeBins(hUnf)
 
@@ -1163,7 +1218,12 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hTrue.fillstyle = 'solid'
             hTrue.legendstyle = 'F'
             hTrue.title = '{}'.format(signalName)
-            hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
+
+            if norm:
+                hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
+            else:
+                hTrue /= lumifb
+
             _normalizeBins(hTrue)
 
             hTrueAlt = altTrue[chan].makeHist(var, selTrue, binning,
@@ -1174,8 +1234,18 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hTrueAlt.legendstyle = 'L'
             hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
             hTrueAlt.title = '{}'.format(signalNameAlt)
-            hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+            if norm:
+                hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+            else:
+                hTrueAlt /= lumifb
             _normalizeBins(hTrueAlt)
+
+            if norm:
+                hUncUp /= hUnfolded[chan][''].Integral(0,hUnfolded[chan][''].GetNbinsX()+1)
+                hUncDn /= hUnfolded[chan][''].Integral(0,hUnfolded[chan][''].GetNbinsX()+1)
+            else:
+                hUncUp /= lumifb
+                hUncDn /= lumifb
 
             _normalizeBins(hUncUp)
             _normalizeBins(hUncDn)
@@ -1193,6 +1263,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             errorBand = makeErrorBand(hUnf, hUncUp, hUncDn)
 
             cUnf = Canvas(1000,1200)
+            drawOpts = {
+                'xtitle' : _xTitle[varName],
+                }
+            if norm:
+                drawOpts['ytitle'] = _yTitle[varName]
+            else:
+                drawOpts['ytitle'] = _yTitleNoNorm[varName]
+            if ana == 'full':
+                drawOpts['logx'] = True
             mainPad, ratioPad1, ratioPad2 = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
 
             mainPad.cd()
@@ -1200,8 +1279,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                           #hUnfoldedAlt,
                                                           hUnf,
                                                           errorBand], mainPad,
-                                                         xtitle=_xTitle[varName],
-                                                         ytitle=_yTitle[varName])#,
+                                                         **drawOpts)#,
                                                          #yerror_in_padding=False)
             yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
             yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
@@ -1227,16 +1305,22 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             latex.SetTextFont(62)
             latex.SetTextAlign(11)
 
+            drawOpts = {
+                'ytitle' : 'Data / MC',
+                'xlimits' : (xmin,xmax),
+                'ylimits' : (0.50001,1.9999),
+                'ydivisions' : 505,
+                }
+            if ana == 'full':
+                drawOpts['logx'] = True
+
             ratioPad1.cd()
             ratio1, unity1 = makeRatio(hUnf, hTrue)
             ratioError1 = makeErrorBand(hUnf/hTrue, hUncUp/hTrue,
                                         hUncDn/hTrue)
             (ratio1X, ratio1Y), ratio1Limits = draw([ratio1,ratioError1],
                                                     ratioPad1,
-                                                    ytitle='Data / MC',
-                                                    xlimits=(xmin,xmax),
-                                                    ylimits=(0.50001,1.9999),
-                                                    ydivisions=5)
+                                                    **drawOpts)
             unity1.Draw("same")
             latex.DrawLatex(0.15, 0.8, signalName)
 
@@ -1247,10 +1331,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                         hUncDn/hTrueAlt)
             (ratio2X, ratio2Y), ratio2Limits = draw([ratio2,ratioError2],
                                                     ratioPad2,
-                                                    ytitle='Data / MC',
-                                                    xlimits=(xmin,xmax),
-                                                    ylimits=(0.5,1.9999),
-                                                    ydivisions=5)
+                                                    **drawOpts)
             unity2.Draw("same")
             latex.SetTextSize(latex.GetTextSize() * ratioPad1.height / ratioPad2.height)
             latex.DrawLatex(0.15, 1.-.2*ratioPad1.height/ratioPad2.height,
@@ -1269,6 +1350,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             cUnf.Print(_join(plotDir, "unfold_{}_{}.C".format(varName, chan)))
 
             cRes = Canvas(1000,1000)
+            if ana == 'full':
+                cRes.SetLogx()
+                cRes.SetLogy()
             hResp.drawstyle = 'colztext'
             hResp.xaxis.title = '\\text{Reco} '+_xTitle[varName]
             hResp.yaxis.title = '\\text{True} '+_xTitle[varName]
@@ -1278,6 +1362,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             cRes.Print(_join(plotDir, "response_{}_{}.C".format(varName, chan)))
 
             cCov = Canvas(1000,1000)
+            if ana == 'full':
+                cCov.SetLogx()
+                cCov.SetLogy()
             hCov.Draw("colztext")
             _style.setCMSStyle(cCov, '', dataType='Preliminary', intLumi=lumi)
             cCov.Print(_join(plotDir, "covariance_{}_{}.png".format(varName, chan)))
@@ -1285,13 +1372,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
         hTot = sum(hUnfolded[c][''] for c in channels)
         hTot.color = 'black'
-        hTot.drawstyle = 'PE'
+        hTot.drawstyle = 'PE1'
         hTot.legendstyle = 'LPE'
         hTot.title = 'Data + stat. unc.'
-        # total normalization
-        hTotNoNorm = hTot.clone()
-        hTot /= hTot.Integral(0,hTot.GetNbinsX()+1)
-        _normalizeBins(hTot)
 
         #hTotAlt = sum(hUnfoldedAltByChan.values())
         #hTotAlt.color = 'magenta'
@@ -1302,7 +1385,20 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         #hTotAlt /= hTotAlt.Integral(0,hTotAlt.GetNbinsX()+1)
         #_normalizeBins(hTotAlt)
 
-        hTrue = true.makeHist(_variables[varName], _selections[varName],
+        selTrueAll = {}
+        for c in channels:
+            if isinstance(_selections[varName][c], str):
+                selTrueAll[c] = combineWeights(_selections[varName][c],
+                                               _trueSelections[varName][c],
+                                               selections=True)
+            else:
+                selTrueAll[c] = [combineWeights(s, _trueSelections[varName][c],
+                                                selections=True)
+                                 for s in _selections[varName][c]
+                                 ]
+
+
+        hTrue = true.makeHist(_variables[varName], selTrueAll,
                               binning, perUnitWidth=False)
         hTrue.fillcolor = '#99ccff'
         hTrue.linecolor = '#000099'
@@ -1310,10 +1406,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hTrue.fillstyle = 'solid'
         hTrue.legendstyle = 'F'
         hTrue.title = '{}'.format(signalName)
-        hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
+        if norm:
+            hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
+        else:
+            hTrue /= lumifb
         _normalizeBins(hTrue)
 
-        hTrueAlt = altTrue.makeHist(_variables[varName], _selections[varName],
+        hTrueAlt = altTrue.makeHist(_variables[varName], selTrueAll,
                                     binning, perUnitWidth=False)
         hTrueAlt.color = 'r'
         hTrueAlt.drawstyle = 'hist'
@@ -1321,7 +1420,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hTrueAlt.legendstyle = 'L'
         hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
         hTrueAlt.title = '{}'.format(signalNameAlt)
-        hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+        if norm:
+            hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+        else:
+            hTrueAlt /= lumifb
         _normalizeBins(hTrueAlt)
 
         hUncTot = {}
@@ -1336,18 +1438,19 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 hUncTot[sys][unc] = hTot.empty_clone()
                 for chan in _channels:
                     try:
-                        hThis = hErr[chan][sys][unc].clone()
+                        hUncTot[sys][unc] += hErr[chan][sys][unc]
+                        #hThis = hErr[chan][sys][unc].clone()
                     except KeyError:
                         continue
 
                     # weight by size of channel, re-normalize to total
-                    hThis *= hUnfolded[chan][''] / hTotNoNorm
+                    #hThis *= hUnfolded[chan][''] / hTotNoNorm
                     # for bErr, bChan, bTot in zip(hThis, hUnfoldedByChan[chan], hTotNoNorm):
                     #     try:
                     #         bErr.value *= bChan.value / bTot.value
                     #     except ZeroDivisionError:
                     #         pass
-                    hUncTot[sys][unc] += hThis
+                    #hUncTot[sys][unc] += hThis
 
 
         hUncUp = hTot.clone()
@@ -1357,8 +1460,22 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         for bTot, allbs in zip(hUncDn, zip(*hUncTot['dn'].values())):
             bTot.value = sqrt(sum(b.value**2 for b in allbs))
 
+        if norm:
+            hUncUp /= hTot.Integral(0,hTot.GetNbinsX()+1)
+            hUncDn /= hTot.Integral(0,hTot.GetNbinsX()+1)
+        else:
+            hUncUp /= lumifb
+            hUncDn /= lumifb
+
         _normalizeBins(hUncUp)
         _normalizeBins(hUncDn)
+
+        if norm:
+            hTot /= hTot.Integral(0,hTot.GetNbinsX()+1)
+        else:
+            hTot /= lumifb
+
+        _normalizeBins(hTot)
 
         if varName in _blind:
             for b, bUp, bDn in zip(hTot, hUncUp, hUncDn):
@@ -1373,6 +1490,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         errorBand = makeErrorBand(hTot, hUncUp, hUncDn)
 
         cUnf = Canvas(1000,1200)
+        drawOpts = {
+            'xtitle' : _xTitle[varName],
+            }
+        if norm:
+            drawOpts['ytitle'] = _yTitle[varName]
+        else:
+            drawOpts['ytitle'] = _yTitleNoNorm[varName]
+        if ana == 'full':
+            drawOpts['logx'] = True
         mainPad, ratioPad1, ratioPad2 = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=.35)
 
         mainPad.cd()
@@ -1380,8 +1506,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
                                                       #hTotAlt,
                                                       hTot, errorBand],
-                                                     mainPad, xtitle=_xTitle[varName],
-                                                     ytitle=_yTitle[varName])#,
+                                                     mainPad, **drawOpts)#,
                                                      #yerror_in_padding=False)
         yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
         yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
@@ -1407,21 +1532,29 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         latex.SetTextFont(62)
         latex.SetTextAlign(11)
 
+        drawOpts = {
+            'ytitle' : 'Data / MC',
+            'xlimits' : (xmin,xmax),
+            'ylimits' : (0.5,1.99999),
+            'ydivisions' : 505,
+            }
+        if ana == 'full':
+            drawOpts['logx'] = True
+
         ratioPad1.cd()
         ratio1, unity1 = makeRatio(hTot, hTrue)
         ratioError1 = makeErrorBand(hTot/hTrue, hUncUp/hTrue, hUncDn/hTrue)
-        (ratio1X, ratio1Y), ratio1Limits = draw([ratio1,ratioError1], ratioPad1, ytitle='Data / MC',
-                                                xlimits=(xmin,xmax),
-                                                ylimits=(0.5,1.99999), ydivisions=5)
+        (ratio1X, ratio1Y), ratio1Limits = draw([ratio1,ratioError1],
+                                                ratioPad1, **drawOpts)
         unity1.Draw("same")
         latex.DrawLatex(0.15, 0.8, signalName)
 
         ratioPad2.cd()
         ratio2, unity2 = makeRatio(hTot, hTrueAlt)
-        ratioError2 = makeErrorBand(hTot/hTrueAlt, hUncUp/hTrueAlt, hUncDn/hTrueAlt)
-        (ratio2X, ratio2Y), ratio2Limits = draw([ratio2,ratioError2], ratioPad2, ytitle='Data / MC',
-                                                xlimits=(xmin,xmax),
-                                                ylimits=(0.5,1.99999), ydivisions=5)
+        ratioError2 = makeErrorBand(hTot/hTrueAlt, hUncUp/hTrueAlt,
+                                    hUncDn/hTrueAlt)
+        (ratio2X, ratio2Y), ratio2Limits = draw([ratio2,ratioError2],
+                                                ratioPad2, **drawOpts)
         unity2.Draw("same")
         latex.SetTextSize(latex.GetTextSize() * ratioPad1.height / ratioPad2.height)
         latex.DrawLatex(0.15, 1.-.2*ratioPad1.height/ratioPad2.height, signalNameAlt)
@@ -1478,6 +1611,8 @@ if __name__ == "__main__":
                               'all are used ({})').format(', '.join(_varList)))
     parser.add_argument('--sfHists', action='store_true',
                         help='Get lepton scale factors from files instead of directly from the ntuples.')
+    parser.add_argument('--noNorm', action='store_true',
+                        help='Leave differential cross sections in abolute normalization rather than normalizing to unity area.')
 
     args=parser.parse_args()
 
@@ -1488,5 +1623,5 @@ if __name__ == "__main__":
 
     main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
          args.puWeightFile, args.lumi, args.nIter, args.amcatnlo,
-         args.analysis, args.sfHists, *args.variables)
+         args.sfHists, not args.noNorm, *args.variables)
 

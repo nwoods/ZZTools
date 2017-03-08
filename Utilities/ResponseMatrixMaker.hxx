@@ -78,6 +78,7 @@ class ResponseMatrixMakerBase
 
   // Event number -> value(s)
   virtual UPtr<UMap<size_t, T> > getTrueValues(TChain& trueTree,
+                                               const Vec<Str>& objects,
                                                const Str& syst = "") const = 0;
 
   // Point branches to correct addresses (child member objects)
@@ -99,6 +100,15 @@ class ResponseMatrixMakerBase
   virtual float getLepSF(const Vec<Str>& leptons,
                          float electronSystematic = 0.,
                          float muonSystematic = 0.);
+
+  // requires both true Zs to be on-shell unless overridden
+  virtual bool selectTrueEvent(float mZ1, float mZ2) const;
+
+  // If there is already a pointer to obj1_obj2_Mass pointing to the right
+  // branch in t, return it. Otherwise, set the branch to use maybeUseThis
+  // and return a pointer to it.
+  virtual float* getmZPtr(TChain& t, const Str& obj1, const Str& obj2,
+                          float& maybeUseThis) const;
 
   UMap<Str,TH2D> responses;
   TH3D pdfResponses;
@@ -176,6 +186,7 @@ class BranchValueResponseMatrixMaker : public SimpleValueResponseMatrixMakerBase
   typedef typename SimpleValueResponseMatrixMakerBase<T>::ValType ValType;
 
   virtual UPtr<UMap<size_t, T> > getTrueValues(TChain& trueTree,
+                                               const Vec<Str>& objects,
                                                const Str& syst = "") const;
 
   // Point branches to correct addresses (child member objects)
@@ -209,6 +220,7 @@ class AbsValueResponseMatrixMaker : public R
   typedef typename R::ValType ValType;
 
   virtual UPtr<UMap<size_t, T> > getTrueValues(TChain& trueTree,
+                                               const Vec<Str>& objects,
                                                const Str& syst = "") const;
 
   virtual T getEventResponse(const Str& option = "") const;
@@ -254,6 +266,7 @@ class DijetBranchResponseMatrixMaker : public JetBranchResponseMatrixMakerBase<f
   typedef JetBranchResponseMatrixMakerBase<float>::ValType ValType;
 
   virtual UPtr<UMap<size_t, float> > getTrueValues(TChain& trueTree,
+                                                   const Vec<Str>& objects,
                                                    const Str& syst = "") const;
 
   // gets nJets branch (and nJets systematic branches) as well as the
@@ -284,6 +297,7 @@ class SelectedZResponseMatrixMakerBase : public SimpleValueResponseMatrixMakerBa
   typedef typename SimpleValueResponseMatrixMakerBase<float>::ValType ValType;
 
   virtual UPtr<UMap<size_t, float> > getTrueValues(TChain& trueTree,
+                                                   const Vec<Str>& objects,
                                                    const Str& syst = "") const;
 
   // Point branches to correct addresses (child member objects)
@@ -416,6 +430,7 @@ class ZZCompositeResponseMatrixMakerBase : public SimpleValueResponseMatrixMaker
   typedef typename SimpleValueResponseMatrixMakerBase<float>::ValType ValType;
 
   virtual UPtr<UMap<size_t, float> > getTrueValues(TChain& trueTree,
+                                                   const Vec<Str>& objects,
                                                    const Str& syst = "") const;
 
   virtual void setRecoBranches(TChain& t, const Vec<Str>& objects);
@@ -462,6 +477,7 @@ class ZZDeltaRResponseMatrixMaker : public SimpleValueResponseMatrixMakerBase<fl
   typedef typename SimpleValueResponseMatrixMakerBase<float>::ValType ValType;
 
   virtual UPtr<UMap<size_t, float> > getTrueValues(TChain& trueTree,
+                                                   const Vec<Str>& objects,
                                                    const Str& syst = "") const;
 
   virtual void setRecoBranches(TChain& t, const Vec<Str>& objects);
@@ -530,6 +546,7 @@ class MultiBranchResponseMatrixMakerBase : public VectorValueResponseMatrixMaker
   typedef typename VectorValueResponseMatrixMakerBase<T>::ValType ValType;
 
   virtual UPtr<UMap<size_t, Vec<T> > > getTrueValues(TChain& trueTree,
+                                                     const Vec<Str>& objects,
                                                      const Str& syst = "") const;
 
   virtual void setRecoBranches(TChain& t, const Vec<Str>& objects);
@@ -587,6 +604,7 @@ class LeptonMaxBranchResponseMatrixMaker : public SimpleValueResponseMatrixMaker
   typedef SimpleValueResponseMatrixMakerBase<float>::ValType ValType;
 
   virtual UPtr<UMap<size_t, float> > getTrueValues(TChain& trueTree,
+                                                   const Vec<Str>& objects,
                                                    const Str& syst = "") const;
 
   virtual void setRecoBranches(TChain& t, const Vec<Str>& objects);
@@ -615,6 +633,7 @@ class NthJetResponseMatrixMaker : public SimpleValueResponseMatrixMakerBase<T>
   typedef typename SimpleValueResponseMatrixMakerBase<T>::ValType ValType;
 
   virtual UPtr<UMap<size_t, T> > getTrueValues(TChain& trueTree,
+                                               const Vec<Str>& objects,
                                                const Str& syst = "") const;
 
   virtual void setRecoBranches(TChain& t, const Vec<Str>& objects);
@@ -649,6 +668,8 @@ class UseSFHists : public R
   void registerMuonSFErrorHist(const TH2F& h);
 
  protected:
+  typedef typename R::ValType ValType;
+
   virtual float getLepSF(const Vec<Str>& leptons,
                          float eSyst=0., float mSyst=0.);
 
@@ -683,4 +704,24 @@ class UseSFHists : public R
   bool l2IsGapSF_value;
   bool l3IsGapSF_value;
   bool l4IsGapSF_value;
+};
+
+
+template<class R> // R is the type of the wrapped response maker
+class RelaxGenZCuts : public R
+{
+ public:
+  RelaxGenZCuts(const Str& channel, const Str& varName,
+                const Vec<float>& binning);
+  virtual ~RelaxGenZCuts(){;}
+
+ protected:
+  typedef typename R::ValType ValType;
+
+  // no cuts
+  bool selectTrueEvent(float mZ1, float mZ2) const {return true;}
+
+ private:
+  // no copy constructor
+  RelaxGenZCuts(const RelaxGenZCuts<R>&);
 };
