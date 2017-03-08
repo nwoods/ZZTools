@@ -379,7 +379,9 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
         for unc in ['Stat', 'Syst']:
             toFormat['tot'+sOrB+unc] = sqrt(toFormat['tot'+sOrB+unc])
 
-    print table.format(**toFormat)
+    print table.format(**toFormat) # for AN
+    print ''
+    print table.replace(':.2f',':.1f').format(**toFormat) # for PAS/paper
 
 
 if __name__ == "__main__":
