@@ -15,6 +15,7 @@ rlog["/rootpy.compiled"].setLevel(rlog.WARNING)
 
 import rootpy.compiled as _rootComp
 
+from numbers import Number as _NumType
 
 def makeNumberPretty(n, maxDigits=10):
     '''
@@ -111,6 +112,8 @@ def combineWeights(*wts, **kwargs):
     kwargs['selections'] evaluates to True -> join with ' && ' instead of ' * '
     kwargs['joinwith'] can be used to replace ' * ' with an arbitrary string
     '''
+    if not all(isinstance(w,str) or isinstance(w,_NumType) for w in wts):
+        raise TypeError("You can only combine weights made of numbers or strings")
     goodWeights = [str(w) for w in wts if w]
     if not goodWeights:
         return '1'
