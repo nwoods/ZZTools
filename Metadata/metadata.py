@@ -313,6 +313,7 @@ sampleInfo['ggHZZ'] = {
         'fillcolor' : '#ffb2b2',
         'linecolor' : '#cc0000',
         },
+    'kFactor' : '1.7'
     }
 
 sampleInfo['WWZ'] = {
@@ -360,7 +361,7 @@ sampleInfo["ZZTo4L-sherpa"] = {
         'fillcolor' : '#99ccff',
         'linecolor' : '#000099',
         },
-    'kFactor' : '1.1',
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0-fz0p0015'] = {
@@ -370,6 +371,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0-fz0p003'] = {
@@ -379,6 +381,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0-fz0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0-fzm0p0015'] = {
@@ -388,6 +391,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0-fzm0p003'] = {
@@ -397,6 +401,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0'] = {
@@ -406,6 +411,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0p0015'] = {
@@ -415,6 +421,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0p003'] = {
@@ -424,6 +431,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fzm0p0015'] = {
@@ -433,6 +441,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fzm0p003'] = {
@@ -442,6 +451,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0'] = {
@@ -451,6 +461,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p0015'] = {
@@ -460,15 +471,19 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p003'] = {
     'xsec' : 4.647e-01,
-    'prettyName' : 'aTGC',
+    'prettyName' : 'f_{4}^{#gamma} = 0.0038, f_{4}^{Z} = 0.003',
     'isSignal' : True,
     'format' : {
-        'color' : 'magenta',
+        'fillstyle' : 'hollow',
+        'linecolor' : 'magenta',
+        'linestyle' : 'dashed',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fzm0p0015'] = {
@@ -478,6 +493,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fzm0p003'] = {
@@ -487,6 +503,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0'] = {
@@ -496,6 +513,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0p0015'] = {
@@ -505,6 +523,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0p003'] = {
@@ -514,6 +533,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fz0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fzm0p0015'] = {
@@ -523,6 +543,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fzm0p003'] = {
@@ -532,6 +553,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0019-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0'] = {
@@ -541,6 +563,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0p0015'] = {
@@ -550,6 +573,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0p003'] = {
@@ -559,6 +583,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fz0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fzm0p0015'] = {
@@ -568,6 +593,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fzm0p003'] = {
@@ -577,6 +603,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fgm0p0038-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0-fz0p0015'] = {
@@ -586,6 +613,17 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0-fz0p003'] = {
+    'xsec' : 4.634e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0-fzm0p0015'] = {
@@ -595,6 +633,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0-fzm0p003'] = {
@@ -604,6 +643,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0'] = {
@@ -613,6 +653,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0p0015'] = {
@@ -622,6 +663,17 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
+    }
+
+sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0p003'] = {
+    'xsec' : 4.618e-01,
+    'prettyName' : 'aTGC',
+    'isSignal' : True,
+    'format' : {
+        'color' : 'magenta',
+        },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fzm0p0015'] = {
@@ -631,6 +683,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fzm0p003'] = {
@@ -640,6 +693,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0'] = {
@@ -649,6 +703,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p0015'] = {
@@ -658,15 +713,19 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p003'] = {
     'xsec' : 4.653e-01,
-    'prettyName' : 'aTGC',
+    'prettyName' : 'f_{5}^{#gamma} = 0.0038, f_{5}^{Z} = 0.003',
     'isSignal' : True,
     'format' : {
-        'color' : 'magenta',
+        'fillstyle' : 'hollow',
+        'linecolor' : 'red',
+        'linestyle' : 'dashed',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fzm0p0015'] = {
@@ -676,6 +735,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fzm0p003'] = {
@@ -685,6 +745,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0'] = {
@@ -694,6 +755,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0p0015'] = {
@@ -703,6 +765,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0p003'] = {
@@ -712,6 +775,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fz0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fzm0p0015'] = {
@@ -721,6 +785,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fzm0p003'] = {
@@ -730,6 +795,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0019-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0'] = {
@@ -739,6 +805,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0p0015'] = {
@@ -748,6 +815,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0p003'] = {
@@ -757,6 +825,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fz0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fzm0p0015'] = {
@@ -766,6 +835,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fzm0p0015'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fzm0p003'] = {
@@ -775,6 +845,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fgm0p0038-fzm0p003'] = {
     'format' : {
         'color' : 'magenta',
         },
+    'kFactor' : '1.239', #1.57',
     }
 
 
@@ -790,7 +861,7 @@ groupInfo['GluGluZZ'] = {
     }
 
 sampleInfo['ZZJJTo4L-EWK-phantom'] = {
-    'prettyName' : 'EWK ZZ/H + 2 jets',
+    'prettyName' : 'ZZ + 2 jets EWK',
     'isSignal' : True,
     'format' : {
         'fillcolor' : '#bbeeff',
