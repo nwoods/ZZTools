@@ -204,7 +204,6 @@ sampleInfo["ZZTo4L-amcatnlo"] = {
         'fillcolor' : '#99ccff',
         'linecolor' : '#000099',
         },
-    'kFactor' : '1.1',
     }
 
 sampleInfo["ZZTo4L-0J"] = {
