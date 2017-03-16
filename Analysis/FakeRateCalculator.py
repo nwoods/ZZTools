@@ -125,7 +125,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
     dataTight.format(color='black',drawstyle='PE',legendstyle='LPE')
 
     ptBinning = {
-        'e' : [7.+1.*i for i in range(5)]+[12.+2.*i for i in range(5)]+[20.+5.*i for i in range(6)]+[50.+10.*i for i in range(3)]+[200.,],
+        'e' : [7.+1.*i for i in range(5)]+[12.+2.*i for i in range(4)]+[20.+5.*i for i in range(6)]+[50.+10.*i for i in range(3)]+[200.,],
         'm' : [5.+1.*i for i in range(5)]+[10.,20.,30.,70.,200.],#[10.+5.*i for i in range(4)]+[30.,50.,60.,80.,200.],
         }
     etaBinning = {
@@ -340,7 +340,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
 
             legEtaDenom = makeLegend(cEtaDenom, etaMC, etaData)
 
-            draw([etaMC, etaData], cEtaDenom, xtitle='p_{T} (GeV)',
+            draw([etaMC, etaData], cEtaDenom, xtitle='|#eta|',
                  ytitle='Leptons')
             legEtaDenom.Draw("same")
             style.setCMSStyle(cEtaDenom, '', dataType='Preliminary',
@@ -365,7 +365,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
 
             legEtaNum = makeLegend(cEtaNum, etaMCTight, etaDataTight)
 
-            draw([etaMCTight, etaDataTight], cEtaNum, xtitle='p_{T} (GeV)',
+            draw([etaMCTight, etaDataTight], cEtaNum, xtitle='|#eta|',
                  ytitle='Tight+Iso Leptons')
             legEtaNum.Draw("same")
             style.setCMSStyle(cEtaNum, '', dataType='Preliminary', intLumi=lumi)
@@ -396,7 +396,7 @@ def calculateFakeRate(sampleID, outFile, puFile, lumi, plot=True,
             fEta.legendstyle = 'LPE'
             legEta = makeLegend(cEta, fEtaMC, fEta)
 
-            draw([fEtaMC, fEta], cEta, xtitle='p_{T} (GeV)', ytitle='Fake Rate',
+            draw([fEtaMC, fEta], cEta, xtitle='|#eta|', ytitle='Fake Rate',
                  ylimits=(0.,.25))
             legEta.Draw("same")
             style.setCMSStyle(cEta, '', dataType='Preliminary', intLumi=lumi)
