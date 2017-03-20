@@ -5,7 +5,7 @@ logging.basicConfig(level=logging.WARNING)
 rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 rlog["/ROOT.TROOT.Append"].setLevel(rlog.ERROR)
 
-from rootpy.ROOT import gROOT
+from rootpy.ROOT import gROOT, gStyle, TAttFill
 gROOT.SetBatch(True)
 
 from rootpy import asrootpy
@@ -31,6 +31,7 @@ from Metadata.metadata import sampleInfo
 
 from os import environ as _env
 from os import makedirs as _mkdir
+from os import system as _bash
 from os.path import join as _join
 from os.path import isdir as _isdir
 from os.path import exists as _exists
@@ -44,7 +45,7 @@ except KeyError:
     raise
 
 _style = _Style()
-
+gStyle.SetLineScalePS(1.8)
 
 _channels = ['eeee','eemm', 'mmmm']
 
@@ -153,11 +154,11 @@ _units = {
     }
 
 _prettyVars = {
-    'pt' : 'p_T^{4\\ell}',
+    'pt' : 'p_T^{\\text{ZZ}}',
     'nJets' : '# jets',
-    'mass' : 'm_{4\\ell}',
+    'mass' : 'm_{\\text{ZZ}}',
     'massFull' : 'm_{4\\ell}',
-    'eta' : '\\eta_{4\\ell}',
+    'eta' : '\\eta_{\\text{ZZ}}',
     'jet1Pt' : 'p_T^\\text{j1}',
     'jet1Eta' : '\\eta_\\text{j1}',
     'jet2Pt' : 'p_T^\\text{j2}',
@@ -342,11 +343,13 @@ _varNamesForResponseMaker = {
 
 # list of variables not counting systematic shifts
 _varList = [v for v in _variables if 'Up' not in v and 'Down' not in v]
+_varListNoFull = _varList[:]
+_varListNoFull.remove("massFull")
 
 # Sometimes need to more or resize legend
 _legDefaults = {
     'textsize' : .023,
-    'leftmargin' : 0.3,
+    'leftmargin' : 0.4,
     }
 _legParams = {v:_legDefaults.copy() for v in _varList}
 _legParams['z1Mass'] = {
@@ -367,7 +370,6 @@ _legParams['deltaEtajj']['topmargin'] = .05
 _legParams['eta'] = _legParams['deltaEtajj'].copy()
 _legParams['lPt']['topmargin'] = 0.05
 _legParams['l1Pt']['topmargin'] = 0.05
-_legParams['l1Pt']['leftmargin'] = 0.45
 
 
 _uncertaintyTitles = {
@@ -501,7 +503,17 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
 
 
 def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
-         amcatnlo=False, useSFHists=False, norm=True, *varNames, **kwargs):
+         amcatnlo=False, useSFHists=False, norm=True, logy=False, *varNames,
+         **kwargs):
+    for fileType in 'Cs', 'pngs', 'epses', 'pdfs':
+        subDir = _join(plotDir, fileType)
+        if not _exists(subDir):
+            _mkdir(subDir)
+        elif not _isdir(subDir):
+            raise IOError("There is already some non-directory object called {}.".format(subDir))
+
+
+
     lumifb = lumi / 1000.
 
     ana = 'smp'
@@ -509,16 +521,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         # massFull is totally different from everything else. Instead of
         # trying to make them play nicely, just do massFull totally separately
         if len(varNames) != 1:
-            varNames = [v for v in varNames if v != 'massFull']
-            try:
-                main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi,
-                     nIter, amcatnlo, useSFHists, 'massFull', **kwargs)
-            except:
-                print "**************************************************"
-                print "**************************************************"
-                print "Full mass failed! Moving on."
-                print "**************************************************"
-                print "**************************************************"
+            raise ValueError("massFull must be run separately from other variables")
         else:
             ana = 'full'
 
@@ -951,7 +954,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             # apply variations
             for i in xrange(hSigUp.GetNbinsX()):
                 hSigUp[i+1].value += sigBinRMSes[i]
-                hSigDn[i+1].value = max(0.,hSigDn[i+1].value + sigBinRMSes[i])
+                hSigDn[i+1].value = max(0.,hSigDn[i+1].value - sigBinRMSes[i])
             for x in xrange(hResponseUp.GetNbinsX()):
                 for y in xrange(hResponseUp.GetNbinsY()):
                     hResponseUp[x+1,y+1].value += responseBinRMSes[x][y]
@@ -1170,8 +1173,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                              rightmargin=.25)
             leg.Draw('same')
             _style.setCMSStyle(cErrUp, '', dataType='Preliminary', intLumi=lumi)
-            cErrUp.Print(_join(plotDir, 'errUp_{}_{}.png'.format(varName, chan)))
-            cErrUp.Print(_join(plotDir, 'errUp_{}_{}.C'.format(varName, chan)))
+            cErrUp.Print(_join(plotDir, 'pngs', 'errUp_{}_{}.png'.format(varName, chan)))
+            cErrUp.Print(_join(plotDir, 'Cs', 'errUp_{}_{}.C'.format(varName, chan)))
 
             cErrDn = Canvas(1000,1000)
             drawOpts = {
@@ -1188,8 +1191,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                              rightmargin=.25)
             leg.Draw('same')
             _style.setCMSStyle(cErrDn, '', dataType='Preliminary', intLumi=lumi)
-            cErrDn.Print(_join(plotDir, 'errDown_{}_{}.png'.format(varName, chan)))
-            cErrDn.Print(_join(plotDir, 'errDown_{}_{}.C'.format(varName, chan)))
+            cErrDn.Print(_join(plotDir, 'pngs', 'errDown_{}_{}.png'.format(varName, chan)))
+            cErrDn.Print(_join(plotDir, 'Cs', 'errDown_{}_{}.C'.format(varName, chan)))
 
             # Errors should no longer be fractional or a percentage
             for sys in hErr[chan].values():
@@ -1272,13 +1275,17 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 drawOpts['ytitle'] = _yTitleNoNorm[varName]
             if ana == 'full':
                 drawOpts['logx'] = True
+            if logy:
+                drawOpts['logy'] = True
+                drawOpts['yerror_in_padding'] = True
+                drawOpts['ypadding'] = 0.04
             mainPad, ratioPad1, ratioPad2 = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
 
             mainPad.cd()
             (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
                                                           #hUnfoldedAlt,
-                                                          hUnf,
-                                                          errorBand], mainPad,
+                                                          errorBand,
+                                                          hUnf], mainPad,
                                                          **drawOpts)#,
                                                          #yerror_in_padding=False)
             yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
@@ -1313,14 +1320,17 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 }
             if ana == 'full':
                 drawOpts['logx'] = True
+            if varName == 'pt':
+                drawOpts['ylimits'] = (0.2500001, 1.9999)
 
             ratioPad1.cd()
             ratio1, unity1 = makeRatio(hUnf, hTrue)
             ratioError1 = makeErrorBand(hUnf/hTrue, hUncUp/hTrue,
                                         hUncDn/hTrue)
-            (ratio1X, ratio1Y), ratio1Limits = draw([ratio1,ratioError1],
+            (ratio1X, ratio1Y), ratio1Limits = draw([ratioError1,ratio1],
                                                     ratioPad1,
                                                     **drawOpts)
+            ratio1Y.CenterTitle()
             unity1.Draw("same")
             latex.DrawLatex(0.15, 0.8, signalName)
 
@@ -1329,9 +1339,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             ratio2, unity2 = makeRatio(hUnf, hTrueAlt)
             ratioError2 = makeErrorBand(hUnf/hTrueAlt, hUncUp/hTrueAlt,
                                         hUncDn/hTrueAlt)
-            (ratio2X, ratio2Y), ratio2Limits = draw([ratio2,ratioError2],
+            (ratio2X, ratio2Y), ratio2Limits = draw([ratioError2,ratio2],
                                                     ratioPad2,
                                                     **drawOpts)
+            ratio2Y.CenterTitle()
             unity2.Draw("same")
             latex.SetTextSize(latex.GetTextSize() * ratioPad1.height / ratioPad2.height)
             latex.DrawLatex(0.15, 1.-.2*ratioPad1.height/ratioPad2.height,
@@ -1345,9 +1356,33 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             fixRatioAxes(xaxis,yaxis,ratio1X,ratio1Y, mainPad.height, ratioPad1.height)
             fixRatioAxes(ratio1X,ratio1Y,ratio2X,ratio2Y, ratioPad1.height, ratioPad2.height)
 
+            yaxis.SetTitleSize(0.042)
+            yaxis.SetTitleOffset(1.05)
+
+            # raster formats apparently need different fill styles?
+            errorBand.fillstyle = 'x'
+            ratioError1.fillstyle = 'x'
+            ratioError2.fillstyle = 'x'
+            cUnf.Update()
+
             _style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
-            cUnf.Print(_join(plotDir, "unfold_{}_{}.png".format(varName, chan)))
-            cUnf.Print(_join(plotDir, "unfold_{}_{}.C".format(varName, chan)))
+            cUnf.Print(_join(plotDir, 'pngs', "unfold_{}_{}.png".format(varName, chan)))
+            cUnf.Print(_join(plotDir, 'Cs', "unfold_{}_{}.C".format(varName, chan)))
+
+            # change formatting for the postscript formats, then change it back
+            hatchWidth = gStyle.GetHatchesLineWidth()
+            hatchSpace = gStyle.GetHatchesSpacing()
+            gStyle.SetHatchesLineWidth(1)
+            gStyle.SetHatchesSpacing(1.01)
+            TAttFill.SetFillStyle(errorBand, 3244)
+            TAttFill.SetFillStyle(ratioError1, 3244)
+            TAttFill.SetFillStyle(ratioError2, 3244)
+            cUnf.Update()
+            cUnf.Print(_join(plotDir, 'epses', "unfold_{}_{}.eps".format(varName, chan)))
+            _bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
+                                                                                                           filename='_'.join(['unfold',varName,chan])))
+            gStyle.SetHatchesLineWidth(hatchWidth)
+            gStyle.SetHatchesSpacing(hatchSpace)
 
             cRes = Canvas(1000,1000)
             if ana == 'full':
@@ -1358,8 +1393,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hResp.yaxis.title = '\\text{True} '+_xTitle[varName]
             hResp.draw()
             _style.setCMSStyle(cRes, '', dataType='Preliminary Simulation', intLumi=lumi)
-            cRes.Print(_join(plotDir, "response_{}_{}.png".format(varName, chan)))
-            cRes.Print(_join(plotDir, "response_{}_{}.C".format(varName, chan)))
+            cRes.Print(_join(plotDir, 'pngs', "response_{}_{}.png".format(varName, chan)))
+            cRes.Print(_join(plotDir, 'Cs', "response_{}_{}.C".format(varName, chan)))
 
             cCov = Canvas(1000,1000)
             if ana == 'full':
@@ -1367,8 +1402,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 cCov.SetLogy()
             hCov.Draw("colztext")
             _style.setCMSStyle(cCov, '', dataType='Preliminary', intLumi=lumi)
-            cCov.Print(_join(plotDir, "covariance_{}_{}.png".format(varName, chan)))
-            cCov.Print(_join(plotDir, "covariance_{}_{}.C".format(varName, chan)))
+            cCov.Print(_join(plotDir, 'pngs', "covariance_{}_{}.png".format(varName, chan)))
+            cCov.Print(_join(plotDir, 'Cs', "covariance_{}_{}.C".format(varName, chan)))
 
         hTot = sum(hUnfolded[c][''] for c in channels)
         hTot.color = 'black'
@@ -1499,13 +1534,18 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             drawOpts['ytitle'] = _yTitleNoNorm[varName]
         if ana == 'full':
             drawOpts['logx'] = True
+        if logy:
+            drawOpts['logy'] = True
+            drawOpts['yerror_in_padding'] = True
+            drawOpts['ypadding'] = 0.04
+
         mainPad, ratioPad1, ratioPad2 = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=.35)
 
         mainPad.cd()
 
         (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
                                                       #hTotAlt,
-                                                      hTot, errorBand],
+                                                      errorBand, hTot],
                                                      mainPad, **drawOpts)#,
                                                      #yerror_in_padding=False)
         yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
@@ -1540,12 +1580,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             }
         if ana == 'full':
             drawOpts['logx'] = True
+        if varName == 'pt':
+            drawOpts['ylimits'] = (0.2500001, 1.9999)
 
         ratioPad1.cd()
         ratio1, unity1 = makeRatio(hTot, hTrue)
         ratioError1 = makeErrorBand(hTot/hTrue, hUncUp/hTrue, hUncDn/hTrue)
-        (ratio1X, ratio1Y), ratio1Limits = draw([ratio1,ratioError1],
+        (ratio1X, ratio1Y), ratio1Limits = draw([ratioError1,ratio1],
                                                 ratioPad1, **drawOpts)
+        ratio1Y.CenterTitle()
         unity1.Draw("same")
         latex.DrawLatex(0.15, 0.8, signalName)
 
@@ -1553,8 +1596,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         ratio2, unity2 = makeRatio(hTot, hTrueAlt)
         ratioError2 = makeErrorBand(hTot/hTrueAlt, hUncUp/hTrueAlt,
                                     hUncDn/hTrueAlt)
-        (ratio2X, ratio2Y), ratio2Limits = draw([ratio2,ratioError2],
+        (ratio2X, ratio2Y), ratio2Limits = draw([ratioError2,ratio2],
                                                 ratioPad2, **drawOpts)
+        ratio2Y.CenterTitle()
         unity2.Draw("same")
         latex.SetTextSize(latex.GetTextSize() * ratioPad1.height / ratioPad2.height)
         latex.DrawLatex(0.15, 1.-.2*ratioPad1.height/ratioPad2.height, signalNameAlt)
@@ -1567,9 +1611,33 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         fixRatioAxes(xaxis,yaxis,ratio1X,ratio1Y, mainPad.height, ratioPad1.height)
         fixRatioAxes(ratio1X,ratio1Y,ratio2X,ratio2Y, ratioPad1.height, ratioPad2.height)
 
+        yaxis.SetTitleSize(0.042)
+        yaxis.SetTitleOffset(1.05)
+
+        # raster formats apparently need different fill styles?
+        errorBand.fillstyle = 'x'
+        ratioError1.fillstyle = 'x'
+        ratioError2.fillstyle = 'x'
+        cUnf.Update()
+
         _style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
-        cUnf.Print(_join(plotDir, "unfold_{}.png".format(varName)))
-        cUnf.Print(_join(plotDir, "unfold_{}.C".format(varName)))
+        cUnf.Print(_join(plotDir, 'pngs', "unfold_{}.png".format(varName)))
+        cUnf.Print(_join(plotDir, 'Cs', "unfold_{}.C".format(varName)))
+
+        hatchWidth = gStyle.GetHatchesLineWidth()
+        hatchSpace = gStyle.GetHatchesSpacing()
+        gStyle.SetHatchesLineWidth(1)
+        gStyle.SetHatchesSpacing(1.01)
+        TAttFill.SetFillStyle(errorBand, 3244)
+        TAttFill.SetFillStyle(ratioError1, 3244)
+        TAttFill.SetFillStyle(ratioError2, 3244)
+        cUnf.Update()
+        cUnf.Print(_join(plotDir, 'epses', "unfold_{}.eps".format(varName)))
+        _bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
+                                                                                                       filename='unfold_'+varName))
+        gStyle.SetHatchesLineWidth(hatchWidth)
+        gStyle.SetHatchesSpacing(hatchSpace)
+
 
 
 if __name__ == "__main__":
@@ -1596,7 +1664,7 @@ if __name__ == "__main__":
                               'data directory unless full path is specified)'))
     parser.add_argument('--lumi', type=float, nargs='?', default=15937.,
                         help='Integrated luminosity of sample (in pb^-1)')
-    parser.add_argument('--nIter', type=int, nargs='?', default=8,
+    parser.add_argument('--nIter', type=int, nargs='?', default=4,
                         help='Number of iterations for D\'Agostini method')
     parser.add_argument('--amcatnlo', action='store_true',
                         help='Use MadGraph5_aMC@NLO as the primary MC and '
@@ -1606,13 +1674,16 @@ if __name__ == "__main__":
                         default='smp',
                         help='Which set of cuts to use (full, smp, etc.).')
     parser.add_argument('--variables', type=str, nargs='*',
-                        default=_varList,
-                        help=('Names of variables to use. If not specified, '
-                              'all are used ({})').format(', '.join(_varList)))
+                        default=_varListNoFull,
+                        help=('Names of variables to use. Options are: {}. '
+                              'If not specified, all are used except massFull'
+                              ).format(', '.join(_varList)))
     parser.add_argument('--sfHists', action='store_true',
                         help='Get lepton scale factors from files instead of directly from the ntuples.')
     parser.add_argument('--noNorm', action='store_true',
                         help='Leave differential cross sections in abolute normalization rather than normalizing to unity area.')
+    parser.add_argument('--logy', '--logY', '--log', action='store_true',
+                        help='Put vertical axis on a log scale.')
 
     args=parser.parse_args()
 
@@ -1623,5 +1694,5 @@ if __name__ == "__main__":
 
     main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
          args.puWeightFile, args.lumi, args.nIter, args.amcatnlo,
-         args.sfHists, not args.noNorm, *args.variables)
+         args.sfHists, not args.noNorm, args.logy, *args.variables)
 
