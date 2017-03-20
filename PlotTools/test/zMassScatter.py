@@ -23,8 +23,8 @@ from os.path import exists, isdir, join
 from os import makedirs as mkdir
 
 
-inDir = 'uwvvNtuples_data_24jan2017'
-outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter_rereco'
+inDir = 'uwvvNtuples_data_20feb2017'
+outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter_20feb2017'
 lumi = 35860.
 
 colors = {'eeee':'b','eemm':'r','mmmm':'forestgreen'}
