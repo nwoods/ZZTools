@@ -46,7 +46,7 @@ class SampleGroup(_SampleBase):
 
         self._format.update(info.get('format', {}))
 
-        self.isSignal = info.get('isSignal',False)
+        self.isSignal = info.get('isSignal', 0)
 
 
     def storeInputs(self, inputs):
@@ -360,30 +360,30 @@ class SampleStack(_SampleBase):
         '''
         sortByMax = kwargs.pop('sortByMax', True)
 
-        sig = []
-        bkg = []
+        hists = []
+        importance = []
         for s in self._samples:
-            h = s.makeHist(var, selection, binning, weight,
-                           perUnitWidth,
-                           postprocess=(postprocess and not self._recursePostprocessor),
-                           mergeOverflow=mergeOverflow,
-                           **kwargs)
-            try:
-                isSignal = s.isSignal
-            except AttributeError:
-                isSignal = False
-            if isSignal:
-                sig.append(h)
-            else:
-                bkg.append(h)
+            hists.append(s.makeHist(var, selection, binning, weight,
+                                    perUnitWidth,
+                                    postprocess=(postprocess and not self._recursePostprocessor),
+                                    mergeOverflow=mergeOverflow,
+                                    **kwargs))
 
-        hists = SampleStack.orderForStack(list(extraHists)+bkg)
-        hists += SampleStack.orderForStack(sig)
+            if postprocess:
+                self._postprocessor(hists[-1])
+
+            try:
+                importance.append(s.isSignal)
+            except AttributeError:
+                importance.append(0)
+
+        # assume extra hists go at the bottom
+        hists += list(extraHists)
+        importance += [min(importance)-1]*len(extraHists)
+
+        hists = SampleStack.orderForStack(hists, importance)
 
         stack = HistStack(hists, drawstyle='histnoclear')
-
-        if postprocess:
-            self._postprocessor(h)
 
         return stack
 
@@ -393,30 +393,30 @@ class SampleStack(_SampleBase):
                   mergeOverflowY=False, *extraHists, **kwargs):
         sortByMax = kwargs.pop('sortByMax', True)
 
-        sig = []
-        bkg = []
+        hists = []
+        importance = []
         for s in self._samples:
-            h = s.makeHist2(varX, varY, selection, binningX, binningY, weight,
-                            postprocess=(postprocess and not self._recursePostprocessor),
-                            mergeOverflowX=mergeOverflowX,
-                            mergeOverflowY=mergeOverflowY,
-                            **kwargs)
-            try:
-                isSignal = s.isSignal
-            except AttributeError:
-                isSignal = False
-            if isSignal:
-                sig.append(h)
-            else:
-                bkg.append(h)
+            hists.append(s.makeHist2(varX, varY, selection,
+                                     binningX, binningY, weight,
+                                     postprocess=(postprocess and not self._recursePostprocessor),
+                                     mergeOverflowX=mergeOverflowX,
+                                     mergeOverflowY=mergeOverflowY,
+                                     **kwargs))
 
-        hists = SampleStack.orderForStack(list(extraHists)+bkg)
-        hists += SampleStack.orderForStack(sig)
+            if postprocess:
+                self._postprocessor(hists[-1])
+
+            try:
+                importance.append(s.isSignal)
+            except AttributeError:
+                importance.append(0)
+
+        hists += list(extraHists)
+        importance += [min(importance)-1]*len(extraHists)
+
+        hists = SampleStack.orderForStack(hists, importance)
 
         stack = HistStack(hists, drawstyle='histnoclear')
-
-        if postprocess:
-            self._postprocessor(h)
 
         return stack
 
@@ -430,22 +430,33 @@ class SampleStack(_SampleBase):
 
 
     @staticmethod
-    def orderForStack(hists, sortByMax=True):
+    def orderForStack(hists, histRanks, sortByMax=True):
         '''
-        Sort a list of histograms so that the largest is listed last.
-        If sortByMax determines whether the sort variable is the histogram's
-        largest or smallest bin.
+        Sort a list of histograms by rank (roughly, how "signal-like" they are),
+            then by size, in ascending order for both.
+
+        hists (list of TH*): the list of histograms
+        histRanks (list of numbers): the list of ranks (must be same size as
+            hists)
+        sortByMax (bool): determines whether the second sort criterion is the
+            histogram's largest or smallest bin
+
+        Returns: the list of sorted histograms
         '''
+        if len(histRanks) != len(hists):
+            raise ValueError("You must have as many ranks as histograms when"
+                             " you sort them for the stack")
+
         if sortByMax:
             binGetter = Hist.GetMaximumBin
         else:
             binGetter = Hist.GetMinimumBin
 
-        key = lambda h: (h.GetBinContent(binGetter(h)))
+        key = lambda x: (x[0], x[1].GetBinContent(binGetter(x[1])))
 
-        hists.sort(key=key)
+        sortedRanks, out = zip(*sorted(zip(histRanks, hists),key=key))
 
-        return hists
+        return list(out)
 
 
     def __iter__(self):

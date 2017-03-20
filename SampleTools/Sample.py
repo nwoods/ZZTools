@@ -378,7 +378,7 @@ class NtupleSample(_SampleBase):
 
 class MCSample(NtupleSample):
     def __init__(self, name, channel, dataIn, initFromMetadata=False, intLumi=1000, *args, **kwargs):
-        self.isSignal = False
+        self.isSignal = 0
         self.sumW = -1
         self.xsec = -1
         self.kFactor = '1'
@@ -391,7 +391,7 @@ class MCSample(NtupleSample):
 
         info = _samples[self.name]
 
-        self.isSignal = info.get('isSignal', False)
+        self.isSignal = info.get('isSignal', 0)
         self.sumW = info.get('sumW', 0)
         self.xsec = info.get('xsec', -1)
         self.kFactor = info.get('kFactor', '1.')
