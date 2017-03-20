@@ -5,7 +5,7 @@ from rootpy.plotting import HistStack as _HistStack
 from rootpy.plotting import Pad as _Pad
 from rootpy.plotting import Graph as _Graph
 from rootpy.plotting.utils import get_band as _band
-from rootpy.ROOT import TLine as _Line
+from rootpy.ROOT import TLine as _Line, TAttFill as _Fill
 
 from numbers import Number
 from math import sqrt
@@ -194,9 +194,9 @@ def makeErrorBand(hMean, errUp, errDn=None):
             print "problem in bin {} ({:.2f} +{:.2f}/-{:.2f})".format(bMean.idx, bMean.value, bUp.value, bDn.value)
 
     err = _band(hDn, hUp, hMean)
-    err.fillstyle = 'x'
+    _Fill.SetFillStyle(err, 3244) # rootpy Graph.SetFillStyle() breaks
     err.drawstyle = '2'
-    err.fillcolor = 'black'
+    err.fillcolor = '0.05'
     err.title = 'Stat. #oplus syst. unc.'
     err.legendstyle = 'F'
 
