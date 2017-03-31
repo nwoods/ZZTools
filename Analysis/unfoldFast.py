@@ -429,10 +429,7 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
                  withRespAndCov=False, printIt=False):
     global _printNext
 
-    hSigPlusBkg = hSig+hBkg
-    zeroNegativeBins(hSigPlusBkg)
-
-    response = Response(hSigPlusBkg, hTrue.clone(), hResponse.clone())
+    response = Response(hSig, hTrue.clone(), hResponse.clone())
 
     try:
         svd = TDecompSVD(response.Mresponse())
