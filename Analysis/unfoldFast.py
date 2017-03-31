@@ -105,7 +105,7 @@ _blind = {}
 
 _binning = {
     'pt' : [25.*i for i in range(4)] + [100., 150., 200., 300.],
-    'nJets' : [6,-0.5,5.5],
+    'nJets' : [5,-0.5,4.5],
     'mass' : [100.] + [200.+50.*i for i in range(5)] + [500.,600.,800.],
     'massFull' : [80.,100.,120.,130.,150.,180.,200.,240.,300.,400.,1000],
     'eta' : [6,0.,6.],
@@ -370,6 +370,9 @@ _legParams['deltaEtajj']['topmargin'] = .05
 _legParams['eta'] = _legParams['deltaEtajj'].copy()
 _legParams['lPt']['topmargin'] = 0.05
 _legParams['l1Pt']['topmargin'] = 0.05
+_legParams['jet1Eta']['topmargin'] = 0.058
+_legParams['jet2Eta']['topmargin'] = 0.058
+_legParams['nJets']['topmargin'] = 0.058
 
 
 _uncertaintyTitles = {
@@ -870,7 +873,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                         hSig = reco[chan].makeHist(varShifted, selShifted,
                                                    binning, perUnitWidth=False)
                         hBkgMC = bkgMC[chan].makeHist(varShifted, selShifted,
-                                                     binning, perUnitWidth=False)
+                                                      binning, perUnitWidth=False)
 
                         hResponse = sum(asrootpy(resp(sys+'_'+shift)) for resp in responseMakers.values())
 
@@ -1209,7 +1212,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hUnf.drawstyle = 'PE1'
             hUnf.legendstyle = 'LPE1'
             hUnf.title = 'Data + stat. unc.'
+            if not norm:
+                print "Inclusive {} fiducial cross section = {} fb".format(chan, hUnf.Integral(0,hUnf.GetNbinsX()+1))
             _normalizeBins(hUnf)
+
 
             hTrue = hTrueNominal.clone()
             hTrue.fillcolor = '#99ccff'
@@ -1407,15 +1413,6 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hTot.drawstyle = 'PE1'
         hTot.legendstyle = 'LPE'
         hTot.title = 'Data + stat. unc.'
-
-        #hTotAlt = sum(hUnfoldedAltByChan.values())
-        #hTotAlt.color = 'magenta'
-        #hTotAlt.drawstyle = 'hist'
-        #hTotAlt.fillstyle = 'hollow'
-        #hTotAlt.legendstyle = 'L'
-        #hTotAlt.title = 'Unfolded {}'.format(signalNameAlt)
-        #hTotAlt /= hTotAlt.Integral(0,hTotAlt.GetNbinsX()+1)
-        #_normalizeBins(hTotAlt)
 
         selTrueAll = {}
         for c in channels:
