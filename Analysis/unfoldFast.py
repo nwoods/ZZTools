@@ -931,7 +931,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             for s in reco[chan].values():
                 if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
                     hSigVariations.append(s.makeHist2(var, 'Iteration$', sel, binning,
-                                                      [100,0.,100.], 'pdfWeights', False))
+                                                      [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
             hResponseVariations = []
             for s, resp in responseMakers.iteritems():
                 if "GluGluZZ" not in s and 'phantom' not in s:
@@ -966,13 +966,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             for s in true[chan].values():
                 if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
                     hTrueVariations.append(s.makeHist2(var, 'Iteration$', selTrue, binning,
-                                                       [100,0.,100.], 'pdfWeights', False))
+                                                       [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
             allTrueRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hTrueVariations]
             binTrueRMSes = [sum(rmses) for rmses in zip(*allTrueRMSes)]
 
             for i in xrange(hTrueUp.GetNbinsX()):
                 hTrueUp[i+1].value += binTrueRMSes[i]
-                hTrueDn[i+1].value = max(0.,hTrueDn[i+1].value + binTrueRMSes[i])
+                hTrueDn[i+1].value = max(0.,hTrueDn[i+1].value - binTrueRMSes[i])
 
             hUnfolded[chan]['pdf_up'] = _getUnfolded(hSigUp,
                                                      hBkgMCNominal+hBkgNominal,
@@ -987,18 +987,18 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             variationIndices = [1,2,3,4,6,8]
             hSigs = [reco[chan].makeHist(var, sel, binning,
                                  {
-                        'ZZTo4L':'scaleWeights[{}]'.format(i),
-                        'ZZTo4L-amcatnlo':'scaleWeights[{}]'.format(i),
-                        'ZZJJTo4L_EWK':'scaleWeights[{}]'.format(i),
+                        'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                        'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                        'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
                         },
                                  perUnitWidth=False)
                      for i in variationIndices]
 
             hTrues = [true[chan].makeHist(var, selTrue, binning,
                                           {
-                        'ZZTo4L':'scaleWeights[{}]'.format(i),
-                        'ZZTo4L-amcatnlo':'scaleWeights[{}]'.format(i),
-                        'ZZJJTo4L_EWK':'scaleWeights[{}]'.format(i),
+                        'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                        'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                        'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
                         },
                                           perUnitWidth=False)
                       for i in variationIndices]
@@ -1033,17 +1033,17 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             alphaSIndices = [100,101]
             hSigs = [reco[chan].makeHist(var, sel, binning,
                                  {
-                        'ZZTo4L':'pdfWeights[{}]'.format(i),
-                        'ZZTo4L-amcatnlo':'pdfWeights[{}]'.format(i),
-                        'ZZJJTo4L_EWK':'pdfWeights[{}]'.format(i),
+                        'ZZTo4L':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                        'ZZTo4L-amcatnlo':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                        'ZZJJTo4L_EWK':'pdfWeights[{}]/pdfWeights[0]'.format(i),
                         },
                                  perUnitWidth=False)
                     for i in alphaSIndices]
             hTrues = [true[chan].makeHist(var, selTrue, binning,
                                   {
-                        'ZZTo4L':'pdfWeights[{}]'.format(i),
-                        'ZZTo4L-amcatnlo':'pdfWeights[{}]'.format(i),
-                        'ZZJJTo4L_EWK':'pdfWeights[{}]'.format(i),
+                        'ZZTo4L':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                        'ZZTo4L-amcatnlo':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                        'ZZJJTo4L_EWK':'pdfWeights[{}]/pdfWeights[0]'.format(i),
                         },
                                   perUnitWidth=False)
                      for i in alphaSIndices]
@@ -1096,11 +1096,22 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                                 hResponse,
                                                                 hData, nIter)
 
+            # for normalization if needed
+            nominalArea = hUnfolded[chan][''].Integral(0,hUnfolded[chan][''].GetNbinsX()+1)
             # Make uncertainties out of the unfolded histos
             hErr[chan] = {'up':{},'dn':{}}
             for sys, hUnf in hUnfolded[chan].iteritems():
                 if not sys:
                     continue
+
+                if norm:
+                    hUnf *= nominalArea / hUnf.Integral(0,hUnf.GetNbinsX()+1)
+                # we already shifted the response matrix for lumi, but not the
+                # final normalization
+                elif sys == 'lumi_up':
+                    hUnf /= 1.026
+                elif sys == 'lumi_dn':
+                    hUnf /= 0.974
 
                 he = hUnf - hUnfolded[chan]['']
                 sysName = sys.replace('_up','').replace('_dn','')

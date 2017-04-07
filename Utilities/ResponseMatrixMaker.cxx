@@ -392,20 +392,22 @@ void ResponseMatrixMakerBase<T>::setup()
               if(hasLHE)
                 {
                   // fill once for each scale variation
+                  float nominalWeightScaleNorm = nominalWeight / scaleWeights.at(0);
                   for(size_t ind = 0; ind < scaleIndicesWeCareAbout.size(); ++ind)
                     this->fillResponse(scaleResponses.at(ind), val, trueVal,
-                                       nominalWeight * scaleWeights.at(scaleIndicesWeCareAbout.at(ind)));
+                                       nominalWeightScaleNorm * scaleWeights.at(scaleIndicesWeCareAbout.at(ind)));
 
                   // fill the 3-D histogram with one response for each PDF variation
+                  float nominalWeightPDFNorm = nominalWeight / pdfAndAlphaSWeights.at(0);
                   for(size_t ind = 0; ind < nPDFVariations; ++ind)
                     this->fillResponse(pdfResponses, val, trueVal, ind,
-                                       nominalWeight * pdfAndAlphaSWeights.at(ind));
+                                       nominalWeightPDFNorm * pdfAndAlphaSWeights.at(ind));
 
                   // the last two items in the PDF weight vector are alpha_S variations
                   this->fillResponse(responses["alphaS_up"], val, trueVal,
-                                     nominalWeight * pdfAndAlphaSWeights.at(iAlphaSUp));
+                                     nominalWeightPDFNorm * pdfAndAlphaSWeights.at(iAlphaSUp));
                   this->fillResponse(responses["alphaS_dn"], val, trueVal,
-                                     nominalWeight * pdfAndAlphaSWeights.at(iAlphaSDn));
+                                     nominalWeightPDFNorm * pdfAndAlphaSWeights.at(iAlphaSDn));
                 }
 
               // changes to jet scale/resolution actually change numbers
