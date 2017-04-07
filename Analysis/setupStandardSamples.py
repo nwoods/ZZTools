@@ -94,23 +94,39 @@ def zzStackSignalOnly(channel, inDir, resultType, puWeightFile, lumi,
                       eEfficiencySyst='', mEfficiencySyst='', puSyst='',
                       amcatnlo=False, higgs=False, asGroup=False,
                       scaleFactorsFromHists=False, skipEWK=False,
-                      madgraphEWK=False,
+                      madgraphEWK=False, jetBinnedZZ=False,
                       *extraSamples):
-    qqZZSampleName = 'ZZTo4L'
-    if amcatnlo:
-        qqZZSampleName += '-amcatnlo'
-
     channels = _parseChannels(channel)
 
     samplesByChan = _ODict()
 
-    # qq->ZZ
-    samplesByChan[qqZZSampleName] = {
-        c : standardZZMC(c, inDir, qqZZSampleName, resultType, puWeightFile,
-                         lumi, eEfficiencySyst, mEfficiencySyst,
-                         puSyst,
-                         scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
-        }
+    if not jetBinnedZZ:
+        qqZZSampleName = 'ZZTo4L'
+        if amcatnlo:
+            qqZZSampleName += '-amcatnlo'
+
+        # qq->ZZ
+        samplesByChan[qqZZSampleName] = {
+            c : standardZZMC(c, inDir, qqZZSampleName, resultType, puWeightFile,
+                             lumi, eEfficiencySyst, mEfficiencySyst,
+                             puSyst,
+                             scaleFactorsFromHists=scaleFactorsFromHists) for c in channels
+            }
+    else:
+        qqZZByChan = {}
+        for c in channels:
+            qqZZByJetBin = {}
+            for nJ in 0, 1, 2:
+                sName = 'ZZTo4L-{}J'.format(nJ)
+                qqZZByJetBin[sName] = standardZZMC(c, inDir, sName, resultType,
+                                                   puWeightFile, lumi,
+                                                   eEfficiencySyst,
+                                                   mEfficiencySyst,
+                                                   puSyst,
+                                                   scaleFactorsFromHists=scaleFactorsFromHists)
+            qqZZByChan[c] = _Group('ZZTo4L-nJ', c, qqZZByJetBin, True)
+        samplesByChan['ZZTo4L-nJ'] = qqZZByChan
+
 
     # gg->ZZ
     ggZZByChan = {}
@@ -222,7 +238,8 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                   fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
                   puSyst='', eFakeRateSyst='', mFakeRateSyst='',
                   eras='BCDEFGH',
-                  scaleFactorsFromHists=False):
+                  scaleFactorsFromHists=False,
+                  sipCut=4.):
     channels = _parseChannels(channel)
 
     data2P2F = standardZZData(channel, dataDir, resultType+'_2P2F',
@@ -262,10 +279,32 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
 
     zCRWeightTemp = ('({{lep1}}ZZTightID && {{lep1}}ZZIsoPass ? 1. : {fr1}) * '
                      '({{lep2}}ZZTightID && {{lep2}}ZZIsoPass ? 1. : {fr2})')
-    zeCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrE.format(lep='{lep1}'),
-                                      fr2=fakeFactorStrE.format(lep='{lep2}'))
-    zmCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrM.format(lep='{lep1}'),
-                                      fr2=fakeFactorStrM.format(lep='{lep2}'))
+    if abs(sipCut-4.) > 0.001:
+        newCuts = {
+            'e' : '((abs({lep}PVDXY) < 0.05 && abs({lep}PVDZ) < 0.1) || (abs({lep}SCEta) >= 1.479 && abs({lep}PVDXY) < 0.1 && abs({lep}PVDZ) < 0.2))',
+            'm' : '(abs({lep}PVDXY) < 0.05 && abs({lep}PVDZ) < 0.1)',
+            }
+        if sipCut > 0:
+            for lep in newCuts:
+                newCuts[lep] += ' && {lep}SIP3D < ' + str(sipCut)
+        zCRWeightTempE = zCRWeightTemp
+        zCRWeightTempM = zCRWeightTemp
+        for lepStr in '{{lep1}}', '{{lep2}}':
+            zCRWeightTempE = zCRWeightTempE.replace('{lep}ZZTightID'.format(lep=lepStr),
+                                                    ('{lep}ZZTightIDNoVtx && '+newCuts['e']).format(lep=lepStr))
+            zCRWeightTempM = zCRWeightTempM.replace('{lep}ZZTightID'.format(lep=lepStr),
+                                                    ('{lep}ZZTightIDNoVtx && '+newCuts['m']).format(lep=lepStr))
+
+        zeCRWeight = zCRWeightTempE.format(fr1=fakeFactorStrE.format(lep='{lep1}'),
+                                           fr2=fakeFactorStrE.format(lep='{lep2}'))
+        zmCRWeight = zCRWeightTempM.format(fr1=fakeFactorStrM.format(lep='{lep1}'),
+                                           fr2=fakeFactorStrM.format(lep='{lep2}'))
+    else:
+        zeCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrE.format(lep='{lep1}'),
+                                          fr2=fakeFactorStrE.format(lep='{lep2}'))
+        zmCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrM.format(lep='{lep1}'),
+                                          fr2=fakeFactorStrM.format(lep='{lep2}'))
+
     crWeight = {
         'eeee' : zeCRWeight.format(lep1='e1',lep2='e2') + ' * ' + zeCRWeight.format(lep1='e3',lep2='e4'),
         'eemm' : zeCRWeight.format(lep1='e1',lep2='e2') + ' * ' + zmCRWeight.format(lep1='m1',lep2='m2'),
@@ -288,6 +327,8 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
     ggZZ3P1F = mc3P1F[1]
 
     if len(channels) == 1:
+        data2P2F = {channels[0] : data2P2F}
+        data3P1F = {channels[0] : data3P1F}
         qqZZ2P2F = {channels[0] : qqZZ2P2F}
         qqZZ3P1F = {channels[0] : qqZZ3P1F}
         ggZZ2P2F = {channels[0] : ggZZ2P2F}
@@ -318,7 +359,7 @@ def zzStackBkgOnly(channel, dataDir, mcDir, resultType, puWeightFile,
                    fakeRateFile, lumi, eEfficiencySyst='', mEfficiencySyst='',
                    puSyst='', eFakeRateSyst='', mFakeRateSyst='',
                    amcatnlo=False, higgs=False, eras='BCDEFGH',
-                   scaleFactorsFromHists=False, *extraSamples):
+                   scaleFactorsFromHists=False, sipCut=4., *extraSamples):
     irreducible = zzIrreducibleBkg(channel, mcDir, resultType, puWeightFile,
                                    lumi, eEfficiencySyst, mEfficiencySyst,
                                    puSyst,
@@ -326,7 +367,7 @@ def zzStackBkgOnly(channel, dataDir, mcDir, resultType, puWeightFile,
     reducible = standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                               fakeRateFile, lumi, eEfficiencySyst,
                               mEfficiencySyst, puSyst, eFakeRateSyst,
-                              mFakeRateSyst, eras=eras)
+                              mFakeRateSyst, eras=eras, sipCut=sipCut)
 
     return _Stack('bkg', channel, [irreducible, reducible])
 
@@ -336,13 +377,14 @@ def standardZZStack(channel, dataDir, mcDir, resultType, puWeightFile,
                     puSyst='', eFakeRateSyst='', mFakeRateSyst='',
                     amcatnlo=False, higgs=False,
                     scaleFactorsFromHists=False, skipEWK=False,
-                    madgraphEWK=False, eras='BCDEFGH', *extraSamples):
+                    madgraphEWK=False, eras='BCDEFGH', jetBinnedZZ=False,
+                    sipCut=4., *extraSamples):
     stack = zzStackSignalOnly(channel, mcDir, resultType, puWeightFile, lumi,
                               eEfficiencySyst, mEfficiencySyst, puSyst, amcatnlo,
                               higgs=higgs,
                               scaleFactorsFromHists=scaleFactorsFromHists,
                               skipEWK=skipEWK, madgraphEWK=madgraphEWK,
-                              *extraSamples)
+                              jetBinnedZZ=jetBinnedZZ, *extraSamples)
     irreducible = zzIrreducibleBkg(channel, mcDir, resultType, puWeightFile,
                                    lumi, eEfficiencySyst, mEfficiencySyst,
                                    puSyst,
@@ -350,7 +392,7 @@ def standardZZStack(channel, dataDir, mcDir, resultType, puWeightFile,
     reducible = standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
                               fakeRateFile, lumi, eEfficiencySyst,
                               mEfficiencySyst, puSyst, eFakeRateSyst,
-                              mFakeRateSyst, eras=eras)
+                              mFakeRateSyst, eras=eras, sipCut=sipCut)
 
     stack.addSample(irreducible)
     stack.addSample(reducible)
@@ -361,10 +403,9 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
                       fakeRateFile, lumi, eEfficiencySyst='',
                       mEfficiencySyst='', puSyst='', eFakeRateSyst='',
                       mFakeRateSyst='', amcatnlo=False, higgs=False,
-                      eras='BCDEFGH',
-                      scaleFactorsFromHists=False,
-                      skipEWK=False, madgraphEWK=False,
-                      *extraSamples):
+                      eras='BCDEFGH', scaleFactorsFromHists=False,
+                      skipEWK=False, madgraphEWK=False, jetBinnedZZ=False,
+                      sipCut=4., *extraSamples):
     '''
     Return dataSampleGroup, bkgAndMCStack for data files in
     [dataDir]/results_[resultType] and MC in [mcDir]/results[resultType],
@@ -380,7 +421,11 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
     things with 'up' or 'down'.
 
     If amcatnlo is True, the aMC@NLO qq->ZZ sample will be used instead of the
-    standard POWHEG sample.
+    standard POWHEG sample. Ignored if jetBinnedZZ is True.
+
+    if jetBinnedZZ is True, the jet-binned aMC@NLO qq->ZZ samples will be used
+    instead of the standard POWHEG sample. Note that this sample contains
+    only events with two on-shell Zs.
 
     To put extra histograms in the stack, add extra keyword arguments of the
     for sampleName='fileGlob*.root'. The files are assumed to be in the MC
@@ -395,6 +440,7 @@ def standardZZSamples(channel, dataDir, mcDir, resultType, puWeightFile,
                             higgs=higgs, eras=eras,
                             scaleFactorsFromHists=scaleFactorsFromHists,
                             skipEWK=skipEWK, madgraphEWK=madgraphEWK,
+                            jetBinnedZZ=jetBinnedZZ, sipCut=sipCut,
                             *extraSamples)
 
     return data, stack
@@ -419,10 +465,12 @@ def standardZZGen(channel, inDir, sampleName, resultType, lumi):
 
 
 def genZZSamples(channel, fileDir, resultType, lumi, amcatnlo=False,
-                 higgs=False, madgraphEWK=False):
+                 higgs=False, madgraphEWK=False, jetBinnedZZ=False):
     qqZZSampleName = 'ZZTo4L'
     if amcatnlo:
         qqZZSampleName += '-amcatnlo'
+    elif jetBinnedZZ:
+        qqZZSampleName += '-{}J'
 
     channels = _parseChannels(channel)
 
@@ -430,10 +478,16 @@ def genZZSamples(channel, fileDir, resultType, lumi, amcatnlo=False,
 
     for c in channels:
         theseSamples = {}
-        theseSamples[qqZZSampleName] = standardZZGen(c, fileDir,
-                                                     qqZZSampleName,
-                                                     resultType,
-                                                     lumi)
+        if jetBinnedZZ:
+            for nj in 0, 1, 2:
+                sample = qqZZSampleName.format(nj)
+                theseSamples[sample] = standardZZGen(c, fileDir, sample,
+                                                     resultType, lumi)
+        else:
+            theseSamples[qqZZSampleName] = standardZZGen(c, fileDir,
+                                                         qqZZSampleName,
+                                                         resultType,
+                                                         lumi)
 
         for fs in ['4e', '4mu', '2e2mu']:
             sample = 'GluGluZZTo{}'.format(fs)
