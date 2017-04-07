@@ -18,7 +18,7 @@ from os import makedirs
 
 
 var = 'Mass'
-binning = [100.+100.*i for i in range(6)] + [800.,1000.,1200.]
+binning = [100.+100.*i for i in range(6)] + [800.,1000.,1100.,1200.,1300.]
 aTGCParams = ['f4','f5']
 
 channels = ['eeee','eemm','mmmm']
