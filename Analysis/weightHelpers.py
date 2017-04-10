@@ -46,8 +46,24 @@ def leptonEfficiencyWeights(channel, eSystematic='', mSystematic=''):
 
 _sfStrings = {'e':{},'m':{}}
 
-def leptonEfficiencyWeightsFromHists(channel, eSystematic='', mSystematic=''):
+def leptonEfficiencyWeightsFromHists(channel, eSystematic='', mSystematic='',
+                                     eSelSFFile='eleSelectionSF_HZZ_Moriond17',
+                                     eSelSFFileGap='',
+                                     eRecoSFFile='eleRecoSF_HZZ_Moriond17',
+                                     mSFFile='muSelectionAndRecoSF_HZZ_Moriond17'):
     global _sfStrings
+
+    if not eSelSFFileGap:
+        eSelSFFileGap = eSelSFFile.replace('SF', 'SFGap')
+
+    if not eSelSFFile.endswith('.root'):
+        eSelSFFile += '.root'
+    if not eSelSFFileGap.endswith('.root'):
+        eSelSFFileGap += '.root'
+    if not eRecoSFFile.endswith('.root'):
+        eRecoSFFile += '.root'
+    if not mSFFile.endswith('.root'):
+        mSFFile += '.root'
 
     channels = _parseChannels(channel)
 
@@ -56,15 +72,15 @@ def leptonEfficiencyWeightsFromHists(channel, eSystematic='', mSystematic=''):
     if any('e' in chan for chan in channels):
         if eSystematic not in _sfStrings['e']:
             with _open(_path.join(_env['zzt'],'data','leptonScaleFactors',
-                                  'eleSelectionSF_HZZ_Moriond17.root')) as fEleSel:
+                                  eSelSFFile)) as fEleSel:
                 hEleSel = _asRP(fEleSel.EGamma_SF2D).clone()
                 hEleSel.SetDirectory(0)
             with _open(_path.join(_env['zzt'],'data','leptonScaleFactors',
-                                  'eleSelectionSFGap_HZZ_Moriond17.root')) as fEleSelGap:
+                                  eSelSFFileGap)) as fEleSelGap:
                 hEleSelGap = _asRP(fEleSelGap.EGamma_SF2D).clone()
                 hEleSelGap.SetDirectory(0)
             with _open(_path.join(_env['zzt'],'data','leptonScaleFactors',
-                                  'eleRecoSF_HZZ_Moriond17.root')) as fEleReco:
+                                  eRecoSFFile)) as fEleReco:
                 hEleReco = _asRP(fEleReco.EGamma_SF2D).clone()
                 hEleReco.SetDirectory(0)
 
@@ -72,7 +88,7 @@ def leptonEfficiencyWeightsFromHists(channel, eSystematic='', mSystematic=''):
 
             eSelTemp = wtMaker.makeWeightStringFromHist(hEleSel, '{obj}SCEta', '{obj}Pt')
             eSelGapTemp = wtMaker.makeWeightStringFromHist(hEleSelGap, '{obj}SCEta', '{obj}Pt')
-            eRecoTemp = wtMaker.makeWeightStringFromHist(hEleReco, '{obj}SCEta', '100.')#{obj}Pt')
+            eRecoTemp = wtMaker.makeWeightStringFromHist(hEleReco, '{obj}SCEta', '100.')
             eSFTemp = '({} * (({{obj}}IsGap)*{} + (!{{obj}}IsGap)*{}))'.format(eRecoTemp,
                                                                                eSelGapTemp,
                                                                                eSelTemp)
@@ -100,8 +116,7 @@ def leptonEfficiencyWeightsFromHists(channel, eSystematic='', mSystematic=''):
     if any('m' in chan for chan in channels):
         if mSystematic not in _sfStrings['m']:
             with _open(_path.join(_env['zzt'],'data','leptonScaleFactors',
-                                  # 'muEfficiencySF_all_HZZ_ICHEP16_final_withErrors.root')) as fMuSF:
-                                  'muSelectionAndRecoSF_HZZ_Moriond17.root')) as fMuSF:
+                                  mSFFile)) as fMuSF:
                 hMuSF = _asRP(fMuSF.FINAL).clone()
                 hMuSF.SetDirectory(0)
                 if mSystematic:
@@ -171,9 +186,23 @@ def puWeight(weightFile, systematic=''):
 
 
 def baseMCWeight(channel, puWeightFile, eSyst='', mSyst='', puSyst='',
-                 scaleFactorsFromHists=False):
-    if scaleFactorsFromHists:
-        lepWeights = leptonEfficiencyWeightsFromHists(channel, eSyst, mSyst)
+                 **kwargs):
+    '''
+    kwargs can be used to specify files from which to retrieve scale factor
+    histograms (instead of using the ones in the ntuples). Options are:
+        eSelSFFile : non-gap electron selections
+        eSelSFFileGap : gap electron selections
+        eRecoSFFile : electron GSF track reconstruction
+        mSFFile : muon overall efficiency
+    If the full path is not specified, they're assumed to be in
+    ZZTools/data/leptonScaleFactors. The '.root' suffix is optional.
+    If some but not all are specified, the others use defaults except
+    eSelSFFileGap which is guessed from eSelSFFile. If none are specified,
+    everything is taken from the ntuple rows as usual.
+    '''
+    if kwargs:
+        lepWeights = leptonEfficiencyWeightsFromHists(channel, eSyst, mSyst,
+                                                      **kwargs)
     else:
         lepWeights = leptonEfficiencyWeights(channel, eSyst, mSyst)
     puWtStr, puWtFun = puWeight(puWeightFile, puSyst)
