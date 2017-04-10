@@ -72,3 +72,6 @@ recipe/vpython
 *nohup.out
 
 recipe/cmssw
+
+# AFS temporary files
+.__afs*
