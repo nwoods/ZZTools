@@ -156,14 +156,27 @@ class NtupleSample(_SampleBase):
 
     def combineNtuples(self, files, chan):
         '''
-        Makes a TreeChain of the files (or a bare TTree if there's just one
-        file). No redundant row culling or anything.
+        Gets the ntuple from a file or files. No redundant row culling or
+        anything. If there are multiple files, they are combined into a
+        TemporaryFile rather than just using a chain, due to some mysterious
+        TreeChain-related slowdown.
         '''
         if len(files) == 1:
             self.ntupleFile = root_open(files[0])
             return self.ntupleFile.Get('{}/ntuple'.format(chan))
 
-        return TreeChain('{}/ntuple'.format(chan), files)
+        chain = TreeChain('{}/ntuple'.format(chan), files)
+        if not hasattr(self, 'tempFile'):
+            self.tempFile = _FileWrapper(TemporaryFile())
+        self.tempFile.f.cd()
+
+        out = Tree('{}_{}_ntuple'.format(self.name, chan))
+        out.set_buffer(chain._buffer, create_branches=True)
+
+        for row in chain:
+            out.fill()
+
+        return out
 
     def addToHist(self, hist, var, selection):
         self.ntuple.Draw(var, selection, 'goff', hist)
