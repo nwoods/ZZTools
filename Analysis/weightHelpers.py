@@ -194,13 +194,17 @@ def baseMCWeight(channel, puWeightFile, eSyst='', mSyst='', puSyst='',
         eSelSFFileGap : gap electron selections
         eRecoSFFile : electron GSF track reconstruction
         mSFFile : muon overall efficiency
+        scaleFactorsFromHists : if False, SF hists are not used, if True
+            SF hists are definitely used, possibly default ones (for
+            backwards compatibility)
     If the full path is not specified, they're assumed to be in
     ZZTools/data/leptonScaleFactors. The '.root' suffix is optional.
     If some but not all are specified, the others use defaults except
     eSelSFFileGap which is guessed from eSelSFFile. If none are specified,
     everything is taken from the ntuple rows as usual.
     '''
-    if kwargs:
+    useSFHists = kwargs.pop('scaleFactorsFromHists', bool(kwargs))
+    if useSFHists:
         lepWeights = leptonEfficiencyWeightsFromHists(channel, eSyst, mSyst,
                                                       **kwargs)
     else:
