@@ -78,8 +78,8 @@ _xTitles = {
     'nJets' : 'N_{\\text{jets}}',
     'nJets_eta2p4' : 'N_{\\text{jets}} \\left( \\left|\\eta\\right| < 2.4 \\right)',
     'Iso' : 'R_{{Iso}} \\, ({obj})',
-    'PVDXY' : '\\Delta_{{xy}} \\, ({obj}) \\, [\\text{{cm}}]',
-    'PVDZ' : '\\Delta_{{z}} \\, ({obj}) \\, [\\text{{cm}}]',
+    'PVDXY' : '\\left| \\Delta_{{xy}} \\, ({obj}) \\right| \\, [\\text{{cm}}]',
+    'PVDZ' : '\\left| \\Delta_{{z}} \\, ({obj}) \\right| \\, [\\text{{cm}}]',
     'nvtx' : 'N_{\\text{vtx}}',
     'SIP3D' : 'SIP_{{3D}} \\, ({obj})',
     'jet1Pt' : 'p_T^\\text{j1} \\, [\\text{GeV}]',
@@ -255,47 +255,48 @@ _binning1l = {
     'Eta' : [20, -2.5, 2.5],
     'Phi' : [24, -3.15, 3.15],
     'Iso' : [8, 0., .4],
-    'PVDXY' : [20, -.1, .1],
-    'PVDZ' : [20, -.2, .2],
-    'SIP3D' : [20, 0., 5.],
+    'PVDXY' : [50, 0., .5],
+    'PVDZ' : [50, 0., 1.],
+    'SIP3D' : [40, 0., 10.],
     }
 
-_binNormWidth1l = {
-    'Pt' : 10.,
-    'Eta' : 0.25,
-    'Phi' : 0.25,
-    'Iso' : 0.05,
-    'PVDXY' : 0.01,
-    'PVDZ' : 0.02,
-    'SIP3D' : 0.25,
+_binNormWidth1l = {v:abs(b[2]-b[1])/b[0] for v,b in _binning1l.iteritems()}
+
+_varTemps1l = {v:'{obj}'+v for v in _binning1l}
+_varTemps1l['PVDXY'] = 'abs({obj}PVDXY)'
+_varTemps1l['PVDZ'] = 'abs({obj}PVDZ)'
+_varTemps1l['Iso'] = '{obj}ZZIso'
+
+
+ze1Leps = ['e1','e2']
+ze2Leps = ['e3','e4']
+zm1Leps = ['m1','m2']
+zm2Leps = ['m3','m4']
+
+_vars1l = {
+    v : {
+        'l' : {
+            'eeee' : [vt.format(obj=ob) for ob in ze1Leps + ze2Leps],
+            'eemm' : [vt.format(obj=ob) for ob in ze1Leps + zm1Leps],
+            'mmmm' : [vt.format(obj=ob) for ob in zm1Leps + zm2Leps],
+            },
+        'l1' : {
+            'eeee' : [vt.format(obj=ze1Leps[0]), vt.format(obj=ze2Leps[0])],
+            'eemm' : [vt.format(obj=ze1Leps[0]), vt.format(obj=zm1Leps[0])],
+            'mmmm' : [vt.format(obj=zm1Leps[0]), vt.format(obj=zm2Leps[0])],
+            },
+        'e' : {
+            'eeee' : [vt.format(obj=ob) for ob in ze1Leps + ze2Leps],
+            'eemm' : [vt.format(obj=ob) for ob in ze1Leps],
+            },
+        'm' : {
+            'mmmm' : [vt.format(obj=ob) for ob in zm1Leps + zm2Leps],
+            'eemm' : [vt.format(obj=ob) for ob in zm1Leps],
+            },
+        } for v, vt in _varTemps1l.iteritems()
     }
 
-ze1LepVarTemp = ['e1{var}','e2{var}']
-ze2LepVarTemp = ['e3{var}','e4{var}']
-zm1LepVarTemp = ['m1{var}','m2{var}']
-zm2LepVarTemp = ['m3{var}','m4{var}']
-_varTemplates1l = {
-    'l' : {
-        'eeee' : ze1LepVarTemp + ze2LepVarTemp,
-        'eemm' : ze1LepVarTemp + zm1LepVarTemp,
-        'mmmm' : zm1LepVarTemp + zm2LepVarTemp,
-        },
-    'l1' : {
-        'eeee' : [ze1LepVarTemp[0], ze2LepVarTemp[0]],
-        'eemm' : [ze1LepVarTemp[0], zm1LepVarTemp[0]],
-        'mmmm' : [zm1LepVarTemp[0], zm2LepVarTemp[0]],
-        },
-    'e' : {
-        'eeee' : ze1LepVarTemp + ze2LepVarTemp,
-        'eemm' : ze1LepVarTemp,
-        },
-    'm' : {
-        'mmmm' : zm1LepVarTemp + zm2LepVarTemp,
-        'eemm' : zm1LepVarTemp,
-        },
-    }
-
-_selections1l = {l:'' for l in _varTemplates1l}
+_selections1l = {l:'' for l in _vars1l.values()[0]}
 _selections1l['l1'] = {
     'eeee' : ['e1Pt > e3Pt', 'e3Pt > e1Pt'],
     'eemm' : ['e1Pt > m1Pt', 'm1Pt > e1Pt'],
@@ -315,10 +316,18 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
     elif not _isdir(outdir):
         raise IOError("There is already some non-directory object called {}.".format(outdir))
 
+    if 'loosesip' in fakeRateFile.lower():
+        sip = 10.
+    elif 'nosip' in fakeRateFile.lower():
+        sip = -1.
+    else:
+        sip = 4.
+
     data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile,
                                     fakeRateFile, lumi, amcatnlo=amcatnlo,
                                     higgs=(ana=='full'), eras=eras,
-                                    scaleFactorsFromHists=useSFHists)
+                                    scaleFactorsFromHists=useSFHists,
+                                    sipCut=sip)
 
     objNames = _objNames.copy()
     if ana == 'smp':
@@ -983,16 +992,11 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             c.Print('{}/{}{}.png'.format(outdir, z, varName))
 
 
-    for lep in _varTemplates1l:
-        for varName, binning in _binning1l.iteritems():
+    for varName, binning in _binning1l.iteritems():
+        for lep in _vars1l[varName]:
             print "Plotting {} {}".format(lep, varName)
 
-            if varName == 'Iso':
-                varStr = 'ZZIso'
-            else:
-                varStr = varName
-
-            var = {c:[vt.format(var=varStr) for vt in _varTemplates1l[lep][c]] for c in _varTemplates1l[lep]}
+            var = _vars1l[varName][lep]
 
             hStack = stack.makeHist(var, _selections1l[lep], _binning1l[varName],
                                     postprocess=True,
