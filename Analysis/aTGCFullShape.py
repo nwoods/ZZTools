@@ -18,7 +18,7 @@ from os import makedirs
 
 
 var = 'Mass'
-binning = [100.+100.*i for i in range(6)] + [800.,1000.,1100.,1200.,1300.]
+binning = [14,100.,1500.] #range([100.+100.*i for i in range(6)] + [800.,1000.,1100.,1200.,1300.]
 aTGCParams = ['f4','f5']
 
 channels = ['eeee','eemm','mmmm']
@@ -457,9 +457,9 @@ def main(inData, inMC, inATGC, outDir, fakeRateFile, puWeightFile, lumi):
 
 if __name__ == '__main__':
     inData = 'uwvvNtuples_data_20feb2017'
-    inMC = 'uwvvNtuples_mc_20feb2017'
+    inMC = 'uwvvNtuples_mc_23mar2017'
     inATGC = 'uwvvNtuples_mc_21feb2017_aTGC'
-    outDir = '/afs/cern.ch/user/n/nawoods/public/aTGC_reminiAOD'
+    outDir = '/afs/cern.ch/user/n/nawoods/public/aTGC_reminiAOD_newBinning'
     if not exists(outDir):
         makedirs(outDir)
     fakeRateFile = 'fakeRate_20feb2017'
