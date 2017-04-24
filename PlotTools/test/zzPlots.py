@@ -410,8 +410,6 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
         binning4l['Mass'] = [b / 1000. for b in binning4l['Mass']]
         binNormWidth4l['Mass'] /= 1000.
 
-    binning4l = {v:b for v,b in binning4l.iteritems() if 'jet' in v.lower() or 'jj' in v}
-
     for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
         for varName, binning in binning4l.iteritems():
             print "Plotting {} {}".format(chan, varName)
