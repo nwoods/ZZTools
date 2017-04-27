@@ -415,6 +415,21 @@ _uncertaintyColors = {
     'mcfmxsec' : 'red',
     }
 
+# info for adding the MATRIX NNLO curves (has nothign to do with reponse matrix)
+_matrixNames = {
+    'deltaRZZ' : 'dR.Z_0.25__NNLO_QCD',
+    'deltaPhiZZ' : 'dphi.Z_0.25__NNLO_QCD',
+    'mass' : 'm.ZZ_5.0__NNLO_QCD',
+    'nJets' : 'n_jets__NNLO_QCD',
+    'pt' : 'pT.ZZ_2.5__NNLO_QCD',
+    }
+_matrixXSecs = {
+    '' : 17.5413,
+    'up' : 17.1878,
+    'dn' : 17.9555,
+    }
+_matrixPath = '/afs/cern.ch/user/k/kelong/www/ZZMatrixDistributions'
+
 
 def _normalizeBins(h):
     binUnit = 1 # min(h.GetBinWidth(b) for b in range(1,len(h)+1))
@@ -422,6 +437,16 @@ def _normalizeBins(h):
         w = h.GetBinWidth(ib)
         h.SetBinContent(ib, h.GetBinContent(ib) * binUnit / w)
         h.SetBinError(ib, h.GetBinError(ib) * binUnit / w)
+        if h.GetBinError(ib) > h.GetBinContent(ib):
+            h.SetBinError(ib, h.GetBinContent(ib))
+    h.sumw2()
+
+def _unnormalizeBins(h):
+    binUnit = 1 # min(h.GetBinWidth(b) for b in range(1,len(h)+1))
+    for ib in xrange(1,len(h)+1):
+        w = h.GetBinWidth(ib)
+        h.SetBinContent(ib, h.GetBinContent(ib) * w / binUnit)
+        h.SetBinError(ib, h.GetBinError(ib) * w / binUnit)
         if h.GetBinError(ib) > h.GetBinContent(ib):
             h.SetBinError(ib, h.GetBinContent(ib))
     h.sumw2()
@@ -505,7 +530,9 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
 def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
          amcatnlo=False, useSFHists=False, norm=True, logy=False, *varNames,
          **kwargs):
-    for fileType in 'Cs', 'pngs', 'epses', 'pdfs':
+    plotType = 'DO NOT DISTRIBUTE' #'Prliminary'
+
+    for fileType in 'Cs', 'pngs', 'epses', 'pdfs', 'svgs':
         subDir = _join(plotDir, fileType)
         if not _exists(subDir):
             _mkdir(subDir)
@@ -591,18 +618,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
     altTrue = genZZSamples('zz', inMC, ana, lumi,
                            amcatnlo=(not amcatnlo), higgs=(ana=='full'))
 
+    signalName = 'POWHEG+MCFM+Pythia8'
+    signalNameAlt = 'MG5_aMC@NLO+MCFM'
+    if ana == 'full':
+        signalNameAlt += '+POWHEG'
+    signalNameAlt += '+Pythia8'
     if amcatnlo:
-        signalName = 'MG5_aMC@NLO'
-        signalNameAlt = 'POWHEG'
-        if ana=='full':
-            signalName += '+POWHEG'
-    else:
-        signalName = 'POWHEG'
-        signalNameAlt = 'MG5_aMC@NLO'
-        if ana=='full':
-            signalNameAlt += '+POWHEG'
-    signalName += '+MCFM'
-    signalNameAlt += '+MCFM'
+        signalName, signalNameAlt = signalNameAlt, signalName
 
     recoSyst = {}
     bkgMCSyst = {}
@@ -667,6 +689,14 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         # save unfolded distributions by channel, then systematic
         hErr = {}
         hUnfolded = {c:{} for c in channels}
+
+        # save theory errors
+        hTrueScaleUp = {c:{} for c in channels}
+        hTrueScaleDn = {c:{} for c in channels}
+        hTrueScaleUpAlt = {c:{} for c in channels}
+        hTrueScaleDnAlt = {c:{} for c in channels}
+        hTruePDFErr = {c:{} for c in channels}
+        hTruePDFErrAlt = {c:{} for c in channels}
 
         for chan in channels:
             print ""
@@ -970,9 +1000,26 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             allTrueRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hTrueVariations]
             binTrueRMSes = [sum(rmses) for rmses in zip(*allTrueRMSes)]
 
+            hTruePDFErr[chan] = hTrue.empty_clone() # save true variation for later
             for i in xrange(hTrueUp.GetNbinsX()):
                 hTrueUp[i+1].value += binTrueRMSes[i]
                 hTrueDn[i+1].value = max(0.,hTrueDn[i+1].value - binTrueRMSes[i])
+                hTruePDFErr[chan][i+1].value = binTrueRMSes[i]
+
+            # get the other sample's uncertainty too as long as we're at it
+            hTrueAlt = altTrue[chan].makeHist(var, selTrue, binning,
+                                              perUnitWidth=False)
+            hTruePDFErrAlt[chan] = hTrueAlt.empty_clone()
+            hTrueVariationsAlt = []
+            for s in altTrue[chan].values():
+                if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
+                    hTrueVariationsAlt.append(s.makeHist2(var, 'Iteration$', selTrue, binning,
+                                                          [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
+            allTrueRMSesAlt = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hTrueVariationsAlt]
+            binTrueRMSesAlt = [sum(rmses) for rmses in zip(*allTrueRMSesAlt)]
+            for i in xrange(hTruePDFErrAlt[chan].GetNbinsX()):
+                hTruePDFErrAlt[chan][i+1].value = binTrueRMSesAlt[i]
+
 
             hUnfolded[chan]['pdf_up'] = _getUnfolded(hSigUp,
                                                      hBkgMCNominal+hBkgNominal,
@@ -1002,6 +1049,32 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                         },
                                           perUnitWidth=False)
                       for i in variationIndices]
+
+            # save true-level uncertainty for later
+            hTrueScaleUp[chan] = hTrueNominal.empty_clone()
+            hTrueScaleDn[chan] = hTrueNominal.empty_clone()
+            for bUp, bDn, bNom, variations in zip(hTrueScaleUp[chan],
+                                                  hTrueScaleDn[chan],
+                                                  hTrue, zip(*hTrues)):
+                bUp.value = max(b.value for b in variations) - bNom.value
+                bDn.value = abs(min(b.value for b in variations) - bNom.value)
+
+            # get the true-level uncertainty too while we're at it
+            hTruesAlt = [altTrue[chan].makeHist(var, selTrue, binning,
+                                                {
+                        'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                        'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                        'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                        },
+                                                perUnitWidth=False)
+                         for i in variationIndices]
+            hTrueScaleUpAlt[chan] = hTrueAlt.empty_clone()
+            hTrueScaleDnAlt[chan] = hTrueAlt.empty_clone()
+            for bUp, bDn, bNom, variations in zip(hTrueScaleUpAlt[chan],
+                                                  hTrueScaleDnAlt[chan],
+                                                  hTrueAlt, zip(*hTruesAlt)):
+                bUp.value = max(b.value for b in variations) - bNom.value
+                bDn.value = abs(min(b.value for b in variations) - bNom.value)
 
             hResponseVariations = [hResponseNominalTotal.empty_clone() for v in variationIndices]
             for s, resp in responseMakers.iteritems():
@@ -1183,7 +1256,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
             leg.Draw('same')
-            _style.setCMSStyle(cErrUp, '', dataType='Preliminary', intLumi=lumi)
+            _style.setCMSStyle(cErrUp, '', dataType=plotType, intLumi=lumi)
             cErrUp.Print(_join(plotDir, 'pngs', 'errUp_{}_{}.png'.format(varName, chan)))
             cErrUp.Print(_join(plotDir, 'Cs', 'errUp_{}_{}.C'.format(varName, chan)))
 
@@ -1201,7 +1274,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
             leg.Draw('same')
-            _style.setCMSStyle(cErrDn, '', dataType='Preliminary', intLumi=lumi)
+            _style.setCMSStyle(cErrDn, '', dataType=plotType, intLumi=lumi)
             cErrDn.Print(_join(plotDir, 'pngs', 'errDown_{}_{}.png'.format(varName, chan)))
             cErrDn.Print(_join(plotDir, 'Cs', 'errDown_{}_{}.C'.format(varName, chan)))
 
@@ -1227,7 +1300,6 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 print "Inclusive {} fiducial cross section = {} fb".format(chan, hUnf.Integral(0,hUnf.GetNbinsX()+1))
             _normalizeBins(hUnf)
 
-
             hTrue = hTrueNominal.clone()
             hTrue.fillcolor = '#99ccff'
             hTrue.linecolor = '#000099'
@@ -1236,26 +1308,126 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hTrue.legendstyle = 'F'
             hTrue.title = '{}'.format(signalName)
 
+            # true uncertainty
+            hTrueUncUp = hTruePDFErr[chan].empty_clone()
+            hTrueUncDn = hTruePDFErr[chan].empty_clone()
+            for bUp, bDn, bPDF, bScaleUp, bScaleDn in zip(hTrueUncUp,
+                                                          hTrueUncDn,
+                                                          hTruePDFErr[chan],
+                                                          hTrueScaleUp[chan],
+                                                          hTrueScaleDn[chan]):
+                bUp.value = sqrt(bPDF.value**2 + bScaleUp.value**2)
+                bDn.value = sqrt(bPDF.value**2 + bScaleDn.value**2)
+
+
             if norm:
-                hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
+                trueInt = hTrue.Integral(0,hTrue.GetNbinsX()+1)
+                hTrue /= trueInt
+                hTrueUncUp /= (trueInt + hTrueUncUp.Integral(0,hTrueUncUp.GetNbinsX()+1))
+                hTrueUncDn /= (trueInt + hTrueUncDn.Integral(0,hTrueUncDn.GetNbinsX()+1))
             else:
                 hTrue /= lumifb
+                hTrueUncUp /= lumifb
+                hTrueUncDn /= lumifb
 
             _normalizeBins(hTrue)
+            _normalizeBins(hTrueUncUp)
+            _normalizeBins(hTrueUncDn)
 
-            hTrueAlt = altTrue[chan].makeHist(var, selTrue, binning,
-                                              perUnitWidth=False)
+            # true uncertainty band
+            errorBandTrue = makeErrorBand(hTrue, hTrueUncUp, hTrueUncDn)
+            errorBandTrue.fillstyle = 'solid'
+            errorBandTrue.SetFillColorAlpha(600, 0.7)
+
+            toPlot = [hTrue, errorBandTrue]
+            forLegend = [hTrue]
+
+
             hTrueAlt.color = 'red'
             hTrueAlt.drawstyle = 'hist'
             hTrueAlt.fillstyle = 'hollow'
             hTrueAlt.legendstyle = 'L'
             hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
             hTrueAlt.title = '{}'.format(signalNameAlt)
+
+            hTrueUncUpAlt = hTruePDFErrAlt[chan].empty_clone()
+            hTrueUncDnAlt = hTruePDFErrAlt[chan].empty_clone()
+            for bUp, bDn, bPDF, bScaleUp, bScaleDn in zip(hTrueUncUpAlt,
+                                                          hTrueUncDnAlt,
+                                                          hTruePDFErrAlt[chan],
+                                                          hTrueScaleUpAlt[chan],
+                                                          hTrueScaleDnAlt[chan]):
+                bUp.value = sqrt(bPDF.value**2 + bScaleUp.value**2)
+                bDn.value = sqrt(bPDF.value**2 + bScaleDn.value**2)
+
             if norm:
-                hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+                trueIntAlt = hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+                hTrueAlt /= trueIntAlt
+                hTrueUncUpAlt /= (trueIntAlt + hTrueUncUpAlt.Integral(0,hTrueUncUpAlt.GetNbinsX()+1))
+                hTrueUncDnAlt /= (trueIntAlt + hTrueUncDnAlt.Integral(0,hTrueUncDnAlt.GetNbinsX()+1))
             else:
                 hTrueAlt /= lumifb
+                hTrueUncUpAlt /= lumifb
+                hTrueUncDnAlt /= lumifb
             _normalizeBins(hTrueAlt)
+            _normalizeBins(hTrueUncUpAlt)
+            _normalizeBins(hTrueUncDnAlt)
+
+            errorBandTrueAlt = makeErrorBand(hTrueAlt, hTrueUncUpAlt, hTrueUncDnAlt)
+            errorBandTrueAlt.fillstyle = 'solid'
+            errorBandTrueAlt.SetFillColorAlpha(628, 0.7)
+
+            toPlot += [hTrueAlt, errorBandTrueAlt]
+            forLegend.append(hTrueAlt)
+
+            if varName in _matrixNames:
+                with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
+                    cMat = asrootpy(fMat.canvas)
+                    matDist = asrootpy(cMat.FindObject(_matrixNames[varName])).clone()
+                    # scaleDown is for the UPPER error, scaleUp is for the LOWER
+                    matDistUp = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleDown')).clone()
+                    matDistDn = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleUp')).clone()
+                    matDist.SetDirectory(0)
+                    matDistUp.SetDirectory(0)
+                    matDistDn.SetDirectory(0)
+
+                # un-normalize the bins, rebin, renormalize
+                _unnormalizeBins(matDist)
+                matDist = matDist.rebinned([e for e in hUnf._edges(0)])
+                _normalizeBins(matDist)
+                _unnormalizeBins(matDistUp)
+                matDistUp = matDistUp.rebinned([e for e in hUnf._edges(0)])
+                _normalizeBins(matDistUp)
+                _unnormalizeBins(matDistDn)
+                matDistDn = matDistDn.rebinned([e for e in hUnf._edges(0)])
+                _normalizeBins(matDistDn)
+                if norm:
+                    matDist /= _matrixXSecs['']
+                    matDistUp /= _matrixXSecs['up']
+                    matDistDn /= _matrixXSecs['dn']
+                elif chan != 'eemm':
+                    matDist /= 2
+                    matDistUp /= 2
+                    matDistDn /= 2
+
+                matDist.title = 'MATRIX NNLO'
+                matDist.color = 'forestgreen'
+                matDist.drawstyle = 'hist'
+                matDist.fillstyle = 'hollow'
+                matDist.legendstyle = 'L'
+                matDist.SetLineWidth(matDist.GetLineWidth()*2)
+
+                toPlot.append(matDist)
+                forLegend.append(matDist)
+
+                matDistUp -= matDist
+                matDistDn -= matDist
+
+                errorBandMat = makeErrorBand(matDist, matDistUp, matDistDn)
+                errorBandMat.fillstyle = 'solid'
+                errorBandMat.SetFillColorAlpha(819, 0.7)
+
+                toPlot.append(errorBandMat)
 
             if norm:
                 hUncUp /= hUnfolded[chan][''].Integral(0,hUnfolded[chan][''].GetNbinsX()+1)
@@ -1279,7 +1451,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
             errorBand = makeErrorBand(hUnf, hUncUp, hUncDn)
 
-            cUnf = Canvas(1000,1200)
+            toPlot += [errorBand,hUnf]
+            forLegend += [errorBand,hUnf]
+
             drawOpts = {
                 'xtitle' : _xTitle[varName],
                 }
@@ -1293,23 +1467,23 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 drawOpts['logy'] = True
                 drawOpts['yerror_in_padding'] = True
                 drawOpts['ypadding'] = 0.04
-            mainPad, ratioPad1, ratioPad2 = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
+
+            if varName in _matrixNames:
+                cUnf = Canvas(1000,1400)
+                mainPad, ratioPadMat, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.12, 0.12, 0.12, bottomMargin=0.35)
+            else:
+                cUnf = Canvas(1000,1200)
+                mainPad, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
 
             mainPad.cd()
-            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
-                                                          #hUnfoldedAlt,
-                                                          errorBand,
-                                                          hUnf], mainPad,
-                                                         **drawOpts)#,
-                                                         #yerror_in_padding=False)
+            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, mainPad,
+                                                         **drawOpts)
             yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
             yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
             yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
             xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
 
-            leg = makeLegend(cUnf, hTrueAlt, #hUnfoldedAlt,
-                             hTrue, errorBand,
-                             hUnf, **_legParams[varName])
+            leg = makeLegend(cUnf, *forLegend, **_legParams[varName])
 
             if varName in _blind and _blind[varName] < xmax:
                 box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
@@ -1337,49 +1511,112 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             if varName == 'pt':
                 drawOpts['ylimits'] = (0.2500001, 1.9999)
 
-            ratioPad1.cd()
-            ratio1, unity1 = makeRatio(hUnf, hTrue)
-            ratioError1 = makeErrorBand(hUnf/hTrue, hUncUp/hTrue,
-                                        hUncDn/hTrue)
-            (ratio1X, ratio1Y), ratio1Limits = draw([ratioError1,ratio1],
-                                                    ratioPad1,
-                                                    **drawOpts)
-            ratio1Y.CenterTitle()
-            unity1.Draw("same")
+            if varName in _matrixNames:
+                ratioPadMat.cd()
+
+                matNoErrs = matDist.clone() # need central value only to keep ratio uncertainties consistent
+                for b in matNoErrs: b.error = 0
+                ratioMat, unityMat = makeRatio(hUnf, matNoErrs)
+
+                matUnity = matDist.clone() # need errors only as baseline for ratio theory uncertainties
+                for b in matUnity: b.value = 1.
+                ratioTheoryErrorMat = makeErrorBand(matUnity,
+                                                    matDistUp/matNoErrs,
+                                                    matDistDn/matNoErrs)
+                ratioTheoryErrorMat.fillstyle = 'solid'
+                ratioTheoryErrorMat.SetFillColorAlpha(819, 0.7)
+
+                ratioErrorMat = makeErrorBand(hUnf/matNoErrs, hUncUp/matNoErrs,
+                                              hUncDn/matNoErrs)
+                (ratioMatX, ratioMatY), ratioMatLimits = draw([ratioTheoryErrorMat,
+                                                               ratioErrorMat,
+                                                               ratioMat],
+                                                              ratioPadMat,
+                                                              **drawOpts)
+                ratioMatY.CenterTitle()
+                unityMat.Draw("same")
+                latex.DrawLatex(0.15, 0.8, "MATRIX")
+
+            ratioPadMain.cd()
+
+            hTrueNoErrs = hTrue.clone() # need central value only to keep ratio uncertainties consistent
+            for b in hTrueNoErrs: b.error = 0
+
+            ratioMain, unityMain = makeRatio(hUnf, hTrueNoErrs)
+            ratioErrorMain = makeErrorBand(hUnf/hTrueNoErrs, hUncUp/hTrueNoErrs,
+                                           hUncDn/hTrueNoErrs)
+
+            hTrueUnity = hTrue.clone() # need errors only as baseline for ratio theory uncertainties
+            for b in hTrueUnity: b.value = 1.
+            ratioTheoryError = makeErrorBand(hTrueUnity,
+                                             hTrueUncUp/hTrueNoErrs,
+                                             hTrueUncDn/hTrueNoErrs)
+            ratioTheoryError.fillstyle = 'solid'
+            ratioTheoryError.SetFillColorAlpha(600, 0.7)
+
+            (ratioMainX, ratioMainY), ratioMainLimits = draw([ratioTheoryError,
+                                                              ratioErrorMain,
+                                                              ratioMain],
+                                                             ratioPadMain,
+                                                             **drawOpts)
+            ratioMainY.CenterTitle()
+            unityMain.Draw("same")
             latex.DrawLatex(0.15, 0.8, signalName)
 
+            ratioPadAlt.cd()
 
-            ratioPad2.cd()
-            ratio2, unity2 = makeRatio(hUnf, hTrueAlt)
-            ratioError2 = makeErrorBand(hUnf/hTrueAlt, hUncUp/hTrueAlt,
-                                        hUncDn/hTrueAlt)
-            (ratio2X, ratio2Y), ratio2Limits = draw([ratioError2,ratio2],
-                                                    ratioPad2,
-                                                    **drawOpts)
-            ratio2Y.CenterTitle()
-            unity2.Draw("same")
-            latex.SetTextSize(latex.GetTextSize() * ratioPad1.height / ratioPad2.height)
-            latex.DrawLatex(0.15, 1.-.2*ratioPad1.height/ratioPad2.height,
+            hTrueNoErrsAlt = hTrueAlt.clone() # need central value only to keep ratio uncertainties consistent
+            for b in hTrueNoErrsAlt: b.error = 0
+
+            ratioAlt, unityAlt = makeRatio(hUnf, hTrueNoErrsAlt)
+            ratioErrorAlt = makeErrorBand(hUnf/hTrueNoErrsAlt, hUncUp/hTrueNoErrsAlt,
+                                          hUncDn/hTrueNoErrsAlt)
+
+            hTrueUnityAlt = hTrueAlt.clone() # need errors only as baseline for ratio theory uncertainties
+            for b in hTrueUnityAlt: b.value = 1.
+            ratioTheoryErrorAlt = makeErrorBand(hTrueUnityAlt,
+                                                hTrueUncUpAlt/hTrueNoErrsAlt,
+                                                hTrueUncDnAlt/hTrueNoErrsAlt)
+            ratioTheoryErrorAlt.fillstyle = 'solid'
+            ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.7)
+
+            (ratioAltX, ratioAltY), ratioAltLimits = draw([ratioTheoryErrorAlt,
+                                                           ratioErrorAlt,
+                                                           ratioAlt],
+                                                          ratioPadAlt,
+                                                          **drawOpts)
+            ratioAltY.CenterTitle()
+            unityAlt.Draw("same")
+            latex.SetTextSize(latex.GetTextSize() * ratioPadMain.height / ratioPadAlt.height)
+            latex.DrawLatex(0.15, 1.-.2*ratioPadMain.height/ratioPadAlt.height,
                             signalNameAlt)
 
             cUnf.cd()
-            ratioPad2.Draw()
-            ratioPad1.Draw()
+            ratioPadAlt.Draw()
+            ratioPadMain.Draw()
+            if varName in _matrixNames:
+                ratioPadMat.Draw()
             mainPad.Draw()
 
-            fixRatioAxes(xaxis,yaxis,ratio1X,ratio1Y, mainPad.height, ratioPad1.height)
-            fixRatioAxes(ratio1X,ratio1Y,ratio2X,ratio2Y, ratioPad1.height, ratioPad2.height)
+            if varName in _matrixNames:
+                fixRatioAxes(xaxis,yaxis,ratioMatX,ratioMatY, mainPad.height, ratioPadMat.height)
+                fixRatioAxes(ratioMatX,ratioMatY,ratioMainX,ratioMainY, ratioPadMat.height, ratioPadMain.height)
+            else:
+                fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
+            fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
 
             yaxis.SetTitleSize(0.042)
             yaxis.SetTitleOffset(1.05)
 
             # raster formats apparently need different fill styles?
             errorBand.fillstyle = 'x'
-            ratioError1.fillstyle = 'x'
-            ratioError2.fillstyle = 'x'
+            ratioErrorMain.fillstyle = 'x'
+            ratioErrorAlt.fillstyle = 'x'
+            if varName in _matrixNames:
+                ratioErrorMat.fillstyle = 'x'
             cUnf.Update()
 
-            _style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
+            _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi)
             cUnf.Print(_join(plotDir, 'pngs', "unfold_{}_{}.png".format(varName, chan)))
             cUnf.Print(_join(plotDir, 'Cs', "unfold_{}_{}.C".format(varName, chan)))
 
@@ -1389,12 +1626,17 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             gStyle.SetHatchesLineWidth(1)
             gStyle.SetHatchesSpacing(1.01)
             TAttFill.SetFillStyle(errorBand, 3244)
-            TAttFill.SetFillStyle(ratioError1, 3244)
-            TAttFill.SetFillStyle(ratioError2, 3244)
+            TAttFill.SetFillStyle(ratioErrorMain, 3244)
+            TAttFill.SetFillStyle(ratioErrorAlt, 3244)
+            if varName in _matrixNames:
+                TAttFill.SetFillStyle(ratioErrorMat, 3244)
             cUnf.Update()
             cUnf.Print(_join(plotDir, 'epses', "unfold_{}_{}.eps".format(varName, chan)))
-            _bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
-                                                                                                           filename='_'.join(['unfold',varName,chan])))
+            cUnf.Print(_join(plotDir, 'svgs', "unfold_{}_{}.svg".format(varName, chan)))
+            _bash('rsvg-convert -f pdf -o {basedir}/pdfs/{filename}.pdf {basedir}/svgs/{filename}.svg'.format(basedir=plotDir,
+                                                                                                              filename='_'.join(['unfold',varName,chan])))
+            #_bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
+            #                                                                                               filename='_'.join(['unfold',varName,chan])))
             gStyle.SetHatchesLineWidth(hatchWidth)
             gStyle.SetHatchesSpacing(hatchSpace)
 
@@ -1406,7 +1648,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hResp.xaxis.title = '\\text{Reco} '+_xTitle[varName]
             hResp.yaxis.title = '\\text{True} '+_xTitle[varName]
             hResp.draw()
-            _style.setCMSStyle(cRes, '', dataType='Preliminary Simulation', intLumi=lumi)
+            _style.setCMSStyle(cRes, '', dataType=plotType+' Simulation', intLumi=lumi)
             cRes.Print(_join(plotDir, 'pngs', "response_{}_{}.png".format(varName, chan)))
             cRes.Print(_join(plotDir, 'Cs', "response_{}_{}.C".format(varName, chan)))
 
@@ -1415,7 +1657,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 cCov.SetLogx()
                 cCov.SetLogy()
             hCov.Draw("colztext")
-            _style.setCMSStyle(cCov, '', dataType='Preliminary', intLumi=lumi)
+            _style.setCMSStyle(cCov, '', dataType=plotType, intLumi=lumi)
             cCov.Print(_join(plotDir, 'pngs', "covariance_{}_{}.png".format(varName, chan)))
             cCov.Print(_join(plotDir, 'Cs', "covariance_{}_{}.C".format(varName, chan)))
 
@@ -1446,11 +1688,42 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hTrue.fillstyle = 'solid'
         hTrue.legendstyle = 'F'
         hTrue.title = '{}'.format(signalName)
+
+        # true uncertainty
+        pdfErrTot = sum(hTruePDFErr.values())
+        scaleErrTotUp = sum(hTrueScaleUp.values())
+        scaleErrTotDn = sum(hTrueScaleDn.values())
+        hTrueUncUp = pdfErrTot.empty_clone()
+        hTrueUncDn = pdfErrTot.empty_clone()
+        for bUp, bDn, bPDF, bScaleUp, bScaleDn in zip(hTrueUncUp,
+                                                      hTrueUncDn,
+                                                      pdfErrTot,
+                                                      scaleErrTotUp,
+                                                      scaleErrTotDn):
+            bUp.value = sqrt(bPDF.value**2 + bScaleUp.value**2)
+            bDn.value = sqrt(bPDF.value**2 + bScaleDn.value**2)
+
         if norm:
-            hTrue /= hTrue.Integral(0,hTrue.GetNbinsX()+1)
+            trueInt = hTrue.Integral(0,hTrue.GetNbinsX()+1)
+            hTrue /= trueInt
+            hTrueUncUp /= (trueInt + hTrueUncUp.Integral(0,hTrueUncUp.GetNbinsX()+1))
+            hTrueUncDn /= (trueInt + hTrueUncDn.Integral(0,hTrueUncDn.GetNbinsX()+1))
         else:
             hTrue /= lumifb
+            hTrueUncUp /= lumifb
+            hTrueUncDn /= lumifb
+
         _normalizeBins(hTrue)
+        _normalizeBins(hTrueUncUp)
+        _normalizeBins(hTrueUncDn)
+
+        # true uncertainty band
+        errorBandTrue = makeErrorBand(hTrue, hTrueUncUp, hTrueUncDn)
+        errorBandTrue.fillstyle = 'solid'
+        errorBandTrue.SetFillColorAlpha(600, 0.7)
+
+        toPlot = [hTrue, errorBandTrue]
+        forLegend = [hTrue]
 
         hTrueAlt = altTrue.makeHist(_variables[varName], selTrueAll,
                                     binning, perUnitWidth=False)
@@ -1460,11 +1733,89 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hTrueAlt.legendstyle = 'L'
         hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
         hTrueAlt.title = '{}'.format(signalNameAlt)
+
+        pdfErrTotAlt = sum(hTruePDFErrAlt.values())
+        scaleErrTotUpAlt = sum(hTrueScaleUpAlt.values())
+        scaleErrTotDnAlt = sum(hTrueScaleDnAlt.values())
+        hTrueUncUpAlt = pdfErrTotAlt.empty_clone()
+        hTrueUncDnAlt = pdfErrTotAlt.empty_clone()
+        for bUp, bDn, bPDF, bScaleUp, bScaleDn in zip(hTrueUncUpAlt,
+                                                      hTrueUncDnAlt,
+                                                      pdfErrTotAlt,
+                                                      scaleErrTotUpAlt,
+                                                      scaleErrTotDnAlt):
+            bUp.value = sqrt(bPDF.value**2 + bScaleUp.value**2)
+            bDn.value = sqrt(bPDF.value**2 + bScaleDn.value**2)
+
         if norm:
-            hTrueAlt /= hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+            trueIntAlt = hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
+            hTrueAlt /= trueIntAlt
+            hTrueUncUpAlt /= (trueIntAlt + hTrueUncUpAlt.Integral(0,hTrueUncUpAlt.GetNbinsX()+1))
+            hTrueUncDnAlt /= (trueIntAlt + hTrueUncDnAlt.Integral(0,hTrueUncDnAlt.GetNbinsX()+1))
         else:
             hTrueAlt /= lumifb
+            hTrueUncUpAlt /= lumifb
+            hTrueUncDnAlt /= lumifb
+
         _normalizeBins(hTrueAlt)
+        _normalizeBins(hTrueUncUpAlt)
+        _normalizeBins(hTrueUncDnAlt)
+
+        # true uncertainty band
+        errorBandTrueAlt = makeErrorBand(hTrueAlt, hTrueUncUpAlt, hTrueUncDnAlt)
+        errorBandTrueAlt.fillstyle = 'solid'
+        errorBandTrueAlt.SetFillColorAlpha(628, 0.7)
+
+        toPlot += [hTrueAlt, errorBandTrueAlt]
+        forLegend.append(hTrueAlt)
+
+        if varName in _matrixNames:
+            with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
+                cMat = asrootpy(fMat.canvas)
+                matDist = asrootpy(cMat.FindObject(_matrixNames[varName])).clone()
+                matDistUp = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleDown')).clone()
+                matDistDn = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleUp')).clone()
+                matDist.SetDirectory(0)
+                matDistUp.SetDirectory(0)
+                matDistDn.SetDirectory(0)
+
+            # un-normalize the bins, rebin, renormalize
+            _unnormalizeBins(matDist)
+            matDist = matDist.rebinned([e for e in hUnf._edges(0)])
+            _normalizeBins(matDist)
+            _unnormalizeBins(matDistUp)
+            matDistUp = matDistUp.rebinned([e for e in hUnf._edges(0)])
+            _normalizeBins(matDistUp)
+            _unnormalizeBins(matDistDn)
+            matDistDn = matDistDn.rebinned([e for e in hUnf._edges(0)])
+            _normalizeBins(matDistDn)
+            if norm:
+                matDist /= _matrixXSecs['']
+                matDistUp /= _matrixXSecs['up']
+                matDistDn /= _matrixXSecs['dn']
+            else:
+                matDist *= 2
+                matDistUp *= 2
+                matDistDn *= 2
+
+            matDist.title = 'MATRIX NNLO'
+            matDist.color = 'forestgreen'
+            matDist.drawstyle = 'hist'
+            matDist.fillstyle = 'hollow'
+            matDist.legendstyle = 'L'
+            matDist.SetLineWidth(matDist.GetLineWidth()*2)
+
+            toPlot.append(matDist)
+            forLegend.append(matDist)
+
+            matDistUp -= matDist
+            matDistDn -= matDist
+
+            errorBandMat = makeErrorBand(matDist, matDistUp, matDistDn)
+            errorBandMat.fillstyle = 'solid'
+            errorBandMat.SetFillColorAlpha(819, 0.7)
+
+            toPlot.append(errorBandMat)
 
         hUncTot = {}
         uncList = []
@@ -1529,7 +1880,16 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
         errorBand = makeErrorBand(hTot, hUncUp, hUncDn)
 
-        cUnf = Canvas(1000,1200)
+        toPlot += [errorBand, hTot]
+        forLegend += [errorBand, hTot]
+
+        if varName in _matrixNames:
+            cUnf = Canvas(1000,1400)
+            mainPad, ratioPadMat, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.12, 0.12, 0.12, bottomMargin=0.35)
+        else:
+            cUnf = Canvas(1000,1200)
+            mainPad, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
+
         drawOpts = {
             'xtitle' : _xTitle[varName],
             }
@@ -1544,13 +1904,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             drawOpts['yerror_in_padding'] = True
             drawOpts['ypadding'] = 0.04
 
-        mainPad, ratioPad1, ratioPad2 = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=.35)
-
         mainPad.cd()
 
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hTrue, hTrueAlt,
-                                                      #hTotAlt,
-                                                      errorBand, hTot],
+        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot,
                                                      mainPad, **drawOpts)#,
                                                      #yerror_in_padding=False)
         yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
@@ -1558,9 +1914,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
         xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
 
-        leg = makeLegend(mainPad, hTrueAlt, #hTotAlt,
-                         hTrue, errorBand,
-                         hTot, **_legParams[varName])
+        leg = makeLegend(mainPad, *forLegend, **_legParams[varName])
 
         if varName in _blind and _blind[varName] < xmax:
             box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
@@ -1588,44 +1942,114 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         if varName == 'pt':
             drawOpts['ylimits'] = (0.2500001, 1.9999)
 
-        ratioPad1.cd()
-        ratio1, unity1 = makeRatio(hTot, hTrue)
-        ratioError1 = makeErrorBand(hTot/hTrue, hUncUp/hTrue, hUncDn/hTrue)
-        (ratio1X, ratio1Y), ratio1Limits = draw([ratioError1,ratio1],
-                                                ratioPad1, **drawOpts)
-        ratio1Y.CenterTitle()
-        unity1.Draw("same")
+        if varName in _matrixNames:
+            ratioPadMat.cd()
+
+            matNoErrs = matDist.clone() # need central value only to keep ratio uncertainties consistent
+            for b in matNoErrs: b.error = 0
+            ratioMat, unityMat = makeRatio(hTot, matNoErrs)
+
+            matUnity = matDist.clone() # need errors only as baseline for ratio theory uncertainties
+            for b in matUnity: b.value = 1.
+            ratioTheoryErrorMat = makeErrorBand(matUnity,
+                                                matDistUp/matNoErrs,
+                                                matDistDn/matNoErrs)
+            ratioTheoryErrorMat.fillstyle = 'solid'
+            ratioTheoryErrorMat.SetFillColorAlpha(819, 0.7)
+
+            ratioErrorMat = makeErrorBand(hTot/matNoErrs, hUncUp/matNoErrs,
+                                          hUncDn/matNoErrs)
+
+            (ratioMatX, ratioMatY), ratioMatLimits = draw([ratioTheoryErrorMat,
+                                                           ratioErrorMat,
+                                                           ratioMat],
+                                                          ratioPadMat,
+                                                          **drawOpts)
+            ratioMatY.CenterTitle()
+            unityMat.Draw("same")
+            latex.DrawLatex(0.15, 0.8, "MATRIX")
+
+        ratioPadMain.cd()
+
+        hTrueNoErrs = hTrue.clone() # need central value only to keep ratio uncertainties consistent
+        for b in hTrueNoErrs: b.error = 0
+
+        ratioMain, unityMain = makeRatio(hTot, hTrueNoErrs)
+        ratioErrorMain = makeErrorBand(hTot/hTrueNoErrs, hUncUp/hTrueNoErrs,
+                                       hUncDn/hTrueNoErrs)
+
+        hTrueUnity = hTrue.clone() # need errors only as baseline for ratio theory uncertainties
+        for b in hTrueUnity: b.value = 1.
+        ratioTheoryError = makeErrorBand(hTrueUnity,
+                                         hTrueUncUp/hTrueNoErrs,
+                                         hTrueUncDn/hTrueNoErrs)
+        ratioTheoryError.fillstyle = 'solid'
+        ratioTheoryError.SetFillColorAlpha(600, 0.7)
+
+        (ratioMainX, ratioMainY), ratioMainLimits = draw([ratioTheoryError,
+                                                          ratioErrorMain,
+                                                          ratioMain],
+                                                         ratioPadMain,
+                                                         **drawOpts)
+
+        ratioMainY.CenterTitle()
+        unityMain.Draw("same")
         latex.DrawLatex(0.15, 0.8, signalName)
 
-        ratioPad2.cd()
-        ratio2, unity2 = makeRatio(hTot, hTrueAlt)
-        ratioError2 = makeErrorBand(hTot/hTrueAlt, hUncUp/hTrueAlt,
-                                    hUncDn/hTrueAlt)
-        (ratio2X, ratio2Y), ratio2Limits = draw([ratioError2,ratio2],
-                                                ratioPad2, **drawOpts)
-        ratio2Y.CenterTitle()
-        unity2.Draw("same")
-        latex.SetTextSize(latex.GetTextSize() * ratioPad1.height / ratioPad2.height)
-        latex.DrawLatex(0.15, 1.-.2*ratioPad1.height/ratioPad2.height, signalNameAlt)
+        ratioPadAlt.cd()
+
+        hTrueNoErrsAlt = hTrueAlt.clone() # need central value only to keep ratio uncertainties consistent
+        for b in hTrueNoErrsAlt: b.error = 0
+
+        ratioAlt, unityAlt = makeRatio(hUnf, hTrueNoErrsAlt)
+        ratioErrorAlt = makeErrorBand(hUnf/hTrueNoErrsAlt, hUncUp/hTrueNoErrsAlt,
+                                      hUncDn/hTrueNoErrsAlt)
+
+        hTrueUnityAlt = hTrueAlt.clone() # need errors only as baseline for ratio theory uncertainties
+        for b in hTrueUnityAlt: b.value = 1.
+        ratioTheoryErrorAlt = makeErrorBand(hTrueUnityAlt,
+                                            hTrueUncUpAlt/hTrueNoErrsAlt,
+                                            hTrueUncDnAlt/hTrueNoErrsAlt)
+        ratioTheoryErrorAlt.fillstyle = 'solid'
+        ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.7)
+
+        (ratioAltX, ratioAltY), ratioAltLimits = draw([ratioTheoryErrorAlt,
+                                                       ratioErrorAlt,
+                                                       ratioAlt],
+                                                      ratioPadAlt,
+                                                      **drawOpts)
+
+        ratioAltY.CenterTitle()
+        unityAlt.Draw("same")
+        latex.SetTextSize(latex.GetTextSize() * ratioPadMain.height / ratioPadAlt.height)
+        latex.DrawLatex(0.15, 1.-.2*ratioPadMain.height/ratioPadAlt.height, signalNameAlt)
 
         cUnf.cd()
-        ratioPad2.Draw()
-        ratioPad1.Draw()
+        ratioPadAlt.Draw()
+        ratioPadMain.Draw()
+        if varName in _matrixNames:
+            ratioPadMat.Draw()
         mainPad.Draw()
 
-        fixRatioAxes(xaxis,yaxis,ratio1X,ratio1Y, mainPad.height, ratioPad1.height)
-        fixRatioAxes(ratio1X,ratio1Y,ratio2X,ratio2Y, ratioPad1.height, ratioPad2.height)
+        if varName in _matrixNames:
+            fixRatioAxes(xaxis,yaxis,ratioMatX,ratioMatY, mainPad.height, ratioPadMat.height)
+            fixRatioAxes(ratioMatX,ratioMatY,ratioMainX,ratioMainY, ratioPadMat.height, ratioPadMain.height)
+        else:
+            fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
+        fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
 
         yaxis.SetTitleSize(0.042)
         yaxis.SetTitleOffset(1.05)
 
         # raster formats apparently need different fill styles?
         errorBand.fillstyle = 'x'
-        ratioError1.fillstyle = 'x'
-        ratioError2.fillstyle = 'x'
+        ratioErrorMain.fillstyle = 'x'
+        ratioErrorAlt.fillstyle = 'x'
+        if varName in _matrixNames:
+            ratioErrorMat.fillstyle = 'x'
         cUnf.Update()
 
-        _style.setCMSStyle(cUnf, '', dataType='Preliminary', intLumi=lumi)
+        _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi)
         cUnf.Print(_join(plotDir, 'pngs', "unfold_{}.png".format(varName)))
         cUnf.Print(_join(plotDir, 'Cs', "unfold_{}.C".format(varName)))
 
@@ -1634,12 +2058,17 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         gStyle.SetHatchesLineWidth(1)
         gStyle.SetHatchesSpacing(1.01)
         TAttFill.SetFillStyle(errorBand, 3244)
-        TAttFill.SetFillStyle(ratioError1, 3244)
-        TAttFill.SetFillStyle(ratioError2, 3244)
+        TAttFill.SetFillStyle(ratioErrorMain, 3244)
+        TAttFill.SetFillStyle(ratioErrorAlt, 3244)
+        if varName in _matrixNames:
+            TAttFill.SetFillStyle(ratioErrorMat, 3244)
         cUnf.Update()
         cUnf.Print(_join(plotDir, 'epses', "unfold_{}.eps".format(varName)))
-        _bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
-                                                                                                       filename='unfold_'+varName))
+        cUnf.Print(_join(plotDir, 'svgs', "unfold_{}.svg".format(varName)))
+        _bash('rsvg-convert -f pdf -o {basedir}/pdfs/{filename}.pdf {basedir}/svgs/{filename}.svg'.format(basedir=plotDir,
+                                                                                                           filename='_'.join(['unfold',varName])))
+        #_bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
+        #                                                                                               filename='unfold_'+varName))
         gStyle.SetHatchesLineWidth(hatchWidth)
         gStyle.SetHatchesSpacing(hatchSpace)
 
