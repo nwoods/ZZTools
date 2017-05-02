@@ -532,9 +532,29 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
 
 
 def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
-         amcatnlo=False, useSFHists=False, norm=True, logy=False, *varNames,
-         **kwargs):
-    plotType = 'DO NOT DISTRIBUTE' #'Prliminary'
+         amcatnlo=False, norm=True, logy=False, looseSIP=False, noSIP=False,
+         sfRemake=False, *varNames, **kwargs):
+    sfArgs = {}
+    if noSIP:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_NoSIP'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_NoSIP'
+        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_NoSIP'
+        if looseSIP:
+            raise ValueError("You can use scale factors for loose SIP cut or "
+                             "no SIP cut, but not both.")
+    elif looseSIP:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_LooseSIP'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_LooseSIP'
+        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_LooseSIP'
+        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+    elif sfRemake:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake'
+        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17'
+
+    plotType = '' #'Preliminary'
 
     for fileType in 'Cs', 'pngs', 'texs', 'pdfs',:
         subDir = _join(plotDir, fileType)
@@ -557,7 +577,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             ana = 'full'
 
     classesNeeded = list(set(cls  for v in varNames for cls in _responseClassNames[v].values()))
-    if useSFHists:
+    if sfArgs:
         classesNeeded = ['SFHist'+cn for cn in classesNeeded]
     _rootComp.register_file(_join(_zztBaseDir, 'Utilities',
                                   'ResponseMatrixMaker.cxx'),
@@ -587,14 +607,14 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
     reco = zzStackSignalOnly('zz', inMC, ana, puWeightFile,
                              lumi, amcatnlo=amcatnlo, asGroup=True,
                              higgs=(ana=='full'),
-                             scaleFactorsFromHists=useSFHists)
+                             **sfArgs)
     sigFileNames = {s.name : [f for f in s.getFileNames()]
                     for s in reco.values()[0].getBaseSamples()}
     sigConstWeights = {s.name : s.xsec * s.intLumi * float(s.kFactor) / s.sumW
                        for s in reco.values()[0].getBaseSamples()}
 
     bkgMC = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
-                             scaleFactorsFromHists=useSFHists)
+                             **sfArgs)
     bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                         fakeRateFile, lumi)
     bkgSyst = {
@@ -613,7 +633,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
     altReco = zzStackSignalOnly('zz', inMC, ana, puWeightFile, lumi,
                                 amcatnlo=(not amcatnlo), asGroup=True,
                                 higgs=(ana=='full'),
-                                scaleFactorsFromHists=useSFHists)
+                                **sfArgs)
     altSigFileNames = {s.name : [f for f in s.getFileNames()]
                        for s in altReco.values()[0].getBaseSamples()}
     altSigConstWeights = {s.name : s.xsec * s.intLumi * float(s.kFactor) / s.sumW
@@ -641,40 +661,39 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         recoSyst[syst] = zzStackSignalOnly('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
                                            ana, puWeightFile, lumi, amcatnlo=amcatnlo,
                                            asGroup=True, higgs=(ana=='full'),
-                                           scaleFactorsFromHists=useSFHists)
+                                           **sfArgs)
         sigFileNamesSyst[syst] = {s.name : [f for f in s.getFileNames()]
                         for s in recoSyst[syst].values()[0].getBaseSamples()}
         bkgMCSyst[syst] = zzIrreducibleBkg('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
                                            ana, puWeightFile, lumi,
-                                           scaleFactorsFromHists=useSFHists)
+                                           **sfArgs)
 
     for syst in ['mClosureUp','mClosureDn']:
         recoSyst[syst] = zzStackSignalOnly('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
                                            ana, puWeightFile, lumi, amcatnlo=amcatnlo,
                                            asGroup=True, higgs=(ana=='full'),
-                                           scaleFactorsFromHists=useSFHists)
+                                           **sfArgs)
         sigFileNamesSyst[syst] = {s.name : [f for f in s.getFileNames()]
                                   for s in recoSyst[syst].values()[0].getBaseSamples()}
         bkgMCSyst[syst] = zzIrreducibleBkg('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
                                            ana, puWeightFile, lumi,
-                                           scaleFactorsFromHists=useSFHists)
+                                           **sfArgs)
 
-    if useSFHists:
+    if sfArgs:
         with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
-                                  'eleSelectionSF_HZZ_Moriond17.root')) as fEleSel:
+                                  sfArgs['eSelSFFile']+'.root')) as fEleSel:
             hEleSelSF = asrootpy(fEleSel.EGamma_SF2D).clone()
             hEleSelSF.SetDirectory(0)
         with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
-                             'eleSelectionSFGap_HZZ_Moriond17.root')) as fEleSelGap:
+                             sfArgs['eSelSFFileGap']+'.root')) as fEleSelGap:
             hEleSelGapSF = asrootpy(fEleSelGap.EGamma_SF2D).clone()
             hEleSelGapSF.SetDirectory(0)
         with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
-                             'eleRecoSF_HZZ_Moriond17.root')) as fEleReco:
+                             sfArgs['eRecoSFFile']+'.root')) as fEleReco:
             hEleRecoSF = asrootpy(fEleReco.EGamma_SF2D).clone()
             hEleRecoSF.SetDirectory(0)
         with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
-                             # 'muEfficiencySF_all_HZZ_ICHEP16_final_withErrors.root')) as fMuSF:
-                             'muSelectionAndRecoSF_HZZ_Moriond17.root')) as fMuSF:
+                             sfArgs['mSFFile']+'.root')) as fMuSF:
             hMuSF = asrootpy(fMuSF.FINAL).clone()
             hMuSF.SetDirectory(0)
             hMuSFErr = asrootpy(fMuSF.ERROR).clone()
@@ -721,7 +740,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 selTrue = [combineWeights(s, _trueSelections[varName][chan], selections=True) for s in sel]
 
             respClassName = _responseClassNames[varName][chan]
-            if useSFHists:
+            if sfArgs:
                 respClassName = 'SFHist'+respClassName
             ResponseMakerClass = getattr(_rootComp, respClassName)
 
@@ -741,7 +760,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 resp.registerPUWeights(hPUWtUp, 'up')
                 resp.registerPUWeights(hPUWtDn, 'dn')
                 resp.setConstantScale(sigConstWeights[sample])
-                if useSFHists:
+                if sfArgs:
                     resp.registerElectronSelectionSFHist(hEleSelSF)
                     resp.registerElectronSelectionGapSFHist(hEleSelGapSF)
                     resp.registerElectronRecoSFHist(hEleRecoSF)
@@ -762,7 +781,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 resp.registerPUWeights(hPUWt)
                 resp.setConstantScale(altSigConstWeights[sample])
                 resp.setSkipSystematics()
-                if useSFHists:
+                if sfArgs:
                     resp.registerElectronSelectionSFHist(hEleSelSF)
                     resp.registerElectronSelectionGapSFHist(hEleSelGapSF)
                     resp.registerElectronRecoSFHist(hEleRecoSF)
@@ -777,7 +796,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
             # regular weight, no systematics. Apply just in case.
             nominalWeight = baseMCWeight(chan, puWeightFile,
-                                         scaleFactorsFromHists=useSFHists)
+                                         **sfArgs)
             reco[chan].applyWeight(nominalWeight, True)
             altReco[chan].applyWeight(nominalWeight, True)
             bkgMC[chan].applyWeight(nominalWeight, True)
@@ -807,7 +826,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             # PU reweight uncertainty
             for sys in ['up','dn']:
                 wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys,
-                                     scaleFactorsFromHists=useSFHists)
+                                     **sfArgs)
                 reco[chan].applyWeight(wtStr, True)
                 bkgMC[chan].applyWeight(wtStr, True)
 
@@ -830,9 +849,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             for lep in set(chan):
                 for sys in ['up','dn']:
                     wtArg = {lep+'Syst':sys}
-                    wtStr = baseMCWeight(chan, puWeightFile,
-                                         scaleFactorsFromHists=useSFHists,
-                                         **wtArg)
+                    wtArg.update(sfArgs)
+                    wtStr = baseMCWeight(chan, puWeightFile, **wtArg)
                     reco[chan].applyWeight(wtStr, True)
                     bkgMC[chan].applyWeight(wtStr, True)
 
@@ -2129,12 +2147,16 @@ if __name__ == "__main__":
                         help=('Names of variables to use. Options are: {}. '
                               'If not specified, all are used except massFull'
                               ).format(', '.join(_varList)))
-    parser.add_argument('--sfHists', action='store_true',
-                        help='Get lepton scale factors from files instead of directly from the ntuples.')
     parser.add_argument('--noNorm', action='store_true',
                         help='Leave differential cross sections in abolute normalization rather than normalizing to unity area.')
     parser.add_argument('--logy', '--logY', '--log', action='store_true',
                         help='Put vertical axis on a log scale.')
+    parser.add_argument('--looseSIP', action='store_true',
+                        help='Use scale factors for SIP<10 with no extra IP cuts.')
+    parser.add_argument('--noSIP', action='store_true',
+                        help='Use scale factors for no SIP cut and no extra IP cuts.')
+    parser.add_argument('--sfRemake', action='store_true',
+                        help='Use homebrewed scale factors for electrons.')
 
     args=parser.parse_args()
 
@@ -2145,5 +2167,6 @@ if __name__ == "__main__":
 
     main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
          args.puWeightFile, args.lumi, args.nIter, args.amcatnlo,
-         args.sfHists, not args.noNorm, args.logy, *args.variables)
+         not args.noNorm, args.logy, args.looseSIP, args.noSIP, args.sfRemake,
+         *args.variables)
 
