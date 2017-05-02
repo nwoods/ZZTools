@@ -5,12 +5,12 @@ import ROOT as rt
 #   Translated in Python by: Joshua Hardenbrook (Princeton)
 #
 
-cmsText     = "CMS";
-cmsTextFont   = 61  
+_cmsText     = "CMS";
+cmsTextFont   = 61
 
 writeExtraText = True
-extraText   = "Preliminary"
-extraTextFont = 52 
+_extraText   = "Preliminary"
+extraTextFont = 52
 
 lumiTextSize     = 0.7
 lumiTextOffset   = 0.2
@@ -25,12 +25,18 @@ relExtraDY = 1.2
 extraOverCmsTextSize  = 0.86
 
 lumi_13TeV = "20.1 fb^{-1}"
-lumi_8TeV  = "19.7 fb^{-1}" 
+lumi_8TeV  = "19.7 fb^{-1}"
 lumi_7TeV  = "5.1 fb^{-1}"
 
 drawLogo      = False
 
-def CMS_lumi(pad,  iPeriod,  iPosX ):
+def CMS_lumi(pad,  iPeriod,  iPosX,  forLatex=False):
+    cmsText = _cmsText
+    extraText = _extraText
+    if forLatex:
+        cmsText = r'\textbf{'+cmsText+'}'
+        extraText = r'\textbf{'+extraText+'}'
+
     outOfFrame    = False
     if(iPosX/10==0 ): outOfFrame = True
 
@@ -62,8 +68,8 @@ def CMS_lumi(pad,  iPeriod,  iPosX ):
         lumiText += lumi_8TeV
         lumiText += " (8 TeV)"
 
-    elif( iPeriod==3 ):      
-        lumiText = lumi_8TeV 
+    elif( iPeriod==3 ):
+        lumiText = lumi_8TeV
         lumiText += " (8 TeV)"
         lumiText += " + "
         lumiText += lumi_7TeV
@@ -72,40 +78,46 @@ def CMS_lumi(pad,  iPeriod,  iPosX ):
         lumiText += lumi_13TeV
         lumiText += " (13 TeV)"
     elif ( iPeriod==7 ):
-        if( outOfFrame ):lumiText += "#scale[0.85]{"
-        lumiText += lumi_13TeV 
+        lumiText += lumi_13TeV
         lumiText += " (13 TeV)"
         lumiText += " + "
-        lumiText += lumi_8TeV 
+        lumiText += lumi_8TeV
         lumiText += " (8 TeV)"
         lumiText += " + "
         lumiText += lumi_7TeV
         lumiText += " (7 TeV)"
-        if( outOfFrame): lumiText += "}"
+
+        if outOfFrame and not forLatex:
+            lumiText = '#scale[0.85]{'+lumiText+'}'
+
     elif ( iPeriod==12 ):
         lumiText += "8 TeV"
-            
+
     #print lumiText
+
+    if forLatex:
+        lumiText = lumiText.replace("fb",r"\,fb").replace("pb",r"\,pb").replace("TeV",r"\,TeV")
+        lumiText = r'\mathbf{'+lumiText+'}'
 
     latex = rt.TLatex()
     latex.SetNDC()
     latex.SetTextAngle(0)
-    latex.SetTextColor(rt.kBlack)    
-    
+    latex.SetTextColor(rt.kBlack)
+
     extraTextSize = extraOverCmsTextSize*cmsTextSize
-    
+
     latex.SetTextFont(42)
-    latex.SetTextAlign(31) 
-    latex.SetTextSize(lumiTextSize*t)    
+    latex.SetTextAlign(31)
+    latex.SetTextSize(lumiTextSize*t)
 
     latex.DrawLatex(1-r,1-t+lumiTextOffset*t,lumiText)
 
     if( outOfFrame ):
         latex.SetTextFont(cmsTextFont)
-        latex.SetTextAlign(11) 
-        latex.SetTextSize(cmsTextSize*t)    
+        latex.SetTextAlign(11)
+        latex.SetTextSize(cmsTextSize*t)
         latex.DrawLatex(l,1-t+lumiTextOffset*t,cmsText)
-  
+
     if pad != rt.TVirtualPad.Pad():
         pad.cd()
 
@@ -133,7 +145,7 @@ def CMS_lumi(pad,  iPeriod,  iPosX ):
             pad_logo.cd()
             CMS_logo.Draw("X")
             pad_logo.Modified()
-            pad.cd()          
+            pad.cd()
         else:
             latex.SetTextFont(cmsTextFont)
             latex.SetTextSize(cmsTextSize*t)
@@ -152,6 +164,6 @@ def CMS_lumi(pad,  iPeriod,  iPosX ):
         latex.SetTextFont(extraTextFont)
         latex.SetTextSize(extraTextSize*t)
         latex.SetTextAlign(align_)
-        latex.DrawLatex(posX_, posY_, extraText)      
+        latex.DrawLatex(posX_, posY_, extraText)
 
     pad.Update()

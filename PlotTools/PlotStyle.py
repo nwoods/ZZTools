@@ -62,11 +62,15 @@ class PlotStyle(object):
         gStyle.SetPaintTextFormat(".3f")
 
 
-    def setCMSStyle(self, canvas, author='N. Woods', textRight=True, dataType='Preliminary Simulation', energy=13, intLumi=19710.):
+    def setCMSStyle(self, canvas, author='N. Woods', textRight=True,
+                    dataType='Preliminary Simulation', energy=13,
+                    intLumi=19710., forLatex=False):
         '''
         Set plotting defaults to something appropriate for CMS Analysis Notes
         intLumi is given in pb^-1 and converted to fb^-1, unless it is less than 1 fb^-1
         If intLumi is nonpositive, it is not printed
+        If forLatex is True, TMathText is used for the energy and luminosity
+        instead of TLatex
         '''
         # Make sure that if there's an exponent on the X axis, it's visible but not on top of the axis title
         self.fixXExponent(canvas)
@@ -77,7 +81,7 @@ class PlotStyle(object):
         # Put "Preliminary" or similar on the plots
         if dataType:
             CMS_lumi.relPosX = 0.12
-            CMS_lumi.extraText = dataType
+            CMS_lumi._extraText = dataType
         else:
             CMS_lumi.writeExtraText = False
 
@@ -123,7 +127,7 @@ class PlotStyle(object):
         iPos = 0
 
         # Draw all that stuff
-        CMS_lumi.CMS_lumi(canvas, iPeriod, iPos)
+        CMS_lumi.CMS_lumi(canvas, iPeriod, iPos, forLatex)
 
         # Put author name and "Preliminary Exam" and a box in the top right corner of the frame
         latex = TLatex()

@@ -6,6 +6,7 @@ from rootpy.plotting import HistStack as _HistStack
 from rootpy.plotting import Pad as _Pad
 from rootpy.plotting import Graph as _Graph
 from rootpy.plotting.utils import get_band as _band
+from rootpy.plotting.base import Color as _Color
 from rootpy.ROOT import TLine as _Line, TAttFill as _Fill
 
 from numbers import Number
@@ -156,9 +157,12 @@ def fixRatioAxes(mainXAxis, mainYAxis, ratioXAxis, ratioYAxis,
     ratioYAxis.SetLabelSize(mainYAxis.GetLabelSize() * mainPadHeight / ratioPadHeight)
     ratioYAxis.SetTitleOffset(mainYAxis.GetTitleOffset() * ratioPadHeight / mainPadHeight)
 
-    mainXAxis.SetLabelOffset(999)
-    mainXAxis.SetTitleOffset(999)
-
+    # mainXAxis.SetLabelOffset(20)
+    # mainXAxis.SetTitleOffset(20)
+    mainXAxis.SetTitle("")
+    # don't print axis labels for the top plot
+    for ib in range(mainXAxis.GetNbins()):
+        mainXAxis.SetLabelSize(0)#Color(0,0.)
 
 def makeErrorBand(hMean, errUp, errDn=None):
     '''
@@ -198,7 +202,11 @@ def makeErrorBand(hMean, errUp, errDn=None):
     _Fill.SetFillStyle(err, 3244) # rootpy Graph.SetFillStyle() breaks
     err.drawstyle = '2'
     err.fillcolor = '0.05'
-    err.title = 'Stat. #oplus syst. unc.'
+    err.title = r'\mathbf{Stat. \oplus syst.\ unc.}'#'\\text{Stat.}\\oplus\\text{syst. unc.}'
     err.legendstyle = 'F'
+    try:
+        err.SetLineColorAlpha(_Color(err.GetLineColor())('root'),0.)
+    except TypeError:
+        err.SetLineColorAlpha(err.GetLineColor(),0.)
 
     return err
