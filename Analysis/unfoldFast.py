@@ -20,7 +20,7 @@ import rootpy.compiled as _rootComp
 from rootpy.stl import vector as _Vec
 _VFloat = _Vec('float')
 
-from PlotTools import PlotStyle as _Style
+from PlotTools import PlotStyle as _Style, pdfViaTex as _pdfViaTex
 from PlotTools import makeLegend, addPadsBelow, makeRatio, fixRatioAxes, makeErrorBand
 from Utilities import WeightStringMaker, Z_MASS, deltaRString, deltaPhiString, zeroNegativeBins, combineWeights
 from Analysis.setupStandardSamples import *
@@ -348,19 +348,23 @@ _varListNoFull.remove("massFull")
 
 # Sometimes need to more or resize legend
 _legDefaults = {
-    'textsize' : .023,
-    'leftmargin' : 0.4,
+    'textsize' : .025,
+    'leftmargin' : 0.377,
     }
 _legParams = {v:_legDefaults.copy() for v in _varList}
 _legParams['z1Mass'] = {
     'textsize' : .015,
     'leftmargin' : .03,
-    'rightmargin' : .5,
+    'rightmargin' : .47,
     'entryheight' : .023,
     'entrysep' : .007,
     }
 _legParams['z2Mass'] = _legParams['z1Mass'].copy()
 _legParams['deltaRZZ'] = _legParams['z1Mass'].copy()
+#_legParams['deltaRZZ']['topmargin'] = 0.7
+#_legParams['deltaRZZ']['leftmargin'] = 0.3
+#_legParams['deltaRZZ']['rightmargin'] = 0.23
+#_legParams['deltaRZZ']['solid'] = True
 _legParams['deltaPhiZZ']['leftmargin'] = 0.05
 _legParams['deltaPhiZZ']['rightmargin'] = 0.32
 _legParams['deltaEtajj'] = _legParams['z1Mass'].copy()
@@ -369,7 +373,7 @@ _legParams['deltaEtajj']['rightmargin'] = .03
 _legParams['deltaEtajj']['topmargin'] = .05
 _legParams['eta'] = _legParams['deltaEtajj'].copy()
 _legParams['lPt']['topmargin'] = 0.05
-_legParams['l1Pt']['topmargin'] = 0.05
+_legParams['l1Pt']['topmargin'] = 0.06
 _legParams['jet1Eta']['topmargin'] = 0.058
 _legParams['jet2Eta']['topmargin'] = 0.058
 _legParams['nJets']['topmargin'] = 0.058
@@ -532,7 +536,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
          **kwargs):
     plotType = 'DO NOT DISTRIBUTE' #'Prliminary'
 
-    for fileType in 'Cs', 'pngs', 'epses', 'pdfs', 'svgs':
+    for fileType in 'Cs', 'pngs', 'texs', 'pdfs',:
         subDir = _join(plotDir, fileType)
         if not _exists(subDir):
             _mkdir(subDir)
@@ -619,12 +623,15 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                            amcatnlo=(not amcatnlo), higgs=(ana=='full'))
 
     signalName = 'POWHEG+MCFM+Pythia8'
-    signalNameAlt = 'MG5_aMC@NLO+MCFM'
+    signalNameAlt = 'MG5\_aMC@NLO+MCFM'
     if ana == 'full':
         signalNameAlt += '+POWHEG'
     signalNameAlt += '+Pythia8'
     if amcatnlo:
         signalName, signalNameAlt = signalNameAlt, signalName
+
+    signalName = r'\textbf{'+signalName+'}'
+    signalNameAlt = r'\textbf{'+signalNameAlt+'}'
 
     recoSyst = {}
     bkgMCSyst = {}
@@ -1295,7 +1302,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hUnf.color = 'black'
             hUnf.drawstyle = 'PE1'
             hUnf.legendstyle = 'LPE1'
-            hUnf.title = 'Data + stat. unc.'
+            hUnf.title = '\\textbf{Data + stat. unc.}'
             if not norm:
                 print "Inclusive {} fiducial cross section = {} fb".format(chan, hUnf.Integral(0,hUnf.GetNbinsX()+1))
             _normalizeBins(hUnf)
@@ -1337,7 +1344,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             # true uncertainty band
             errorBandTrue = makeErrorBand(hTrue, hTrueUncUp, hTrueUncDn)
             errorBandTrue.fillstyle = 'solid'
-            errorBandTrue.SetFillColorAlpha(600, 0.7)
+            errorBandTrue.SetFillColorAlpha(600, 0.5)
 
             toPlot = [hTrue, errorBandTrue]
             forLegend = [hTrue]
@@ -1375,9 +1382,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
             errorBandTrueAlt = makeErrorBand(hTrueAlt, hTrueUncUpAlt, hTrueUncDnAlt)
             errorBandTrueAlt.fillstyle = 'solid'
-            errorBandTrueAlt.SetFillColorAlpha(628, 0.7)
+            errorBandTrueAlt.SetFillColorAlpha(628, 0.5)
 
-            toPlot += [hTrueAlt, errorBandTrueAlt]
+            toPlot += [errorBandTrueAlt, hTrueAlt]
             forLegend.append(hTrueAlt)
 
             if varName in _matrixNames:
@@ -1410,24 +1417,23 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                     matDistUp /= 2
                     matDistDn /= 2
 
-                matDist.title = 'MATRIX NNLO'
+                matDist.title = r'\textbf{MATRIX}'
                 matDist.color = 'forestgreen'
                 matDist.drawstyle = 'hist'
                 matDist.fillstyle = 'hollow'
                 matDist.legendstyle = 'L'
                 matDist.SetLineWidth(matDist.GetLineWidth()*2)
 
-                toPlot.append(matDist)
-                forLegend.append(matDist)
-
                 matDistUp -= matDist
                 matDistDn -= matDist
 
                 errorBandMat = makeErrorBand(matDist, matDistUp, matDistDn)
                 errorBandMat.fillstyle = 'solid'
-                errorBandMat.SetFillColorAlpha(819, 0.7)
+                errorBandMat.SetFillColorAlpha(819, 0.5)
 
-                toPlot.append(errorBandMat)
+                toPlot += [errorBandMat,matDist]
+                forLegend.append(matDist)
+
 
             if norm:
                 hUncUp /= hUnfolded[chan][''].Integral(0,hUnfolded[chan][''].GetNbinsX()+1)
@@ -1481,7 +1487,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
             yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
             yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
+            yaxis.SetMoreLogLabels()
             xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
+            xaxis.SetTitleOffset(0.95*xaxis.GetTitleOffset())
 
             leg = makeLegend(cUnf, *forLegend, **_legParams[varName])
 
@@ -1498,7 +1506,12 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             latex.SetNDC()
             latex.SetTextSize(.13)
             latex.SetTextFont(62)
-            latex.SetTextAlign(11)
+            latexXMargin = 0.15
+            if varName == 'deltaRZZ':
+                latex.SetTextAlign(31)
+                latexXMargin = 1.-latexXMargin
+            else:
+                latex.SetTextAlign(11)
 
             drawOpts = {
                 'ytitle' : 'Data / MC',
@@ -1508,7 +1521,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 }
             if ana == 'full':
                 drawOpts['logx'] = True
-            if varName == 'pt':
+            if varName in ['pt','deltaRZZ']:
                 drawOpts['ylimits'] = (0.2500001, 1.9999)
 
             if varName in _matrixNames:
@@ -1524,7 +1537,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                     matDistUp/matNoErrs,
                                                     matDistDn/matNoErrs)
                 ratioTheoryErrorMat.fillstyle = 'solid'
-                ratioTheoryErrorMat.SetFillColorAlpha(819, 0.7)
+                ratioTheoryErrorMat.SetFillColorAlpha(819, 0.5)
 
                 ratioErrorMat = makeErrorBand(hUnf/matNoErrs, hUncUp/matNoErrs,
                                               hUncDn/matNoErrs)
@@ -1535,7 +1548,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                               **drawOpts)
                 ratioMatY.CenterTitle()
                 unityMat.Draw("same")
-                latex.DrawLatex(0.15, 0.8, "MATRIX")
+                latex.DrawLatex(latexXMargin, 0.8, r"\textbf{MATRIX}")
 
             ratioPadMain.cd()
 
@@ -1552,7 +1565,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                              hTrueUncUp/hTrueNoErrs,
                                              hTrueUncDn/hTrueNoErrs)
             ratioTheoryError.fillstyle = 'solid'
-            ratioTheoryError.SetFillColorAlpha(600, 0.7)
+            ratioTheoryError.SetFillColorAlpha(600, 0.5)
 
             (ratioMainX, ratioMainY), ratioMainLimits = draw([ratioTheoryError,
                                                               ratioErrorMain,
@@ -1561,7 +1574,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                              **drawOpts)
             ratioMainY.CenterTitle()
             unityMain.Draw("same")
-            latex.DrawLatex(0.15, 0.8, signalName)
+            latex.DrawLatex(latexXMargin, 0.8, signalName)
 
             ratioPadAlt.cd()
 
@@ -1578,7 +1591,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                 hTrueUncUpAlt/hTrueNoErrsAlt,
                                                 hTrueUncDnAlt/hTrueNoErrsAlt)
             ratioTheoryErrorAlt.fillstyle = 'solid'
-            ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.7)
+            ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.5)
 
             (ratioAltX, ratioAltY), ratioAltLimits = draw([ratioTheoryErrorAlt,
                                                            ratioErrorAlt,
@@ -1588,7 +1601,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             ratioAltY.CenterTitle()
             unityAlt.Draw("same")
             latex.SetTextSize(latex.GetTextSize() * ratioPadMain.height / ratioPadAlt.height)
-            latex.DrawLatex(0.15, 1.-.2*ratioPadMain.height/ratioPadAlt.height,
+            latex.DrawLatex(latexXMargin, 1.-.2*ratioPadMain.height/ratioPadAlt.height,
                             signalNameAlt)
 
             cUnf.cd()
@@ -1614,31 +1627,31 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             ratioErrorAlt.fillstyle = 'x'
             if varName in _matrixNames:
                 ratioErrorMat.fillstyle = 'x'
+            errorBand.drawstyle = '2'
             cUnf.Update()
 
-            _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi)
+            _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi, forLatex=True)
             cUnf.Print(_join(plotDir, 'pngs', "unfold_{}_{}.png".format(varName, chan)))
             cUnf.Print(_join(plotDir, 'Cs', "unfold_{}_{}.C".format(varName, chan)))
+            _pdfViaTex(cUnf, 'unfold_{}_{}'.format(varName, chan),
+                       _join(plotDir, 'texs'), _join(plotDir, 'pdfs'))
 
             # change formatting for the postscript formats, then change it back
-            hatchWidth = gStyle.GetHatchesLineWidth()
-            hatchSpace = gStyle.GetHatchesSpacing()
-            gStyle.SetHatchesLineWidth(1)
-            gStyle.SetHatchesSpacing(1.01)
-            TAttFill.SetFillStyle(errorBand, 3244)
-            TAttFill.SetFillStyle(ratioErrorMain, 3244)
-            TAttFill.SetFillStyle(ratioErrorAlt, 3244)
-            if varName in _matrixNames:
-                TAttFill.SetFillStyle(ratioErrorMat, 3244)
-            cUnf.Update()
-            cUnf.Print(_join(plotDir, 'epses', "unfold_{}_{}.eps".format(varName, chan)))
-            cUnf.Print(_join(plotDir, 'svgs', "unfold_{}_{}.svg".format(varName, chan)))
-            _bash('rsvg-convert -f pdf -o {basedir}/pdfs/{filename}.pdf {basedir}/svgs/{filename}.svg'.format(basedir=plotDir,
-                                                                                                              filename='_'.join(['unfold',varName,chan])))
+            #hatchWidth = gStyle.GetHatchesLineWidth()
+            #hatchSpace = gStyle.GetHatchesSpacing()
+            #gStyle.SetHatchesLineWidth(1)
+            #gStyle.SetHatchesSpacing(1.01)
+            #TAttFill.SetFillStyle(errorBand, 3244)
+            #TAttFill.SetFillStyle(ratioErrorMain, 3244)
+            #TAttFill.SetFillStyle(ratioErrorAlt, 3244)
+            #if varName in _matrixNames:
+            #    TAttFill.SetFillStyle(ratioErrorMat, 3244)
+            #cUnf.Update()
+            #cUnf.Print(_join(plotDir, 'epses', "unfold_{}_{}.eps".format(varName, chan)))
             #_bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
             #                                                                                               filename='_'.join(['unfold',varName,chan])))
-            gStyle.SetHatchesLineWidth(hatchWidth)
-            gStyle.SetHatchesSpacing(hatchSpace)
+            #gStyle.SetHatchesLineWidth(hatchWidth)
+            #gStyle.SetHatchesSpacing(hatchSpace)
 
             cRes = Canvas(1000,1000)
             if ana == 'full':
@@ -1665,7 +1678,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hTot.color = 'black'
         hTot.drawstyle = 'PE1'
         hTot.legendstyle = 'LPE'
-        hTot.title = 'Data + stat. unc.'
+        hTot.title = r'\textbf{Data + stat.\ unc.}'
 
         selTrueAll = {}
         for c in channels:
@@ -1720,7 +1733,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         # true uncertainty band
         errorBandTrue = makeErrorBand(hTrue, hTrueUncUp, hTrueUncDn)
         errorBandTrue.fillstyle = 'solid'
-        errorBandTrue.SetFillColorAlpha(600, 0.7)
+        errorBandTrue.SetFillColorAlpha(600, 0.5)
 
         toPlot = [hTrue, errorBandTrue]
         forLegend = [hTrue]
@@ -1764,9 +1777,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         # true uncertainty band
         errorBandTrueAlt = makeErrorBand(hTrueAlt, hTrueUncUpAlt, hTrueUncDnAlt)
         errorBandTrueAlt.fillstyle = 'solid'
-        errorBandTrueAlt.SetFillColorAlpha(628, 0.7)
+        errorBandTrueAlt.SetFillColorAlpha(628, 0.5)
 
-        toPlot += [hTrueAlt, errorBandTrueAlt]
+        toPlot += [errorBandTrueAlt, hTrueAlt]
         forLegend.append(hTrueAlt)
 
         if varName in _matrixNames:
@@ -1798,24 +1811,22 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 matDistUp *= 2
                 matDistDn *= 2
 
-            matDist.title = 'MATRIX NNLO'
+            matDist.title = r'\textbf{MATRIX}'
             matDist.color = 'forestgreen'
             matDist.drawstyle = 'hist'
             matDist.fillstyle = 'hollow'
             matDist.legendstyle = 'L'
             matDist.SetLineWidth(matDist.GetLineWidth()*2)
 
-            toPlot.append(matDist)
-            forLegend.append(matDist)
-
             matDistUp -= matDist
             matDistDn -= matDist
 
             errorBandMat = makeErrorBand(matDist, matDistUp, matDistDn)
             errorBandMat.fillstyle = 'solid'
-            errorBandMat.SetFillColorAlpha(819, 0.7)
+            errorBandMat.SetFillColorAlpha(819, 0.5)
 
-            toPlot.append(errorBandMat)
+            toPlot += [errorBandMat, matDist]
+            forLegend.append(matDist)
 
         hUncTot = {}
         uncList = []
@@ -1903,6 +1914,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             drawOpts['logy'] = True
             drawOpts['yerror_in_padding'] = True
             drawOpts['ypadding'] = 0.04
+            if varName == 'l1Pt':
+                drawOpts['logy_crop_value'] = 1e-4
 
         mainPad.cd()
 
@@ -1929,7 +1942,12 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         latex.SetNDC()
         latex.SetTextSize(.13)
         latex.SetTextFont(62)
-        latex.SetTextAlign(11)
+        latexXMargin = 0.15
+        if varName == 'deltaRZZ':
+            latex.SetTextAlign(31)
+            latexXMargin = 1. - latexXMargin
+        else:
+            latex.SetTextAlign(11)
 
         drawOpts = {
             'ytitle' : 'Data / MC',
@@ -1939,7 +1957,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             }
         if ana == 'full':
             drawOpts['logx'] = True
-        if varName == 'pt':
+        if varName in ['pt','deltaRZZ']:
             drawOpts['ylimits'] = (0.2500001, 1.9999)
 
         if varName in _matrixNames:
@@ -1955,7 +1973,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                 matDistUp/matNoErrs,
                                                 matDistDn/matNoErrs)
             ratioTheoryErrorMat.fillstyle = 'solid'
-            ratioTheoryErrorMat.SetFillColorAlpha(819, 0.7)
+            ratioTheoryErrorMat.SetFillColorAlpha(819, 0.5)
 
             ratioErrorMat = makeErrorBand(hTot/matNoErrs, hUncUp/matNoErrs,
                                           hUncDn/matNoErrs)
@@ -1967,7 +1985,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                                           **drawOpts)
             ratioMatY.CenterTitle()
             unityMat.Draw("same")
-            latex.DrawLatex(0.15, 0.8, "MATRIX")
+            latex.DrawLatex(latexXMargin, 0.8, r"\textbf{MATRIX}")
 
         ratioPadMain.cd()
 
@@ -1984,7 +2002,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                          hTrueUncUp/hTrueNoErrs,
                                          hTrueUncDn/hTrueNoErrs)
         ratioTheoryError.fillstyle = 'solid'
-        ratioTheoryError.SetFillColorAlpha(600, 0.7)
+        ratioTheoryError.SetFillColorAlpha(600, 0.5)
 
         (ratioMainX, ratioMainY), ratioMainLimits = draw([ratioTheoryError,
                                                           ratioErrorMain,
@@ -1994,7 +2012,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
         ratioMainY.CenterTitle()
         unityMain.Draw("same")
-        latex.DrawLatex(0.15, 0.8, signalName)
+        latex.DrawLatex(latexXMargin, 0.8, signalName)
 
         ratioPadAlt.cd()
 
@@ -2011,7 +2029,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                                             hTrueUncUpAlt/hTrueNoErrsAlt,
                                             hTrueUncDnAlt/hTrueNoErrsAlt)
         ratioTheoryErrorAlt.fillstyle = 'solid'
-        ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.7)
+        ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.5)
 
         (ratioAltX, ratioAltY), ratioAltLimits = draw([ratioTheoryErrorAlt,
                                                        ratioErrorAlt,
@@ -2022,7 +2040,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         ratioAltY.CenterTitle()
         unityAlt.Draw("same")
         latex.SetTextSize(latex.GetTextSize() * ratioPadMain.height / ratioPadAlt.height)
-        latex.DrawLatex(0.15, 1.-.2*ratioPadMain.height/ratioPadAlt.height, signalNameAlt)
+        latex.DrawLatex(latexXMargin, 1.-.2*ratioPadMain.height/ratioPadAlt.height, signalNameAlt)
 
         cUnf.cd()
         ratioPadAlt.Draw()
@@ -2049,28 +2067,27 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             ratioErrorMat.fillstyle = 'x'
         cUnf.Update()
 
-        _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi)
+        _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi, forLatex=True)
         cUnf.Print(_join(plotDir, 'pngs', "unfold_{}.png".format(varName)))
         cUnf.Print(_join(plotDir, 'Cs', "unfold_{}.C".format(varName)))
+        _pdfViaTex(cUnf, 'unfold_{}'.format(varName),
+                   _join(plotDir, 'texs'), _join(plotDir, 'pdfs'))
 
-        hatchWidth = gStyle.GetHatchesLineWidth()
-        hatchSpace = gStyle.GetHatchesSpacing()
-        gStyle.SetHatchesLineWidth(1)
-        gStyle.SetHatchesSpacing(1.01)
-        TAttFill.SetFillStyle(errorBand, 3244)
-        TAttFill.SetFillStyle(ratioErrorMain, 3244)
-        TAttFill.SetFillStyle(ratioErrorAlt, 3244)
-        if varName in _matrixNames:
-            TAttFill.SetFillStyle(ratioErrorMat, 3244)
-        cUnf.Update()
-        cUnf.Print(_join(plotDir, 'epses', "unfold_{}.eps".format(varName)))
-        cUnf.Print(_join(plotDir, 'svgs', "unfold_{}.svg".format(varName)))
-        _bash('rsvg-convert -f pdf -o {basedir}/pdfs/{filename}.pdf {basedir}/svgs/{filename}.svg'.format(basedir=plotDir,
-                                                                                                           filename='_'.join(['unfold',varName])))
+        #hatchWidth = gStyle.GetHatchesLineWidth()
+        #hatchSpace = gStyle.GetHatchesSpacing()
+        #gStyle.SetHatchesLineWidth(1)
+        #gStyle.SetHatchesSpacing(1.01)
+        #TAttFill.SetFillStyle(errorBand, 3244)
+        #TAttFill.SetFillStyle(ratioErrorMain, 3244)
+        #TAttFill.SetFillStyle(ratioErrorAlt, 3244)
+        #if varName in _matrixNames:
+        #    TAttFill.SetFillStyle(ratioErrorMat, 3244)
+        #cUnf.Update()
+        #cUnf.Print(_join(plotDir, 'epses', "unfold_{}.eps".format(varName)))
         #_bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
         #                                                                                               filename='unfold_'+varName))
-        gStyle.SetHatchesLineWidth(hatchWidth)
-        gStyle.SetHatchesSpacing(hatchSpace)
+        #gStyle.SetHatchesLineWidth(hatchWidth)
+        #gStyle.SetHatchesSpacing(hatchSpace)
 
 
 
