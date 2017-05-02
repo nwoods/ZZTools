@@ -1,4 +1,5 @@
 from PlotStyle import PlotStyle
+from pdfViaTex import pdfViaTex
 
 from rootpy.plotting import Legend as _Legend
 from rootpy.plotting import HistStack as _HistStack
