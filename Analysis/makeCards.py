@@ -33,15 +33,28 @@ def _getYield(sample, errorToo=False):
 
 
 def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
-         sfFromHists=False):
+         noSIP=False, looseSIP=False, sfRemake=False, blind=False):
+
+    sfArgs = {}
+    if noSIP:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_NoSIP'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_NoSIP'
+        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_NoSIP'
+    elif looseSIP:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_LooseSIP'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_LooseSIP'
+        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_LooseSIP'
+    elif sfRemake:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake'
 
     reco = {c:zzStackSignalOnly(c, inMC, ana, puWeightFile,
-                                lumi, scaleFactorsFromHists=sfFromHists)
+                                lumi, **sfArgs)
             for c in _channels}
     bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                         fakeRateFile, lumi)
     irreducible = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
-                                   scaleFactorsFromHists=sfFromHists)
+                                   **sfArgs)
 
     bkgSyst = {
         'eup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
@@ -63,26 +76,26 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
         recoSyst[syst.lower()] = {
             c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
                                 ana, puWeightFile, lumi,
-                                scaleFactorsFromHists=sfFromHists)
+                                **sfArgs)
             for c in ['eeee','eemm']
             }
         irreducibleSyst[syst.lower()] = zzIrreducibleBkg('eeee,eemm',
                                                          inMC.replace('mc_','mc_{}_'.format(syst)),
                                                          ana, puWeightFile,
                                                          lumi,
-                                                         scaleFactorsFromHists=sfFromHists)
+                                                         **sfArgs)
     for syst in ['mClosureUp','mClosureDn']:
         recoSyst[syst.lower()] = {
             c:zzStackSignalOnly(c, inMC.replace('mc_','mc_{}_'.format(syst)),
                                 ana, puWeightFile, lumi,
-                                scaleFactorsFromHists=sfFromHists)
+                                **sfArgs)
             for c in ['eemm','mmmm']
             }
         irreducibleSyst[syst.lower()] = zzIrreducibleBkg('eemm,mmmm',
                                                          inMC.replace('mc_','mc_{}_'.format(syst)),
                                                          ana, puWeightFile,
                                                          lumi,
-                                                         scaleFactorsFromHists=sfFromHists)
+                                                         **sfArgs)
 
     sigYield = {c:0. for c in _channels}
     bkgYield = {c:0. for c in _channels}
@@ -98,7 +111,7 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
     for chan in _channels:
         cardNameChan = cardName + '_' + chan + '.txt'
         nominalWeight = baseMCWeight(chan, puWeightFile,
-                                     scaleFactorsFromHists=sfFromHists)
+                                     **sfArgs)
 
         with open(cardNameChan, 'w') as f:
             nSigSamples = len(reco[chan])
@@ -117,6 +130,8 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
 
             hObs = data[chan].makeHist('1', '', [1,0.,2.], perUnitWidth=False)
             nObs[chan] = int(hObs.GetEntries())
+            if blind:
+                nObs[chan] = 0
             lines.append('observation    {}'.format(nObs[chan]))
             lines.append('------------')
             lines.append('bin                     '+''.join(['1'+' '*(wid-1) for wid in colWidths]))
@@ -158,7 +173,7 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
             yield_puShift = {}
             for sys in ['up','dn']:
                 wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys,
-                                     scaleFactorsFromHists=sfFromHists)
+                                     **sfArgs)
                 reco[chan].applyWeight(wtStr, True)
                 irreducible[chan].applyWeight(wtStr, True)
                 yield_puShift[sys] = [_getYield(s) for s in reco[chan]]+[_getYield(irreducible[chan])]
@@ -188,8 +203,8 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
                 yield_lepEff = {}
                 for sys in ['up','dn']:
                     wtOpts = {lep+'Syst':sys}
+                    wtOpts.update(sfArgs)
                     wtStr = baseMCWeight(chan, puWeightFile,
-                                         scaleFactorsFromHists=sfFromHists,
                                          **wtOpts)
                     reco[chan].applyWeight(wtStr, True)
                     irreducible[chan].applyWeight(wtStr, True)
@@ -476,12 +491,22 @@ if __name__ == "__main__":
                               'data directory unless full path is specified)'))
     parser.add_argument('--lumi', type=float, nargs='?', default=15937.,
                         help='Integrated luminosity of sample (in pb^-1)')
-    parser.add_argument('--sfHists', action='store_true',
-                        help='Get lepton scale factors from files instead of directly from the ntuples.')
+    parser.add_argument('--noSIP', action='store_true',
+                        help='Use NoSIP scale factors for leptons.')
+    parser.add_argument('--looseSIP', action='store_true',
+                        help='Use LooseSIP scale factors for leptons.')
+    parser.add_argument('--sfRemake', action='store_true',
+                        help='Use homebrewed scale factors for electrons.')
+    parser.add_argument('--blind', action='store_true',
+                        help='Set data yields to 0 in output.')
 
     args=parser.parse_args()
 
     cardName = _join(defaultPath, args.cardName)
 
+    if args.noSIP and args.looseSIP:
+        raise ValueError("Please choose looseSIP or noSIP, not both.")
+
     main(args.dataDir, args.mcDir, args.analysis, cardName, args.fakeRateFile,
-         args.puWeightFile, args.lumi, args.sfHists)
+         args.puWeightFile, args.lumi, args.noSIP, args.looseSIP, args.sfRemake,
+         args.blind)
