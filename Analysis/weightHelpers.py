@@ -96,7 +96,7 @@ def leptonEfficiencyWeightsFromHists(channel, eSystematic='', mSystematic='',
                 eSelErrTemp = wtMaker.makeWeightStringFromHist(hEleSel, '{obj}SCEta', '{obj}Pt', getError=True)
                 eSelErrGapTemp = wtMaker.makeWeightStringFromHist(hEleSelGap, '{obj}SCEta', '{obj}Pt', getError=True)
                 eRecoErrTemp = wtMaker.makeWeightStringFromHist(hEleReco, '{obj}SCEta', '100', getError=True)
-                eSFErrTemp = ('sqrt(({} + ({{obj}}Pt < 20. || {{obj}}Pt > 75.)*0.01)^2 * '
+                eSFErrTemp = ('sqrt(({} + ({{obj}}Pt < 20. || {{obj}}Pt > 75.)*0.01)^2 + '
                               '(({{obj}}IsGap)*{} + (!{{obj}}IsGap)*{})^2)').format(eRecoErrTemp,
                                                                                     eSelErrGapTemp,
                                                                                     eSelErrTemp)
