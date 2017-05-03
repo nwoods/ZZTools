@@ -1266,6 +1266,39 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                     for b in h:
                         b.value = abs(b.value)
 
+            statErr = hUnfolded[chan][''].empty_clone()
+            for bUnf, bStat in zip(hUnfolded[chan][''], statErr):
+                bStat.value = bUnf.error
+            statErr /= hUnfolded[chan]['']
+            statErr *= 100.
+            statErr.color = 'lightgrey'
+            statErr.fillstyle = 'solid'
+            statErr.legendstyle = 'F'
+            statErr.drawstyle = 'hist'
+            statErr.title = 'Stat/unfolding'
+            errListUp = [statErr]+list(hErr[chan]['up'].values())
+            errListDn = [statErr]+list(hErr[chan]['up'].values())
+
+            # quadrature sum of errors to put on top
+            totErrUp = statErr.empty_clone()
+            totErrDn = statErr.empty_clone()
+            for bTot, bs in zip(totErrUp, zip(*errListUp)):
+                bTot.value = sqrt(sum(b.value**2 for b in bs))
+            for bTot, bs in zip(totErrDn, zip(*errListDn)):
+                bTot.value = sqrt(sum(b.value**2 for b in bs))
+            totErrUp.title = 'Total (quadrature sum)'
+            totErrUp.color = 'black'
+            totErrUp.fillstyle = 'hollow'
+            totErrUp.drawstyle = 'hist'
+            totErrUp.legendstyle = 'L'
+            totErrUp.SetLineWidth(3*totErrUp.GetLineWidth())
+            totErrDn.title = 'Total (sum of squares)'
+            totErrDn.color = 'black'
+            totErrDn.fillstyle = 'hollow'
+            totErrDn.drawstyle = 'hist'
+            totErrDn.legendstyle = 'L'
+            totErrDn.SetLineWidth(3*totErrDn.GetLineWidth())
+
             # Make plots of uncertainties (added linearly)
             cErrUp = Canvas(1000,1000)
             drawOpts = {
@@ -1275,9 +1308,16 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 }
             if ana == 'full':
                 drawOpts['logx'] = True
-            errStackUp = HistStack(hErr[chan]['up'].values(), drawstyle = 'histnoclear')
-            draw(errStackUp, cErrUp, **drawOpts)
-            leg = makeLegend(cErrUp, *hErr[chan]['up'].values(), leftmargin=0.25,
+            if varName == 'deltaRZZ':
+                if chan == 'eeee':
+                    drawOpts['ylimits'] = (0.,140.)
+                elif chan == 'mmmm':
+                    drawOpts['ylimits'] = (0.,75.)
+                else:
+                    drawOpts['ylimits'] = (0.,58.)
+            errStackUp = HistStack(errListUp, drawstyle = 'histnoclear')
+            draw([errStackUp,totErrUp], cErrUp, **drawOpts)
+            leg = makeLegend(cErrUp, *(errListUp+[totErrUp]), leftmargin=0.25,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
             leg.Draw('same')
@@ -1293,9 +1333,11 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 }
             if ana == 'full':
                 drawOpts['logx'] = True
-            errStackDn = HistStack(hErr[chan]['dn'].values(), drawstyle = 'histnoclear')
-            draw(errStackDn, cErrDn, **drawOpts)
-            leg = makeLegend(cErrDn, *hErr[chan]['dn'].values(), leftmargin=0.25,
+            if varName == 'deltaRZZ' and chan == 'eeee':
+                drawOpts['ylimits'] = (0.,140.)
+            errStackDn = HistStack(errListDn, drawstyle = 'histnoclear')
+            draw([errStackDn, totErrDn], cErrDn, **drawOpts)
+            leg = makeLegend(cErrDn, *(errListDn+[totErrDn]), leftmargin=0.25,
                              entryheight=.02, entrysep=.007, textsize=.022,
                              rightmargin=.25)
             leg.Draw('same')
