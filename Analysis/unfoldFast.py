@@ -535,11 +535,13 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
          amcatnlo=False, norm=True, logy=False, looseSIP=False, noSIP=False,
          sfRemake=False, *varNames, **kwargs):
     sfArgs = {}
+    sipForBkg = 4.
     if noSIP:
         sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_NoSIP'
         sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_NoSIP'
         sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
         sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_NoSIP'
+        sipForBkg = -1
         if looseSIP:
             raise ValueError("You can use scale factors for loose SIP cut or "
                              "no SIP cut, but not both.")
@@ -548,6 +550,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_LooseSIP'
         sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_LooseSIP'
         sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sipForBkg = 10.
     elif sfRemake:
         sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake'
         sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake'
@@ -616,16 +619,21 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
     bkgMC = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
                              **sfArgs)
     bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                        fakeRateFile, lumi)
+                        fakeRateFile, lumi,
+                        sipCut=sipForBkg)
     bkgSyst = {
         'eup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                              fakeRateFile, lumi, eFakeRateSyst='up'),
+                              fakeRateFile, lumi, eFakeRateSyst='up',
+                              sipCut=sipForBkg),
         'edn' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                              fakeRateFile, lumi, eFakeRateSyst='dn'),
+                              fakeRateFile, lumi, eFakeRateSyst='dn',
+                              sipCut=sipForBkg),
         'mup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                              fakeRateFile, lumi, mFakeRateSyst='up'),
+                              fakeRateFile, lumi, mFakeRateSyst='up',
+                              sipCut=sipForBkg),
         'mdn' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                              fakeRateFile, lumi, mFakeRateSyst='dn'),
+                              fakeRateFile, lumi, mFakeRateSyst='dn',
+                              sipCut=sipForBkg),
         }
 
     data = standardZZData('zz', inData, ana)

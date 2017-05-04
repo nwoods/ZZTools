@@ -36,14 +36,17 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
          noSIP=False, looseSIP=False, sfRemake=False, blind=False):
 
     sfArgs = {}
+    sipForBkg = 4.
     if noSIP:
         sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_NoSIP'
         sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_NoSIP'
         sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_NoSIP'
+        sipForBkg = -1
     elif looseSIP:
         sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_LooseSIP'
         sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_LooseSIP'
         sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_LooseSIP'
+        sipForBkg = 10.
     elif sfRemake:
         sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake'
         sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake'
@@ -52,19 +55,24 @@ def main(inData, inMC, ana, cardName, fakeRateFile, puWeightFile, lumi,
                                 lumi, **sfArgs)
             for c in _channels}
     bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                        fakeRateFile, lumi)
+                        fakeRateFile, lumi,
+                        sipCut=sipForBkg)
     irreducible = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
                                    **sfArgs)
 
     bkgSyst = {
         'eup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                              fakeRateFile, lumi, eFakeRateSyst='up'),
+                              fakeRateFile, lumi, eFakeRateSyst='up',
+                              sipCut=sipForBkg),
         'edn' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                              fakeRateFile, lumi, eFakeRateSyst='dn'),
+                              fakeRateFile, lumi, eFakeRateSyst='dn',
+                              sipCut=sipForBkg),
         'mup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                              fakeRateFile, lumi, mFakeRateSyst='up'),
+                              fakeRateFile, lumi, mFakeRateSyst='up',
+                              sipCut=sipForBkg),
         'mdn' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                              fakeRateFile, lumi, mFakeRateSyst='dn'),
+                              fakeRateFile, lumi, mFakeRateSyst='dn',
+                              sipCut=sipForBkg),
         }
 
     data = standardZZData('zz', inData, ana)
