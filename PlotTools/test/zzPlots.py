@@ -305,8 +305,31 @@ _selections1l['l1'] = {
 
 
 def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
-         eras='BCDEFGH', blind=False, amcatnlo=False, useSFHists=False,
-         doSyst=True, logy=False):
+         eras='BCDEFGH', blind=False, amcatnlo=False, doSyst=True, logy=False,
+         looseSIP=False, noSIP=False, sfRemake=False):
+
+    sfArgs = {}
+    sipForBkg = 4.
+    if noSIP:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_NoSIP'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_NoSIP'
+        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_NoSIP'
+        sipForBkg = -1
+        if looseSIP:
+            raise ValueError("You can use scale factors for loose SIP cut or "
+                             "no SIP cut, but not both.")
+    elif looseSIP:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_LooseSIP'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_LooseSIP'
+        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_LooseSIP'
+        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sipForBkg = 10.
+    elif sfRemake:
+        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake'
+        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake'
+        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17'
 
     style = _Style()
 
@@ -316,18 +339,10 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
     elif not _isdir(outdir):
         raise IOError("There is already some non-directory object called {}.".format(outdir))
 
-    if 'loosesip' in fakeRateFile.lower():
-        sip = 10.
-    elif 'nosip' in fakeRateFile.lower():
-        sip = -1.
-    else:
-        sip = 4.
-
     data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile,
                                     fakeRateFile, lumi, amcatnlo=amcatnlo,
                                     higgs=(ana=='full'), eras=eras,
-                                    scaleFactorsFromHists=useSFHists,
-                                    sipCut=sip)
+                                    skipEWK=(ana!='smp'), **sfArgs)
 
     objNames = _objNames.copy()
     if ana == 'smp':
@@ -336,53 +351,59 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
     if doSyst:
         sig = zzStackSignalOnly('zz', inMC, ana, puWeightFile, lumi,
                                 amcatnlo=amcatnlo, higgs=(ana=='full'),
-                                asGroup=True,
-                                scaleFactorsFromHists=useSFHists)
+                                asGroup=True, skipEWK=(ana!='smp'),
+                                **sfArgs)
         irr = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
-                               scaleFactorsFromHists=useSFHists)
+                               **sfArgs)
 
         sigSyst = {}
         irrSyst = {}
         for syst in ['eScaleUp', 'eScaleDn', 'eRhoResUp',
                      'eRhoResDn', 'ePhiResUp']:
-            sigSyst[syst] = zzStackSignalOnly('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                              ana, puWeightFile, lumi, amcatnlo=amcatnlo,
-                                              asGroup=True, higgs=(ana=='full'),
-                                              scaleFactorsFromHists=useSFHists)
-            irrSyst[syst] = zzIrreducibleBkg('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                             ana, puWeightFile, lumi,
-                                             scaleFactorsFromHists=useSFHists)
+            sigSyst[syst] = zzStackSignalOnly('eeee,eemm',
+                                              inMC.replace('mc_',
+                                                           'mc_{}_'.format(syst)),
+                                              ana, puWeightFile, lumi,
+                                              amcatnlo=amcatnlo, asGroup=True,
+                                              higgs=(ana=='full'),
+                                              skipEWK=(ana!='smp'), **sfArgs)
+            irrSyst[syst] = zzIrreducibleBkg('eeee,eemm',
+                                             inMC.replace('mc_',
+                                                          'mc_{}_'.format(syst)),
+                                             ana, puWeightFile, lumi, **sfArgs)
 
         for syst in ['mClosureUp','mClosureDn']:
-            sigSyst[syst] = zzStackSignalOnly('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                              ana, puWeightFile, lumi, amcatnlo=amcatnlo,
-                                              asGroup=True, higgs=(ana=='full'),
-                                              scaleFactorsFromHists=useSFHists)
+            sigSyst[syst] = zzStackSignalOnly('eemm,mmmm',
+                                              inMC.replace('mc_',
+                                                           'mc_{}_'.format(syst)),
+                                              ana, puWeightFile, lumi,
+                                              amcatnlo=amcatnlo, asGroup=True,
+                                              higgs=(ana=='full'),
+                                              skipEWK=(ana!='smp'), **sfArgs)
             irrSyst[syst] = zzIrreducibleBkg('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                             ana, puWeightFile, lumi,
-                                             scaleFactorsFromHists=useSFHists)
+                                             ana, puWeightFile, lumi, **sfArgs)
 
 
         bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                            fakeRateFile, lumi, eras=eras,
-                            scaleFactorsFromHists=useSFHists)
+                            fakeRateFile, lumi, eras=eras, sipCut=sipForBkg,
+                            **sfArgs)
         bkgSyst = {
             'eup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                                   fakeRateFile, lumi, eFakeRateSyst='up',
-                                  eras=eras,
-                                  scaleFactorsFromHists=useSFHists),
+                                  eras=eras, sipCut=sipForBkg,
+                                  **sfArgs),
             'edn' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                                   fakeRateFile, lumi, eFakeRateSyst='dn',
-                                  eras=eras,
-                                  scaleFactorsFromHists=useSFHists),
+                                  eras=eras, sipCut=sipForBkg,
+                                  **sfArgs),
             'mup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                                   fakeRateFile, lumi, mFakeRateSyst='up',
-                                  eras=eras,
-                                  scaleFactorsFromHists=useSFHists),
+                                  eras=eras, sipCut=sipForBkg,
+                                  **sfArgs),
             'mdn' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                                   fakeRateFile, lumi, mFakeRateSyst='dn',
-                                  eras=eras,
-                                  scaleFactorsFromHists=useSFHists),
+                                  eras=eras, sipCut=sipForBkg,
+                                  **sfArgs),
             }
 
     if ana == 'smp':
@@ -445,7 +466,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
             if doSyst:
                 nominalWeight = baseMCWeight('zz', puWeightFile,
-                                             scaleFactorsFromHists=useSFHists)
+                                             **sfArgs)
 
                 hSigSyst = {}
                 hBkgSyst = {}
@@ -464,7 +485,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 hIrrSyst['pu'] = {}
                 for sys in 'up','dn':
                     wtStr = baseMCWeight('zz', puWeightFile, puSyst=sys,
-                                         scaleFactorsFromHists=useSFHists)
+                                         **sfArgs)
 
                     sig.applyWeight(wtStr, True)
                     irr.applyWeight(wtStr, True)
@@ -481,8 +502,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                     hIrrSyst[lep+'Syst'] = {}
                     for sys in ['up','dn']:
                         wtArg = {lep+'Syst':sys}
+                        wtArg.update(sfArgs)
                         wtStr = baseMCWeight('zz', puWeightFile,
-                                             scaleFactorsFromHists=useSFHists,
                                              **wtArg)
                         sig.applyWeight(wtStr, True)
                         irr.applyWeight(wtStr, True)
@@ -668,10 +689,11 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                     # print [b.value for b in bVars]
                     bUp.value = max(b.value for b in bVars)
                     bDn.value = min(b.value for b in bVars)
-                hSigScaleUp += hEWK
                 hSigScaleUp += hGG# * 1.23
-                hSigScaleDn += hEWK
                 hSigScaleDn += hGG# * 0.82
+                if hEWK:
+                    hSigScaleUp += hEWK
+                    hSigScaleDn += hEWK
 
                 hIrrScaleUp = hIrrNom.empty_clone()
                 hIrrScaleDn = hIrrNom.empty_clone()
@@ -1061,17 +1083,22 @@ if __name__ == '__main__':
     parser.add_argument('--analysis', '--ana', type=str, nargs='?',
                         default='smp',
                         help='Which set of cuts to use (full, smp, etc.).')
-    parser.add_argument('--sfHists', action='store_true',
-                        help='Get lepton scale factors from files instead of directly from the ntuples.')
     parser.add_argument('--blind', action='store_true',
                         help='Put blinding boxes on a few distributions.')
     parser.add_argument('--noSyst', action='store_true',
                         help="Don't make a hatched band for systematic errors.")
     parser.add_argument('--logy', '--logY', '--log', action='store_true',
                         help="Put the vertical axis on a log scale")
+    parser.add_argument('--looseSIP', action='store_true',
+                        help='Use scale factors for SIP<10 with no extra IP cuts.')
+    parser.add_argument('--noSIP', action='store_true',
+                        help='Use scale factors for no SIP cut and no extra IP cuts.')
+    parser.add_argument('--sfRemake', action='store_true',
+                        help='Use homebrewed scale factors for electrons.')
 
     args=parser.parse_args()
 
     main(args.dataDir, args.mcDir, args.plotDir, args.analysis,
          args.fakeRateFile, args.puWeightFile, args.lumi, args.eras,
-         args.blind, args.amcatnlo, args.sfHists, not args.noSyst, args.logy)
+         args.blind, args.amcatnlo, not args.noSyst, args.logy, args.looseSIP,
+         args.noSIP, args.sfRemake)
