@@ -433,6 +433,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
     for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
         for varName, binning in binning4l.iteritems():
+
             print "Plotting {} {}".format(chan, varName)
 
             var = _vars4l[varName]
@@ -516,8 +517,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 irr.applyWeight(nominalWeight, True)
 
                 # luminosity
-                hSigSyst['lumi'] = {'up':hSigNom * 1.026}
-                hIrrSyst['lumi'] = {'up':hIrrNom * 1.026}
+                hSigSyst['lumi'] = {'up':hSigNom * 1.025,'dn':hSigNom * 0.975}
+                hIrrSyst['lumi'] = {'up':hIrrNom * 1.025,'dn':hIrrNom * 0.975}
 
                 # lepton fake rate
                 for lep in 'em':
@@ -571,6 +572,10 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                                                                 perUnitWidth=norm)
                             hIrrSyst[sys][shift] += irr['mmmm'].makeHist(var['mmmm'], sel, binning,
                                                                          perUnitWidth=norm)
+
+                if 'e' in chan or chan == 'zz':
+                    hSigSyst['ePhiRes']['dn'] = (hSigNom * 2) - hSigSyst['ePhiRes']['up']
+                    hIrrSyst['ePhiRes']['dn'] = (hIrrNom * 2) - hIrrSyst['ePhiRes']['up']
 
                 sys = 'mClosure'
                 if 'm' in chan or chan == 'zz':
@@ -786,25 +791,17 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 hTotNom = sum(h for h in hStack)
 
                 for sys in set(hSigSyst.keys() + hBkgSyst.keys() + hIrrSyst.keys()):
-                    thisUp = hSigSyst.get(sys, {}).get('up', hSigNom) + \
-                        hBkgSyst.get(sys, {}).get('up', hBkgNom) + \
-                        hIrrSyst.get(sys, {}).get('up', hIrrNom) - \
-                        hTotNom
-                    thisDn = hSigSyst.get(sys, {}).get('dn', hSigNom) + \
-                        hBkgSyst.get(sys, {}).get('dn', hBkgNom) + \
-                        hIrrSyst.get(sys, {}).get('dn', hIrrNom) - \
-                        hTotNom
+                    thisUp = hSigSyst.get(sys, {}).get('up', hSigNom) - hSigNom + \
+                        hBkgSyst.get(sys, {}).get('up', hBkgNom) - hBkgNom + \
+                        hIrrSyst.get(sys, {}).get('up', hIrrNom) - hIrrNom
+                    thisDn = hSigSyst.get(sys, {}).get('dn', hSigNom) - hSigNom + \
+                        hBkgSyst.get(sys, {}).get('dn', hBkgNom) - hBkgNom + \
+                        hIrrSyst.get(sys, {}).get('dn', hIrrNom) - hIrrNom
 
                     for bUp, bDn, b1, b2 in zip(hUp, hDn, thisUp, thisDn):
-                        if b1.value > 0. and b2.value < 0.:
-                            bUp.value += b1.value**2
-                            bDn.value += b2.value**2
-                        elif b2.value > 0. and b1.value < 0.:
-                            bUp.value += b2.value**2
-                            bDn.value += b1.value**2
-                        else:
-                            bUp.value += max(b1.value,b2.value,0.)**2
-                            bDn.value += min(b1.value,b2.value,0.)**2
+                        bUp.value += max(b1.value,b2.value)**2
+                        bDn.value += min(b1.value,b2.value)**2
+
 
                 for bUp, bDn in zip(hUp, hDn):
                     bUp.value = sqrt(bUp.value)
@@ -819,7 +816,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
             c = Canvas(1000,1000)
 
-            legParams = {'textsize':0.029}
+            legParams = {'textsize':0.025}
             if ana == 'z4l' and varName == 'Mass' or ana == 'smp' and varName == 'deltaRZZ':
                 legParams = _legParamsLeft.copy()
             leg = makeLegend(c, *toPlot, **legParams)
