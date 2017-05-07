@@ -1245,22 +1245,14 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
 
             ### Get the total uncertainties
-            # this method of assigning up vs down should be revisited
             hUncUp = hUnfolded[chan][''].empty_clone()
             hUncDn = hUnfolded[chan][''].empty_clone()
             for bUncUp, bUncDn, allUncUp, allUncDn in zip(hUncUp, hUncDn,
                                                           zip(*hErr[chan]['up'].values()),
                                                           zip(*hErr[chan]['dn'].values())):
                 for b1,b2 in zip(allUncUp,allUncDn):
-                    if b1.value > 0. and b2.value < 0.:
-                        bUncUp.value += b1.value**2
-                        bUncDn.value += b2.value**2
-                    elif b2.value > 0. and b1.value < 0.:
-                        bUncUp.value += b2.value**2
-                        bUncDn.value += b1.value**2
-                    else:
-                        bUncUp.value += max(b1.value,b2.value,0.)**2
-                        bUncDn.value += min(b1.value,b2.value,0.)**2
+                    bUncUp.value += max(b1.value,b2.value)**2
+                    bUncDn.value += min(b1.value,b2.value)**2
 
                 bUncUp.value = sqrt(bUncUp.value)
                 bUncDn.value = sqrt(bUncDn.value)
