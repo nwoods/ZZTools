@@ -176,6 +176,9 @@ def makeErrorBand(hMean, errUp, errDn=None):
 
     If errDn is not specified, errors are taken to be symmetric.
     '''
+    if isinstance(hMean, _HistStack):
+        hMean = sum(h for h in hMean)
+
     hUp = hMean.clone()
     hDn = hMean.clone()
     if isinstance(errUp, Number):
