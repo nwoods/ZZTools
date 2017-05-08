@@ -304,6 +304,376 @@ _selections1l['l1'] = {
     }
 
 
+def _makeSystematics(varName, var, sel, binning,
+                     sig, bkg, irr,
+                     sigSyst, bkgSyst, irrSyst,
+                     norm, puWeightFile, sfArgs={}):
+    '''
+    Get histograms of the systematic error sizes.
+
+    Arguments:
+    varName (str): Short name of the variable.
+    var (dict): The variables to be used for each channel (channels are the
+        keys)
+    sel (dist): Selection to use, if any.
+    binning (list of numbers): Binning to use.
+    sig (SampleGroup): Signal samples keyed to channels. Should include qq, gg,
+        and EWK samples if applicable.
+    bkg (SampleGroup): Reducible background samples keyed to channels.
+    irr (SampleGroup): Irreducible background samples keyed to channels.
+    sigSyst (dict of SampleGroups): Signal samples with systematic shifts,
+        keyed to the names of the shifts.
+    bkgSyst (dict of SampleGroups): Reducible background samples with
+        systematic shifts, keyed to the names of the shifts.
+    irrSyst (dict of SampleGroups): Irreducible background samples with
+        systematic shifts, keyed to the names of the shifts.
+    norm (bool or float): Whether/how to normalize the bins to their width.
+    puWeightFile (str): File with pileup weight scale factors to use.
+    sfArgs (dict, optional): Files with efficiency scale factor histograms to
+        use, if any are desired (otherwise, SFs will be taken from ntuples).
+
+    Return:
+    (hErrUp, hErrDown), histograms of the up- and down asymmetric systematics.
+    '''
+    nominalWeight = baseMCWeight('zz', puWeightFile, **sfArgs)
+
+    hSigSyst = {}
+    hBkgSyst = {}
+    hIrrSyst = {}
+
+    hSigNom = sig.makeHist(var, sel, binning, perUnitWidth=norm)
+    hBkgNom = bkg.makeHist(var, sel, binning, postprocess=True,
+                           perUnitWidth=norm)
+    hIrrNom = irr.makeHist(var, sel, binning, perUnitWidth=norm)
+
+    # PU weight
+    hSigSyst['pu'] = {}
+    hIrrSyst['pu'] = {}
+    for sys in 'up','dn':
+        wtStr = baseMCWeight('zz', puWeightFile, puSyst=sys, **sfArgs)
+
+        sig.applyWeight(wtStr, True)
+        irr.applyWeight(wtStr, True)
+        hSigSyst['pu'][sys] = sig.makeHist(var, sel, binning,
+                                           perUnitWidth=norm)
+        hIrrSyst['pu'][sys] = irr.makeHist(var, sel, binning,
+                                           perUnitWidth=norm)
+        sig.applyWeight(nominalWeight, True)
+        irr.applyWeight(nominalWeight, True)
+
+    # lepton efficiency
+    for lep in set(''.join(var.keys())):
+        hSigSyst[lep+'Syst'] = {}
+        hIrrSyst[lep+'Syst'] = {}
+        for sys in ['up','dn']:
+            wtArg = {lep+'Syst':sys}
+            wtArg.update(sfArgs)
+            wtStr = baseMCWeight('zz', puWeightFile,
+                                 **wtArg)
+            sig.applyWeight(wtStr, True)
+            irr.applyWeight(wtStr, True)
+            hSigSyst[lep+'Syst'][sys] = sig.makeHist(var, sel, binning,
+                                                     perUnitWidth=norm)
+            hIrrSyst[lep+'Syst'][sys] = irr.makeHist(var, sel, binning,
+                                                     perUnitWidth=norm)
+
+    sig.applyWeight(nominalWeight, True)
+    irr.applyWeight(nominalWeight, True)
+
+    # luminosity
+    hSigSyst['lumi'] = {'up':hSigNom * 1.025,'dn':hSigNom * 0.975}
+    hIrrSyst['lumi'] = {'up':hIrrNom * 1.025,'dn':hIrrNom * 0.975}
+
+    relevantLeptons = set(''.join(var.keys()))
+
+    # lepton fake rate
+    for lep in relevantLeptons:
+        relevantVar = {c:var[c] for c in var if lep in c}
+        irrelevantVar = {c:var[c] for c in var if lep not in c}
+        hBkgSyst[lep+'FR'] = {}
+        for sys in ['up','dn']:
+            hBkgSyst[lep+'FR'][sys] = bkgSyst[lep+sys].makeHist(
+                relevantVar, sel, binning, perUnitWidth=norm,
+                postprocess=True
+                )
+            if irrelevantVar:
+                hBkgSyst[lep+'FR'][sys] += bkg.makeHist(
+                    irrelevantVar, sel, binning, perUnitWidth=norm,
+                    postprocess=True
+                    )
+
+
+    # lepton momentum
+    eVar = {c:var[c] for c in var if 'e' in c}
+    noEVar = {c:var[c] for c in var if 'e' not in c}
+    if eVar:
+        for sys in ['eScale', 'eRhoRes', 'ePhiRes']:
+            hSigSyst[sys] = {}
+            hIrrSyst[sys] = {}
+            for shift in ['up','dn']:
+                if sys == 'ePhiRes' and shift == 'dn':
+                    continue
+                sysStr = 'Up' if shift == 'up' else 'Dn'
+
+                hSigSyst[sys][shift] = sigSyst[sys+sysStr].makeHist(
+                    eVar, sel, binning, perUnitWidth=norm
+                    )
+                hIrrSyst[sys][shift] = irrSyst[sys+sysStr].makeHist(
+                    eVar, sel, binning, perUnitWidth=norm
+                    )
+                if noEVar:
+                    hSigSyst[sys][shift] += sig.makeHist(noEVar, sel, binning,
+                                                         perUnitWidth=norm)
+                    hIrrSyst[sys][shift] += irr.makeHist(noEVar, sel, binning,
+                                                         perUnitWidth=norm)
+
+        hSigSyst['ePhiRes']['dn'] = (hSigNom * 2) - hSigSyst['ePhiRes']['up']
+        hIrrSyst['ePhiRes']['dn'] = (hIrrNom * 2) - hIrrSyst['ePhiRes']['up']
+
+
+    muVar = {c:var[c] for c in var if 'm' in c}
+    noMuVar = {c:var[c] for c in var if 'm' not in c}
+    sys = 'mClosure'
+    if muVar:
+        hSigSyst[sys] = {}
+        hIrrSyst[sys] = {}
+        for shift in ['up','dn']:
+            sysStr = 'Up' if shift == 'up' else 'Dn'
+
+            hSigSyst[sys][shift] = sigSyst[sys+sysStr].makeHist(
+                muVar, sel, binning, perUnitWidth=norm
+                )
+            hIrrSyst[sys][shift] = irrSyst[sys+sysStr].makeHist(
+                muVar, sel, binning, perUnitWidth=norm
+                )
+            if noMuVar:
+                hSigSyst[sys][shift] += sig.makeHist(noMuVar, sel, binning,
+                                                     perUnitWidth=norm)
+                hIrrSyst[sys][shift] += irr.makeHist(noMuVar, sel, binning,
+                                                     perUnitWidth=norm)
+
+    # PDF
+    hSigSyst['pdf'] = {}
+    hSigVariations = []
+    hGG = None
+    hEWK = None
+    for c, v in var.iteritems():
+        if isinstance(sel, dict) and c in sel:
+            thisSel = sel[c]
+        else:
+            thisSel = sel
+        for s in sig[c].values():
+            if 'GluGluZZ' in s.name:
+                hThisGG = s.makeHist(v, thisSel, binning, perUnitWidth=norm)
+                hThisGG.ClearUnderflowAndOverflow()
+                if hGG is None:
+                    hGG = hThisGG
+                else:
+                    hGG += hThisGG
+                if 'up' not in hSigSyst['pdf']:
+                    hSigSyst['pdf']['up'] = hThisGG.clone() # * 1.18
+                else:
+                    hSigSyst['pdf']['up'] += hThisGG # * 1.18
+                if 'dn' not in hSigSyst['pdf']:
+                    hSigSyst['pdf']['dn'] = hThisGG.clone() # * 0.82
+                else:
+                    hSigSyst['pdf']['dn'] += hThisGG # * 0.82
+            elif 'phantom' in s.name:
+                hThisEWK = s.makeHist(v, thisSel, binning,
+                                      perUnitWidth=norm)
+                if hEWK is None:
+                    hEWK = hThisEWK
+                else:
+                    hEWK += hThisEWK
+                if 'up' not in hSigSyst['pdf']:
+                    hSigSyst['pdf']['up'] = hThisEWK.clone()
+                else:
+                    hSigSyst['pdf']['up'] += hThisEWK
+                if 'dn' not in hSigSyst['pdf']:
+                    hSigSyst['pdf']['dn'] = hThisEWK.clone()
+                else:
+                    hSigSyst['pdf']['dn'] += hThisEWK
+            else:
+                hSigVariations.append(
+                    s.makeHist2(
+                        v, 'Iteration$', thisSel, binning, [100,0.,100.],
+                        'pdfWeights / pdfWeights[0]', False
+                        )
+                    )
+                hThisQQ = s.makeHist(v, thisSel, binning,
+                                     perUnitWidth=norm)
+                if 'up' not in hSigSyst['pdf']:
+                    hSigSyst['pdf']['up'] = hThisQQ.clone()
+                else:
+                    hSigSyst['pdf']['up'] += hThisQQ
+                if 'dn' not in hSigSyst['pdf']:
+                    hSigSyst['pdf']['dn'] = hThisQQ.clone()
+                else:
+                    hSigSyst['pdf']['dn'] += hThisQQ
+
+
+
+    # for each var bin in each sample, get the RMS across all the variations
+    allSigRMSes = [
+        [
+            Graph(
+                h.ProjectionY('slice{}'.format(i), i+1,i+1)
+                ).GetRMS(2)
+            for i in xrange(h.GetNbinsX())
+            ] for h in hSigVariations
+        ]
+
+    # for each var bin, add variations for all samples
+    sigBinRMSes = [sum(rmses) for rmses in zip(*allSigRMSes)]
+
+    # apply variations
+    for i in xrange(hSigNom.GetNbinsX()):
+        hSigSyst['pdf']['up'][i+1].value += sigBinRMSes[i]
+        hSigSyst['pdf']['dn'][i+1].value = max(0.,hSigSyst['pdf']['dn'][i+1].value - sigBinRMSes[i])
+
+
+    # QCD scale uncertainties
+    variationIndices = [1,2,3,4,6,8]
+    hSigVars = []
+    hIrrVars = []
+    for ind in variationIndices:
+        hSigVars.append(hGG.empty_clone())
+        for c, v in var.iteritems():
+            if isinstance(sel, dict) and c in sel:
+                thisSel = sel[c]
+            else:
+                thisSel = sel
+            for s in sig[c].values():
+                if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
+                    hSigVars[-1] += s.makeHist(v, thisSel, binning,
+                                               'scaleWeights[{}] / scaleWeights[0]'.format(ind),
+                                               perUnitWidth=norm)
+        hIrrVars.append(irr.makeHist(var, sel, binning,
+                                     'scaleWeights[{}] / scaleWeights[0]'.format(ind),
+                                     perUnitWidth=norm))
+
+    hSigScaleUp = hSigNom.empty_clone()
+    hSigScaleDn = hSigNom.empty_clone()
+    for bUp, bDn, bVars in zip(hSigScaleUp, hSigScaleDn, zip(*hSigVars)):
+        # print [b.value for b in bVars]
+        bUp.value = max(b.value for b in bVars)
+        bDn.value = min(b.value for b in bVars)
+    hSigScaleUp += hGG# * 1.23
+    hSigScaleDn += hGG# * 0.82
+    if hEWK:
+        hSigScaleUp += hEWK
+        hSigScaleDn += hEWK
+
+    hIrrScaleUp = hIrrNom.empty_clone()
+    hIrrScaleDn = hIrrNom.empty_clone()
+    for bUp, bDn, bVars in zip(hIrrScaleUp, hIrrScaleDn, zip(*hIrrVars)):
+        bUp.value = max(b.value for b in bVars)
+        bDn.value = min(b.value for b in bVars)
+
+    hSigSyst['scale'] = {'up':hSigScaleUp,'dn':hSigScaleDn}
+    hIrrSyst['scale'] = {'up':hIrrScaleUp,'dn':hIrrScaleDn}
+
+
+    # alpha_s uncertainties
+    alphaSIndices = [100,101]
+    hSigVars = []
+    for ind in alphaSIndices:
+        hSigVars.append(hSigNom.empty_clone())
+        for c, v in var.iteritems():
+            if isinstance(sel, dict) and c in sel:
+                thisSel = sel[c]
+            else:
+                thisSel = sel
+            for s in sig[c].values():
+                if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
+                    hSigVars[-1] += s.makeHist(v, thisSel, binning,
+                                               'pdfWeights[{}]'.format(ind),
+                                               perUnitWidth=norm)
+
+    aSUnc = hSigVars[0] - hSigVars[-1]
+    aSUnc /= 2.
+    for b in aSUnc:
+        b.value = abs(b.value)
+
+    hSigSyst['alphaS'] = {
+        'up' : hSigNom + aSUnc,
+        'dn' : hSigNom - aSUnc,
+        }
+
+
+    # We don't have LHE information for MCFM, so just vary its
+    # normalization
+    hSigSyst['mcfm'] = {
+        'up':hSigNom + hGG*0.18,
+        'dn':hSigNom - hGG*0.15,
+        }
+
+    # JES/JER
+    if ('jet' in varName.lower() or 'jj' in varName.lower()) and 'eta2p4' not in varName.lower():
+        for sys in ['jer','jes']:
+            hSigSyst[sys] = {}
+            hIrrSyst[sys] = {}
+
+            for shift in ['up','dn']:
+                sysStr = 'Up' if shift == 'up' else 'Down'
+
+                shiftedVarName = varName + '_' + sys + sysStr
+                varShifted = {c:_vars4l[shiftedVarName][c] for c in var}
+                selShifted = _selections4l[shiftedVarName]
+
+                hSigSyst[sys][shift] = sig.makeHist(varShifted,
+                                                    selShifted,
+                                                    binning,
+                                                    perUnitWidth=norm)
+                hIrrSyst[sys][shift] = irr.makeHist(varShifted,
+                                                    selShifted,
+                                                    binning,
+                                                    perUnitWidth=norm)
+
+
+    # print "Signal:"
+    # print "    Nominal: {}".format(hSigNom.Integral())
+    # for sysName, sys in hSigSyst.iteritems():
+    #     print "    "+sysName+":"
+    #     for upperdown, h in sys.iteritems():
+    #         print "        {}: {}".format(upperdown, h.Integral())
+    # print "\nReducible Background:"
+    # print "    Nominal: {}".format(hBkgNom.Integral())
+    # for sysName, sys in hBkgSyst.iteritems():
+    #     print "    "+sysName+":"
+    #     for upperdown, h in sys.iteritems():
+    #         print "        {}: {}".format(upperdown, h.Integral())
+    # print "\nIrreducible Background:"
+    # print "    Nominal: {}".format(hIrrNom.Integral())
+    # for sysName, sys in hIrrSyst.iteritems():
+    #     print "    "+sysName+":"
+    #     for upperdown, h in sys.iteritems():
+    #         print "        {}: {}".format(upperdown, h.Integral())
+
+    # put it all together
+    hUp = hSigNom.empty_clone()
+    hDn = hSigNom.empty_clone()
+
+    for sys in set(hSigSyst.keys() + hBkgSyst.keys() + hIrrSyst.keys()):
+        thisUp = hSigSyst.get(sys, {}).get('up', hSigNom) - hSigNom + \
+            hBkgSyst.get(sys, {}).get('up', hBkgNom) - hBkgNom + \
+            hIrrSyst.get(sys, {}).get('up', hIrrNom) - hIrrNom
+        thisDn = hSigSyst.get(sys, {}).get('dn', hSigNom) - hSigNom + \
+            hBkgSyst.get(sys, {}).get('dn', hBkgNom) - hBkgNom + \
+            hIrrSyst.get(sys, {}).get('dn', hIrrNom) - hIrrNom
+
+        for bUp, bDn, b1, b2 in zip(hUp, hDn, thisUp, thisDn):
+            bUp.value += max(b1.value,b2.value)**2
+            bDn.value += min(b1.value,b2.value)**2
+
+
+    for bUp, bDn in zip(hUp, hDn):
+        bUp.value = sqrt(bUp.value)
+        bDn.value = sqrt(bDn.value)
+
+    return hUp, hDn
+
+
 def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
          eras='BCDEFGH', blind=False, amcatnlo=False, doSyst=True, logy=False,
          looseSIP=False, noSIP=False, sfRemake=False):
@@ -466,348 +836,14 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             toPlot = [hStack, dataPts]
 
             if doSyst:
-                nominalWeight = baseMCWeight('zz', puWeightFile,
-                                             **sfArgs)
 
-                hSigSyst = {}
-                hBkgSyst = {}
-                hIrrSyst = {}
+                hSystUp, hSystDn = _makeSystematics(varName, var, sel, binning,
+                                                    sig, bkg, irr,
+                                                    sigSyst, bkgSyst, irrSyst,
+                                                    norm, puWeightFile,
+                                                    sfArgs)
 
-                hSigNom = sig.makeHist(var, sel, binning,
-                                       perUnitWidth=norm)
-                hBkgNom = bkg.makeHist(var, sel, binning,
-                                       postprocess=True,
-                                       perUnitWidth=norm)
-                hIrrNom = irr.makeHist(var, sel, binning,
-                                       perUnitWidth=norm)
-
-                # PU weight
-                hSigSyst['pu'] = {}
-                hIrrSyst['pu'] = {}
-                for sys in 'up','dn':
-                    wtStr = baseMCWeight('zz', puWeightFile, puSyst=sys,
-                                         **sfArgs)
-
-                    sig.applyWeight(wtStr, True)
-                    irr.applyWeight(wtStr, True)
-                    hSigSyst['pu'][sys] = sig.makeHist(var, sel, binning,
-                                                       perUnitWidth=norm)
-                    hIrrSyst['pu'][sys] = irr.makeHist(var, sel, binning,
-                                                       perUnitWidth=norm)
-                    sig.applyWeight(nominalWeight, True)
-                    irr.applyWeight(nominalWeight, True)
-
-                # lepton efficiency
-                for lep in ('em' if chan == 'zz' else set(chan)):
-                    hSigSyst[lep+'Syst'] = {}
-                    hIrrSyst[lep+'Syst'] = {}
-                    for sys in ['up','dn']:
-                        wtArg = {lep+'Syst':sys}
-                        wtArg.update(sfArgs)
-                        wtStr = baseMCWeight('zz', puWeightFile,
-                                             **wtArg)
-                        sig.applyWeight(wtStr, True)
-                        irr.applyWeight(wtStr, True)
-                        hSigSyst[lep+'Syst'][sys] = sig.makeHist(var, sel, binning,
-                                                                 perUnitWidth=norm)
-                        hIrrSyst[lep+'Syst'][sys] = irr.makeHist(var, sel, binning,
-                                                                 perUnitWidth=norm)
-
-                sig.applyWeight(nominalWeight, True)
-                irr.applyWeight(nominalWeight, True)
-
-                # luminosity
-                hSigSyst['lumi'] = {'up':hSigNom * 1.025,'dn':hSigNom * 0.975}
-                hIrrSyst['lumi'] = {'up':hIrrNom * 1.025,'dn':hIrrNom * 0.975}
-
-                # lepton fake rate
-                for lep in 'em':
-                    if lep not in chan and chan != 'zz':
-                        continue
-                    hBkgSyst[lep+'FR'] = {}
-                    for sys in ['up','dn']:
-                        if lep in chan:
-                            hBkgSyst[lep+'FR'][sys] = bkgSyst[lep+sys].makeHist(var, sel, binning,
-                                                                                perUnitWidth=norm,
-                                                                                postprocess=True)
-                        elif chan == 'zz':
-                            hBkgSyst[lep+'FR'][sys] = bkgSyst[lep+sys].makeHist({c:var[c] for c in var if lep in c},
-                                                                                sel, binning,
-                                                                                perUnitWidth=norm,
-                                                                                postprocess=True)
-                            hBkgSyst[lep+'FR'][sys] += bkg.makeHist({c:var[c] for c in var if lep not in c},
-                                                                    sel, binning,
-                                                                    perUnitWidth=norm,
-                                                                    postprocess=True)
-
-
-                # lepton momentum
-                for sys in ['eScale', 'eRhoRes', 'ePhiRes']:
-                    if 'e' not in chan and chan != 'zz':
-                        continue
-                    hSigSyst[sys] = {}
-                    hIrrSyst[sys] = {}
-                    for shift in ['up','dn']:
-                        if sys == 'ePhiRes' and shift == 'dn':
-                            continue
-                        sysStr = 'Up' if shift == 'up' else 'Dn'
-
-                        if 'e' in chan:
-                            hSigSyst[sys][shift] = sigSyst[sys+sysStr].makeHist(var, sel,
-                                                                                binning,
-                                                                                perUnitWidth=norm)
-                            hIrrSyst[sys][shift] = irrSyst[sys+sysStr].makeHist(var, sel,
-                                                                                binning,
-                                                                                perUnitWidth=norm)
-                        elif chan == 'zz':
-                            hSigSyst[sys][shift] = sigSyst[sys+sysStr].makeHist({'eeee':var['eeee'],
-                                                                                 'eemm':var['eemm']},
-                                                                                sel, binning,
-                                                                                perUnitWidth=norm)
-                            hSigSyst[sys][shift] += sig['mmmm'].makeHist(var['mmmm'], sel, binning,
-                                                                        perUnitWidth=norm)
-                            hIrrSyst[sys][shift] = irrSyst[sys+sysStr].makeHist({'eeee':var['eeee'],
-                                                                                 'eemm':var['eemm']},
-                                                                                sel, binning,
-                                                                                perUnitWidth=norm)
-                            hIrrSyst[sys][shift] += irr['mmmm'].makeHist(var['mmmm'], sel, binning,
-                                                                         perUnitWidth=norm)
-
-                if 'e' in chan or chan == 'zz':
-                    hSigSyst['ePhiRes']['dn'] = (hSigNom * 2) - hSigSyst['ePhiRes']['up']
-                    hIrrSyst['ePhiRes']['dn'] = (hIrrNom * 2) - hIrrSyst['ePhiRes']['up']
-
-                sys = 'mClosure'
-                if 'm' in chan or chan == 'zz':
-                    hSigSyst[sys] = {}
-                    hIrrSyst[sys] = {}
-                for shift in ['up','dn']:
-                    sysStr = 'Up' if shift == 'up' else 'Dn'
-
-                    if 'm' in chan:
-                        hSigSyst[sys][shift] = sigSyst[sys+sysStr].makeHist(var, sel,
-                                                                            binning,
-                                                                            perUnitWidth=norm)
-                        hIrrSyst[sys][shift] = irrSyst[sys+sysStr].makeHist(var, sel,
-                                                                            binning,
-                                                                            perUnitWidth=norm)
-                    elif chan == 'zz':
-                        hSigSyst[sys][shift] = sigSyst[sys+sysStr].makeHist({'eemm':var['eemm'],
-                                                                             'mmmm':var['mmmm']},
-                                                                            sel, binning,
-                                                                            perUnitWidth=norm)
-                        hSigSyst[sys][shift] += sig['eeee'].makeHist(var['eeee'], sel, binning,
-                                                                     perUnitWidth=norm)
-                        hIrrSyst[sys][shift] = irrSyst[sys+sysStr].makeHist({'eemm':var['eemm'],
-                                                                             'mmmm':var['mmmm']},
-                                                                            sel, binning,
-                                                                            perUnitWidth=norm)
-                        hIrrSyst[sys][shift] += irr['eeee'].makeHist(var['eeee'], sel, binning,
-                                                                     perUnitWidth=norm)
-
-                # PDF
-                hSigSyst['pdf'] = {}
-                hSigVariations = []
-                hGG = None
-                hEWK = None
-                for c in parseChannels(chan):
-                    for s in sig[c].values():
-                        if 'GluGluZZ' in s.name:
-                            hThisGG = s.makeHist(var[c], sel, binning,
-                                                 perUnitWidth=norm)
-                            hThisGG.ClearUnderflowAndOverflow()
-                            if hGG is None:
-                                hGG = hThisGG
-                            else:
-                                hGG += hThisGG
-                            if 'up' not in hSigSyst['pdf']:
-                                hSigSyst['pdf']['up'] = hThisGG.clone() # * 1.18
-                            else:
-                                hSigSyst['pdf']['up'] += hThisGG # * 1.18
-                            if 'dn' not in hSigSyst['pdf']:
-                                hSigSyst['pdf']['dn'] = hThisGG.clone() # * 0.82
-                            else:
-                                hSigSyst['pdf']['dn'] += hThisGG # * 0.82
-                        elif 'phantom' in s.name:
-                            hThisEWK = s.makeHist(var[c], sel, binning,
-                                                  perUnitWidth=norm)
-                            if hEWK is None:
-                                hEWK = hThisEWK
-                            else:
-                                hEWK += hThisEWK
-                            if 'up' not in hSigSyst['pdf']:
-                                hSigSyst['pdf']['up'] = hThisEWK.clone()
-                            else:
-                                hSigSyst['pdf']['up'] += hThisEWK
-                            if 'dn' not in hSigSyst['pdf']:
-                                hSigSyst['pdf']['dn'] = hThisEWK.clone()
-                            else:
-                                hSigSyst['pdf']['dn'] += hThisEWK
-                        else:
-                            hSigVariations.append(s.makeHist2(var[c], 'Iteration$', sel, binning,
-                                                              [100,0.,100.], 'pdfWeights / pdfWeights[0]', False))
-                            hThisQQ = s.makeHist(var[c], sel, binning,
-                                                 perUnitWidth=norm)
-                            if 'up' not in hSigSyst['pdf']:
-                                hSigSyst['pdf']['up'] = hThisQQ.clone()
-                            else:
-                                hSigSyst['pdf']['up'] += hThisQQ
-                            if 'dn' not in hSigSyst['pdf']:
-                                hSigSyst['pdf']['dn'] = hThisQQ.clone()
-                            else:
-                                hSigSyst['pdf']['dn'] += hThisQQ
-
-
-
-                # for each var bin in each sample, get the RMS across all the variations
-                allSigRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hSigVariations]
-
-                # for each var bin, add variations for all samples
-                sigBinRMSes = [sum(rmses) for rmses in zip(*allSigRMSes)]
-
-                # apply variations
-                for i in xrange(hSigNom.GetNbinsX()):
-                    hSigSyst['pdf']['up'][i+1].value += sigBinRMSes[i]
-                    hSigSyst['pdf']['dn'][i+1].value = max(0.,hSigSyst['pdf']['dn'][i+1].value - sigBinRMSes[i])
-
-
-                # QCD scale uncertainties
-                variationIndices = [1,2,3,4,6,8]
-                hSigVars = []
-                hIrrVars = []
-                for ind in variationIndices:
-                    hSigVars.append(hGG.empty_clone())
-                    for c in parseChannels(chan):
-                        for s in sig[c].values():
-                            if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
-                                hSigVars[-1] += s.makeHist(var[c], sel, binning,
-                                                           'scaleWeights[{}] / scaleWeights[0]'.format(ind),
-                                                           perUnitWidth=norm)
-                                # print "After {} {}, variation {} totals {}".format(c,s.name,ind,hSigVars[-1].Integral())
-                    hIrrVars.append(irr.makeHist(var, sel, binning,
-                                                 'scaleWeights[{}] / scaleWeights[0]'.format(ind),
-                                                 perUnitWidth=norm))
-
-                hSigScaleUp = hSigNom.empty_clone()
-                hSigScaleDn = hSigNom.empty_clone()
-                for bUp, bDn, bVars in zip(hSigScaleUp, hSigScaleDn, zip(*hSigVars)):
-                    # print [b.value for b in bVars]
-                    bUp.value = max(b.value for b in bVars)
-                    bDn.value = min(b.value for b in bVars)
-                hSigScaleUp += hGG# * 1.23
-                hSigScaleDn += hGG# * 0.82
-                if hEWK:
-                    hSigScaleUp += hEWK
-                    hSigScaleDn += hEWK
-
-                hIrrScaleUp = hIrrNom.empty_clone()
-                hIrrScaleDn = hIrrNom.empty_clone()
-                for bUp, bDn, bVars in zip(hIrrScaleUp, hIrrScaleDn, zip(*hIrrVars)):
-                    bUp.value = max(b.value for b in bVars)
-                    bDn.value = min(b.value for b in bVars)
-
-                hSigSyst['scale'] = {'up':hSigScaleUp,'dn':hSigScaleDn}
-                hIrrSyst['scale'] = {'up':hIrrScaleUp,'dn':hIrrScaleDn}
-
-
-                # alpha_s uncertainties
-                alphaSIndices = [100,101]
-                hSigVars = []
-                for ind in alphaSIndices:
-                    hSigVars.append(hSigNom.empty_clone())
-                    for c in parseChannels(chan):
-                        for s in sig[c].values():
-                            if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
-                                hSigVars[-1] += s.makeHist(var[c], sel, binning,
-                                                           'pdfWeights[{}]'.format(ind),
-                                                           perUnitWidth=norm)
-
-                aSUnc = hSigVars[0] - hSigVars[-1]
-                aSUnc /= 2.
-                for b in aSUnc:
-                    b.value = abs(b.value)
-
-                hSigSyst['alphaS'] = {
-                    'up' : hSigNom + aSUnc,
-                    'dn' : hSigNom - aSUnc,
-                    }
-
-
-                # We don't have LHE information for MCFM, so just vary its
-                # normalization
-                hSigSyst['mcfm'] = {
-                    'up':hSigNom + hGG*0.18,
-                    'dn':hSigNom - hGG*0.15,
-                    }
-
-                # JES/JER
-                if ('jet' in varName.lower() or 'jj' in varName.lower()) and 'eta2p4' not in varName.lower():
-                    for sys in ['jer','jes']:
-                        hSigSyst[sys] = {}
-                        hIrrSyst[sys] = {}
-
-                        for shift in ['up','dn']:
-                            sysStr = 'Up' if shift == 'up' else 'Down'
-
-                            shiftedVarName = varName + '_' + sys + sysStr
-                            varShifted = _vars4l[shiftedVarName]
-                            if chan != 'zz':
-                                varShifted = {chan:varShifted[chan]}
-                            selShifted = _selections4l[shiftedVarName]
-
-                            hSigSyst[sys][shift] = sig.makeHist(varShifted,
-                                                                selShifted,
-                                                                binning,
-                                                                perUnitWidth=norm)
-                            hIrrSyst[sys][shift] = irr.makeHist(varShifted,
-                                                                selShifted,
-                                                                binning,
-                                                                perUnitWidth=norm)
-
-
-                # print "Signal:"
-                # print "    Nominal: {}".format(hSigNom.Integral())
-                # for sysName, sys in hSigSyst.iteritems():
-                #     print "    "+sysName+":"
-                #     for upperdown, h in sys.iteritems():
-                #         print "        {}: {}".format(upperdown, h.Integral())
-                # print "\nReducible Background:"
-                # print "    Nominal: {}".format(hBkgNom.Integral())
-                # for sysName, sys in hBkgSyst.iteritems():
-                #     print "    "+sysName+":"
-                #     for upperdown, h in sys.iteritems():
-                #         print "        {}: {}".format(upperdown, h.Integral())
-                # print "\nIrreducible Background:"
-                # print "    Nominal: {}".format(hIrrNom.Integral())
-                # for sysName, sys in hIrrSyst.iteritems():
-                #     print "    "+sysName+":"
-                #     for upperdown, h in sys.iteritems():
-                #         print "        {}: {}".format(upperdown, h.Integral())
-
-                # put it all together
-                hUp = hSigNom.empty_clone()
-                hDn = hSigNom.empty_clone()
-
-                hTotNom = sum(h for h in hStack)
-
-                for sys in set(hSigSyst.keys() + hBkgSyst.keys() + hIrrSyst.keys()):
-                    thisUp = hSigSyst.get(sys, {}).get('up', hSigNom) - hSigNom + \
-                        hBkgSyst.get(sys, {}).get('up', hBkgNom) - hBkgNom + \
-                        hIrrSyst.get(sys, {}).get('up', hIrrNom) - hIrrNom
-                    thisDn = hSigSyst.get(sys, {}).get('dn', hSigNom) - hSigNom + \
-                        hBkgSyst.get(sys, {}).get('dn', hBkgNom) - hBkgNom + \
-                        hIrrSyst.get(sys, {}).get('dn', hIrrNom) - hIrrNom
-
-                    for bUp, bDn, b1, b2 in zip(hUp, hDn, thisUp, thisDn):
-                        bUp.value += max(b1.value,b2.value)**2
-                        bDn.value += min(b1.value,b2.value)**2
-
-
-                for bUp, bDn in zip(hUp, hDn):
-                    bUp.value = sqrt(bUp.value)
-                    bDn.value = sqrt(bDn.value)
-
-                band = makeErrorBand(hTotNom, hUp, hDn)
+                band = makeErrorBand(hStack, hSystUp, hSystDn)
 
                 band.fillstyle = 'x'
                 band.color = 'black'
@@ -953,10 +989,10 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
             var = {c:[vt.format(var=varName) for vt in _varTemplates2l[z][c]] for c in _varTemplates2l[z]}
 
-            hStack = stack.makeHist(var, _selections2l[z], binning2l[varName],
+            hStack = stack.makeHist(var, _selections2l[z], binning,
                                     postprocess=True,
                                     perUnitWidth=binNormWidth2l[varName])
-            dataPts = data.makeHist(var, _selections2l[z], binning2l[varName],
+            dataPts = data.makeHist(var, _selections2l[z], binning,
                                     poissonErrors=True,
                                     perUnitWidth=binNormWidth2l[varName])
 
@@ -971,17 +1007,30 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                         continue
                     idx += 1
 
+            toPlot = [hStack, dataPts]
 
-            # for ratio
-            dataHist = data.makeHist(var, '', binning2l[varName],
-                                     perUnitWidth=binNormWidth2l[varName])
+            if doSyst:
+
+                hSystUp, hSystDn = _makeSystematics(varName, var,
+                                                    _selections2l[z], binning,
+                                                    sig, bkg, irr,
+                                                    sigSyst, bkgSyst, irrSyst,
+                                                    binNormWidth2l[varName],
+                                                    puWeightFile, sfArgs)
+
+                band = makeErrorBand(hStack, hSystUp, hSystDn)
+
+                band.fillstyle = 'x'
+                band.color = 'black'
+
+                toPlot = [hStack, band, dataPts]
 
             c = Canvas(1000,1000)
 
             legParams = {'textsize':0.029}
             if ana == 'full' and varName == 'Mass':
                 legParams = _legParamsLeft.copy()
-            leg = makeLegend(c, hStack, dataPts, **legParams)
+            leg = makeLegend(c, *toPlot, **legParams)
 
             xTitle = _xTitles[varName]
             if '{obj}' in xTitle:
@@ -990,7 +1039,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             yTitle = 'Z bosons / {} {}'.format(binNormWidth2l[varName],
                                                units[varName])
 
-            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
+            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c,
                                                          xtitle=xTitle,
                                                          ytitle=yTitle,
                                                          logy=logy)
@@ -1022,14 +1071,27 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                     poissonErrors=True,
                                     perUnitWidth=_binNormWidth1l[varName])
 
-            # for ratio
-            dataHist = data.makeHist(var, _selections1l[lep], _binning1l[varName],
-                                     poissonErrors=True,
-                                     perUnitWidth=_binNormWidth1l[varName])
+            toPlot = [hStack, dataPts]
+
+            if doSyst:
+
+                hSystUp, hSystDn = _makeSystematics(varName, var,
+                                                    _selections1l[lep],
+                                                    binning, sig, bkg, irr,
+                                                    sigSyst, bkgSyst, irrSyst,
+                                                    _binNormWidth1l[varName],
+                                                    puWeightFile, sfArgs)
+
+                band = makeErrorBand(hStack, hSystUp, hSystDn)
+
+                band.fillstyle = 'x'
+                band.color = 'black'
+
+                toPlot = [hStack, band, dataPts]
 
             c = Canvas(1000,1000)
 
-            leg = makeLegend(c, hStack, dataPts, leftmargin=0.47)
+            leg = makeLegend(c, *toPlot, leftmargin=0.47)
 
             xTitle = _xTitles[varName]
             if '{obj}' in xTitle:
@@ -1038,7 +1100,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             yTitle = 'Leptons / {} {}'.format(_binNormWidth1l[varName],
                                               units[varName])
 
-            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw([hStack, dataPts], c,
+            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c,
                                                          xtitle=xTitle,
                                                          ytitle=yTitle,
                                                          logy=logy)
