@@ -18,7 +18,7 @@ from os import makedirs
 
 
 var = 'Mass'
-binning = [14,100.,1500.] #range([100.+100.*i for i in range(6)] + [800.,1000.,1100.,1200.,1300.]
+binning = [100.*(i+1) for i in range(13)]+[2000.,2600]# range([100.+100.*i for i in range(6)] + [800.,1000.,1100.,1200.,1300.]
 aTGCParams = ['f4','f5']
 
 channels = ['eeee','eemm','mmmm']
@@ -456,13 +456,13 @@ def main(inData, inMC, inATGC, outDir, fakeRateFile, puWeightFile, lumi):
 
 
 if __name__ == '__main__':
-    inData = 'uwvvNtuples_data_20feb2017'
-    inMC = 'uwvvNtuples_mc_23mar2017'
-    inATGC = 'uwvvNtuples_mc_21feb2017_aTGC'
-    outDir = '/afs/cern.ch/user/n/nawoods/public/aTGC_reminiAOD_newBinning'
+    inData = 'uwvvNtuples_data_10mar2017_LooseSIPLooseVtx'
+    inMC = 'uwvvNtuples_mc_23mar2017_LooseSIPLooseVtx'
+    inATGC = 'uwvvNtuples_mc_21feb2017_aTGC_LooseSIP'
+    outDir = '/afs/cern.ch/user/n/nawoods/public/aTGC_reminiAOD_LooseSIP'
     if not exists(outDir):
         makedirs(outDir)
-    fakeRateFile = 'fakeRate_20feb2017'
+    fakeRateFile = 'fakeRate_20feb2017_LooseSIP'
     puWeightFile = 'puWeight_69200_24jan2017.root'
     lumi = 35860.
 
