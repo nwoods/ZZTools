@@ -1684,8 +1684,11 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
             # raster formats apparently need different fill styles?
             errorBand.fillstyle = 'x'
+            errorBand.SetFillColorAlpha(1,0.6)
             ratioErrorMain.fillstyle = 'x'
+            ratioErrorMain.SetFillColorAlpha(1,0.6)
             ratioErrorAlt.fillstyle = 'x'
+            ratioErrorAlt.SetFillColorAlpha(1,0.6)
             if varName in _matrixNames:
                 ratioErrorMat.fillstyle = 'x'
             errorBand.drawstyle = '2'
@@ -2122,8 +2125,11 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
         # raster formats apparently need different fill styles?
         errorBand.fillstyle = 'x'
+        errorBand.SetFillColorAlpha(1,0.6)
         ratioErrorMain.fillstyle = 'x'
+        ratioErrorMain.SetFillColorAlpha(1,0.6)
         ratioErrorAlt.fillstyle = 'x'
+        ratioErrorAlt.SetFillColorAlpha(1,0.6)
         if varName in _matrixNames:
             ratioErrorMat.fillstyle = 'x'
         cUnf.Update()
