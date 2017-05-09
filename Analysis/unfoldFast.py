@@ -2083,8 +2083,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hTrueNoErrsAlt = hTrueAlt.clone() # need central value only to keep ratio uncertainties consistent
         for b in hTrueNoErrsAlt: b.error = 0
 
-        ratioAlt, unityAlt = makeRatio(hUnf, hTrueNoErrsAlt)
-        ratioErrorAlt = makeErrorBand(hUnf/hTrueNoErrsAlt, hUncUp/hTrueNoErrsAlt,
+        ratioAlt, unityAlt = makeRatio(hTot, hTrueNoErrsAlt)
+        ratioErrorAlt = makeErrorBand(hTot/hTrueNoErrsAlt, hUncUp/hTrueNoErrsAlt,
                                       hUncDn/hTrueNoErrsAlt)
 
         hTrueUnityAlt = hTrueAlt.clone() # need errors only as baseline for ratio theory uncertainties
