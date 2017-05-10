@@ -21,6 +21,7 @@ from rootpy.io import root_open as _open
 from os import environ as _env
 from os import path as _path
 from collections import OrderedDict as _ODict
+from re import compile as _reComp
 
 
 def _ensureNonneg(h):
@@ -274,31 +275,18 @@ def standardZZBkg(channel, dataDir, mcDir, resultType, puWeightFile,
 
     zCRWeightTemp = ('({{lep1}}ZZTightID && {{lep1}}ZZIsoPass ? 1. : {fr1}) * '
                      '({{lep2}}ZZTightID && {{lep2}}ZZIsoPass ? 1. : {fr2})')
-    if abs(sipCut-4.) > 0.001:
-        newCuts = {
-            'e' : '((abs({lep}PVDXY) < 0.05 && abs({lep}PVDZ) < 0.1) || (abs({lep}SCEta) >= 1.479 && abs({lep}PVDXY) < 0.1 && abs({lep}PVDZ) < 0.2))',
-            'm' : '(abs({lep}PVDXY) < 0.05 && abs({lep}PVDZ) < 0.1)',
-            }
-        if sipCut > 0:
-            for lep in newCuts:
-                newCuts[lep] += ' && {lep}SIP3D < ' + str(sipCut)
-        zCRWeightTempE = zCRWeightTemp
-        zCRWeightTempM = zCRWeightTemp
-        for lepStr in '{{lep1}}', '{{lep2}}':
-            zCRWeightTempE = zCRWeightTempE.replace('{lep}ZZTightID'.format(lep=lepStr),
-                                                    ('{lep}ZZTightIDNoVtx && '+newCuts['e']).format(lep=lepStr))
-            zCRWeightTempM = zCRWeightTempM.replace('{lep}ZZTightID'.format(lep=lepStr),
-                                                    ('{lep}ZZTightIDNoVtx && '+newCuts['m']).format(lep=lepStr))
 
-        zeCRWeight = zCRWeightTempE.format(fr1=fakeFactorStrE.format(lep='{lep1}'),
-                                           fr2=fakeFactorStrE.format(lep='{lep2}'))
-        zmCRWeight = zCRWeightTempM.format(fr1=fakeFactorStrM.format(lep='{lep1}'),
-                                           fr2=fakeFactorStrM.format(lep='{lep2}'))
-    else:
-        zeCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrE.format(lep='{lep1}'),
-                                          fr2=fakeFactorStrE.format(lep='{lep2}'))
-        zmCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrM.format(lep='{lep1}'),
-                                          fr2=fakeFactorStrM.format(lep='{lep2}'))
+    if abs(sipCut-4.) > 0.001:
+        idPattern = _reComp(r'(?<=(?P<lep>\{\{lep\d\}\})ZZTightID)')
+        idRepl = r'NoVtx && abs(\g<lep>PVDXY) < 0.5 && abs(\g<lep>PVDZ) < 1.'
+        if sipCut > 0:
+            idRepl += ' && \g<lep>SIP3D < {}'.format(sipCut)
+        zCRWeightTemp = idPattern.sub(idRepl, zCRWeightTemp,2)
+
+    zeCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrE.format(lep='{lep1}'),
+                                      fr2=fakeFactorStrE.format(lep='{lep2}'))
+    zmCRWeight = zCRWeightTemp.format(fr1=fakeFactorStrM.format(lep='{lep1}'),
+                                      fr2=fakeFactorStrM.format(lep='{lep2}'))
 
     crWeight = {
         'eeee' : zeCRWeight.format(lep1='e1',lep2='e2') + ' * ' + zeCRWeight.format(lep1='e3',lep2='e4'),
