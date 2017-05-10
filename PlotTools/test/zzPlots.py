@@ -12,7 +12,7 @@ from rootpy.plotting.utils import draw, get_limits
 from rootpy.ROOT import TBox, Double
 
 from SampleTools import MCSample, DataSample, SampleGroup, SampleStack
-from PlotTools import PlotStyle as _Style
+from PlotTools import PlotStyle as _Style, pdfViaTex as _pdfViaTex
 from PlotTools import makeLegend, addPadBelow, makeRatio, fixRatioAxes, \
     makeErrorBand
 from Utilities import WeightStringMaker, deltaRString, deltaPhiString, \
@@ -100,7 +100,7 @@ for v,t in _xTitles.iteritems():
 _legParamsLeft = {
     'leftmargin' : 0.05,
     'rightmargin' : 0.53,
-    'textsize' : 0.029,
+    'textsize' : 0.025,
     }
 
 
@@ -676,7 +676,7 @@ def _makeSystematics(varName, var, sel, binning,
 
 def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
          eras='BCDEFGH', blind=False, amcatnlo=False, doSyst=True, logy=False,
-         looseSIP=False, noSIP=False, sfRemake=False):
+         looseSIP=False, noSIP=False, sfRemake=False, paper=False):
 
     sfArgs = {}
     sipForBkg = 4.
@@ -701,6 +701,10 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
         sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
         sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17'
 
+    typeToPrint = 'Preliminary'
+    if paper:
+        typeToPrint = ''
+
     style = _Style()
 
     outdir = _path.join('/afs/cern.ch/user/n/nawoods/www/UWVVPlots', plotDir)
@@ -709,10 +713,23 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
     elif not _isdir(outdir):
         raise IOError("There is already some non-directory object called {}.".format(outdir))
 
+    if paper:
+        pdfDir = _path.join(outdir,'pdfs')
+        if not _exists(pdfDir):
+            _mkdir(pdfDir)
+        elif not _isdir(pdfDir):
+            raise IOError("There is already some non-directory object called {}.".format(pdfDir))
+        texDir = _path.join(outdir,'texs')
+        if not _exists(texDir):
+            _mkdir(texDir)
+        elif not _isdir(texDir):
+            raise IOError("There is already some non-directory object called {}.".format(texDir))
+
     data, stack = standardZZSamples('zz', inData, inMC, ana, puWeightFile,
                                     fakeRateFile, lumi, amcatnlo=amcatnlo,
                                     higgs=(ana=='full'), eras=eras,
-                                    skipEWK=(ana!='smp'), **sfArgs)
+                                    skipEWK=(ana!='smp'), sipCut=sipForBkg,
+                                    **sfArgs)
 
     objNames = _objNames.copy()
     if ana == 'smp':
@@ -777,13 +794,16 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             }
 
     if ana == 'smp':
-        aTGCf4 = standardZZMC('zz', 'uwvvNtuples_mc_21feb2017_aTGC',
+        aTGCDataset = 'uwvvNtuples_mc_21feb2017_aTGC'
+        if looseSIP:
+            aTGCDataset += '_LooseSIP'
+        aTGCf4 = standardZZMC('zz', aTGCDataset,
                               'ZZTo4L-aTGC-f4-fg0p0038-fz0p003',
                               ana, puWeightFile, lumi)
-        aTGCf5 = standardZZMC('zz', 'uwvvNtuples_mc_21feb2017_aTGC',
+        aTGCf5 = standardZZMC('zz', aTGCDataset,
                               'ZZTo4L-aTGC-f5-fg0p0038-fz0p003',
                               ana, puWeightFile, lumi)
-        sherpa = standardZZMC('zz', 'uwvvNtuples_mc_21feb2017_aTGC',
+        sherpa = standardZZMC('zz', aTGCDataset,
                               'ZZTo4L-sherpa',
                               ana, puWeightFile, lumi)
 
@@ -802,7 +822,12 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
         binNormWidth4l['Mass'] /= 1000.
 
     for chan in ['zz', 'eeee', 'eemm', 'mmmm']:
+        if paper and chan != 'zz':
+            continue
+
         for varName, binning in binning4l.iteritems():
+            if paper and varName != 'Mass':
+                continue
 
             print "Plotting {} {}".format(chan, varName)
 
@@ -833,6 +858,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             dataPts = data.makeHist(var, dataSelection, binning,
                                     poissonErrors=True,
                                     perUnitWidth=norm)
+            if paper:
+                dataPts.title = r'\mathbf{{{}}}'.format(dataPts.title)
             toPlot = [hStack, dataPts]
 
             if doSyst:
@@ -846,7 +873,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
 
                 band.fillstyle = 'x'
-                band.color = 'black'
+                band.SetFillColorAlpha(1,0.6)
+                #band.color = 'black'
 
                 toPlot = [hStack, band, dataPts]
 
@@ -911,8 +939,12 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
             leg.Draw("same")
 
-            style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
-            c.Print('{}/{}{}.png'.format(outdir, chan, varName))
+            style.setCMSStyle(c, '', dataType=typeToPrint, intLumi=lumi,
+                              forLatex=paper)
+            if paper:
+                _pdfViaTex(c, chan+varName, texDir, pdfDir)
+            else:
+                c.Print('{}/{}{}.png'.format(outdir, chan, varName))
 
 
             if varName == 'Mass' and ana == 'smp' and chan == 'zz':
@@ -969,8 +1001,12 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
                 leg.Draw("same")
 
-                style.setCMSStyle(cTGC, '', dataType='Preliminary', intLumi=lumi)
-                cTGC.Print('{}/{}{}_aTGC.png'.format(outdir, chan, varName))
+                style.setCMSStyle(cTGC, '', dataType=typeToPrint, intLumi=lumi,
+                                  forLatex=paper)
+                if paper:
+                    _pdfViaTex(cTGC, chan+varName+'_aTGC', texDir, pdfDir)
+                else:
+                    cTGC.Print('{}/{}{}_aTGC.png'.format(outdir, chan, varName))
 
 
 
@@ -985,6 +1021,16 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
     for z in ['z', 'ze', 'zm', 'z1', 'z2']:
         for varName, binning in binning2l.iteritems():
+            if paper:
+                if varName != 'Mass':
+                    continue
+                if ana == 'z4l':
+                    continue
+                if ana == 'smp' and z != 'z':
+                    continue
+                if ana == 'full' and z not in ['z','z1']:
+                    continue
+
             print "Plotting {} {}".format(z, varName)
 
             var = {c:[vt.format(var=varName) for vt in _varTemplates2l[z][c]] for c in _varTemplates2l[z]}
@@ -995,6 +1041,9 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             dataPts = data.makeHist(var, _selections2l[z], binning,
                                     poissonErrors=True,
                                     perUnitWidth=binNormWidth2l[varName])
+
+            if paper:
+                dataPts.title = r'\mathbf{{{}}}'.format(dataPts.title)
 
             if varName == 'Pt' and binning2l['Pt'][-1] > 200.:
                 copy = dataPts.clone()
@@ -1021,13 +1070,14 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
 
                 band.fillstyle = 'x'
-                band.color = 'black'
+                band.SetFillColorAlpha(1,0.6)
+                #band.color = 'black'
 
                 toPlot = [hStack, band, dataPts]
 
             c = Canvas(1000,1000)
 
-            legParams = {'textsize':0.029}
+            legParams = {'textsize':0.025}
             if ana == 'full' and varName == 'Mass':
                 legParams = _legParamsLeft.copy()
             leg = makeLegend(c, *toPlot, **legParams)
@@ -1054,11 +1104,17 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
             leg.Draw("same")
 
-            style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
-            c.Print('{}/{}{}.png'.format(outdir, z, varName))
+            style.setCMSStyle(c, '', dataType=typeToPrint, intLumi=lumi,
+                              forLatex=paper)
+            if paper:
+                _pdfViaTex(c, z+varName, texDir, pdfDir)
+            else:
+                c.Print('{}/{}{}.png'.format(outdir, z, varName))
 
 
     for varName, binning in _binning1l.iteritems():
+        if paper:
+            continue
         for lep in _vars1l[varName]:
             print "Plotting {} {}".format(lep, varName)
 
@@ -1070,6 +1126,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             dataPts = data.makeHist(var, _selections1l[lep], _binning1l[varName],
                                     poissonErrors=True,
                                     perUnitWidth=_binNormWidth1l[varName])
+            if paper:
+                dataPts.title = r'\mathbf{{{}}}'.format(dataPts.title)
 
             toPlot = [hStack, dataPts]
 
@@ -1085,7 +1143,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
 
                 band.fillstyle = 'x'
-                band.color = 'black'
+                band.SetFillColorAlpha(1,0.6)
+                #band.color = 'black'
 
                 toPlot = [hStack, band, dataPts]
 
@@ -1106,8 +1165,12 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                                          logy=logy)
             leg.Draw("same")
 
-            style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
-            c.Print('{}/{}{}.png'.format(outdir, lep, varName))
+            style.setCMSStyle(c, '', dataType=typeToPrint, intLumi=lumi,
+                              forLatex=paper)
+            if paper:
+                _pdfViaTex(c, lep+varName, texDir, pdfDir)
+            else:
+                c.Print('{}/{}{}.png'.format(outdir, lep, varName))
 
 
 if __name__ == '__main__':
@@ -1154,10 +1217,12 @@ if __name__ == '__main__':
                         help='Use scale factors for no SIP cut and no extra IP cuts.')
     parser.add_argument('--sfRemake', action='store_true',
                         help='Use homebrewed scale factors for electrons.')
+    parser.add_argument('--paper', action='store_true',
+                        help='Print as journal-style PDFs, only the plots for the paper.')
 
     args=parser.parse_args()
 
     main(args.dataDir, args.mcDir, args.plotDir, args.analysis,
          args.fakeRateFile, args.puWeightFile, args.lumi, args.eras,
          args.blind, args.amcatnlo, not args.noSyst, args.logy, args.looseSIP,
-         args.noSIP, args.sfRemake)
+         args.noSIP, args.sfRemake, args.paper)
