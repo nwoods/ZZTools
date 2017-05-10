@@ -23,8 +23,8 @@ from os.path import exists, isdir, join
 from os import makedirs as mkdir
 
 
-inDir = 'uwvvNtuples_data_20feb2017'
-outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter_20feb2017'
+inDir = 'uwvvNtuples_data_10mar2017_LooseSIPLooseVtx'
+outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter_LooseSIP'
 lumi = 35860.
 
 colors = {'eeee':'b','eemm':'r','mmmm':'forestgreen'}
@@ -73,8 +73,8 @@ for ana in ['full', 'z4l']:
     data = standardZZData('zz', inDir, ana)
 
     g = {}
-    for ch, eras in data.itersamples():
-        nPts = sum(len(e) for e in eras.values())
+    for ch, sample in data.itersamples():
+        nPts = sample.getEntries()
         g[ch] = Graph(nPts, title=titles[ch])
         g[ch].color = colors[ch]
         g[ch].markerstyle = markers[ch]
@@ -83,9 +83,8 @@ for ana in ['full', 'z4l']:
         if ch == 'mmmm':
             g[ch].SetMarkerSize(g[ch].GetMarkerSize()*1.18)
 
-        for era in eras.values():
-            for i, row in enumerate(era):
-                g[ch].SetPoint(i, getMZ1[ch](row), getMZ2[ch](row))
+        for i, row in enumerate(sample.rows()):
+            g[ch].SetPoint(i, getMZ1[ch](row), getMZ2[ch](row))
 
 
     if ana == 'z4l':
@@ -106,7 +105,7 @@ for ana in ['full', 'z4l']:
                  header='\\text{     Data}', entrysep=0.01,
                  entryheight=0.04, **legParams[ana])
     leg.Draw("same")
-    style.setCMSStyle(c, "", True, "Preliminary", 13, lumi)
+    style.setCMSStyle(c, "", True, "", 13, lumi)
 
     c.Print(join(outDir, 'mZ2VsmZ1_{}.png'.format(ana)))
 
