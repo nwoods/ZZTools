@@ -383,6 +383,14 @@ class NtupleSample(_SampleBase):
         return self.ntuple.GetEntries()
 
 
+    def getEntries(self):
+        return len(self)
+
+
+    def nRows(self):
+        return len(self)
+
+
     def getFileNames(self):
         for fn in self.files:
             yield fn

@@ -303,6 +303,14 @@ class SampleGroup(_SampleBase):
                 yield row
 
 
+    def getEntries(self):
+        return sum(s.getEntries() for s in self.values())
+
+
+    def nRows(self):
+        return self.getEntries()
+
+
     def __getitem__(self, x):
         return self._samples[x]
 
@@ -483,6 +491,14 @@ class SampleStack(_SampleBase):
         for s in self:
             for row in s.rows():
                 yield row
+
+
+    def getEntries(self):
+        return sum(s.getEntries() for s in self)
+
+
+    def nRows(self):
+        return self.getEntries()
 
 
     def getFileNames(self):
