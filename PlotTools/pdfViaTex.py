@@ -37,11 +37,14 @@ def pdfViaTex(c, fname, texDir, pdfDir):
 
     # Remove unwanted boxes from around hatched and transparent fill areas
     imgFileFixed = imgFile.replace('.tex','_fixed.tex')
-    pattern = _reComp(r'\\draw(?=.+((pattern=crosshatch)|(fill opacity=)))')
+    drawPattern = _reComp(r'\\draw(?=.+((pattern=crosshatch)|(fill opacity=)))')
+    # make transparency actually work for hatched areas
+    # there's probably a way to combine with the previous regex...
+    opacityPattern = _reComp(r'(?<=\\path \[pattern=crosshatch, pattern color=c, )fill (?=opacity=[01])')
     with open(imgFile, 'r') as fIm:
         with open(imgFileFixed, 'w') as fImFix:
             for line in fIm:
-                fImFix.write(pattern.sub(r'\path',line))
+                fImFix.write(opacityPattern.sub('',drawPattern.sub(r'\path',line)))
 
     texFile = _path.join(texDir, fname+'.tex')
 
