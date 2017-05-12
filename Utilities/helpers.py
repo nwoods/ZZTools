@@ -22,21 +22,14 @@ def makeNumberPretty(n, maxDigits=10):
     Take a number, return a string of it with the right number of digits
     and whatnot.
     Cuts off at maxDigits places after the decimal point.
-    Assumes you want all digits before the decimal point no matter what.
+    No trailing zeros, or decimal points if there are no digits after it.
     '''
-    if int(n) == n: # integer
-        return "%d"%n
+    if maxDigits < 0:
+        raise ValueError("Invalid number of digits: {}".format(maxDigits))
 
-    nDecimals = 0
-    m = n
-    while nDecimals < maxDigits:
-        nDecimals += 1
-        m *= 10
-        if int(m) == m:
-            break
-
-    preFormat = "%%.%df"%nDecimals
-    return preFormat%n
+    digitsBeforeDecimal = len('{:.0f}'.format(n))
+    digits = digitsBeforeDecimal + maxDigits
+    return '{{:.{}g}}'.format(digits).format(n)
 
 
 def parseChannels(channels):
