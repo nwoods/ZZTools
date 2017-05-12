@@ -12,7 +12,7 @@ from rootpy import asrootpy
 from rootpy.io import root_open
 from rootpy.plotting import Canvas, Legend, Hist, HistStack, Graph
 from rootpy.plotting.utils import draw
-from rootpy.ROOT import cout, TDecompSVD, TBox, TLatex
+from rootpy.ROOT import cout, TDecompSVD, TBox, TLatex, TLegend, TAttFill
 from rootpy.ROOT import RooUnfoldResponse as Response
 from rootpy.ROOT import RooUnfoldBayes as RooUnfoldIter # it's frequentist!
 from rootpy.context import preserve_current_directory
@@ -185,16 +185,16 @@ _yTitleTemp = '{prefix} \\frac{{d\\sigma_{{\\text{{fid}}}}}}{{d{xvar}}} {units}'
 for var, prettyVar in _prettyVars.iteritems():
     xt = prettyVar
     if _units[var]:
-        xt += ' \\, \\text{{[{}]}}'.format(_units[var])
+        xt += ' \\, \\left(\\text{{{}}}\\right)'.format(_units[var])
         yt = _yTitleTemp.format(xvar=prettyVar,
                                 prefix='\\frac{1}{\\sigma_{\\text{fid}}}',
-                                units='\\, \\left[ \\frac{{1}}{{\\text{{{unit}}}}} \\right]'.format(unit=_units[var]))
+                                units='\\, \\left( \\frac{{1}}{{\\text{{{unit}}}}} \\right)'.format(unit=_units[var]))
         ytnn = _yTitleTemp.format(xvar=prettyVar, prefix='',
-                                  units='\\, \\left[ \\frac{{\\text{{fb}}}}{{\\text{{{unit}}}}} \\right]'.format(unit=_units[var]))
+                                  units='\\, \\left( \\frac{{\\text{{fb}}}}{{\\text{{{unit}}}}} \\right)'.format(unit=_units[var]))
     else:
         yt = _yTitleTemp.format(prefix='\\frac{1}{\\sigma_{\\text{fid}}}',
                                 xvar=prettyVar, units='')
-        ytnn = _yTitleTemp.format(prefix='', xvar=prettyVar, units='\\left[ \\text{fb} \\right]')
+        ytnn = _yTitleTemp.format(prefix='', xvar=prettyVar, units='\\left( \\text{fb} \\right)')
 
     _xTitle[var] = xt
     _yTitle[var] = yt
@@ -348,15 +348,17 @@ _varListNoFull.remove("massFull")
 
 # Sometimes need to more or resize legend
 _legDefaults = {
-    'textsize' : .025,
-    'leftmargin' : 0.377,
+    'textsize' : .027,#2,
+    'leftmargin' : 0.35,
+    'entryheight' : 0.037,
+    'rightmargin' : 0.03,
     }
 _legParams = {v:_legDefaults.copy() for v in _varList}
 _legParams['z1Mass'] = {
-    'textsize' : .015,
+    'textsize' : .02,
     'leftmargin' : .03,
-    'rightmargin' : .47,
-    'entryheight' : .023,
+    'rightmargin' : .46,
+    'entryheight' : .034,#23
     'entrysep' : .007,
     }
 _legParams['z2Mass'] = _legParams['z1Mass'].copy()
@@ -372,11 +374,26 @@ _legParams['deltaEtajj']['leftmargin'] = .5
 _legParams['deltaEtajj']['rightmargin'] = .03
 _legParams['deltaEtajj']['topmargin'] = .05
 _legParams['eta'] = _legParams['deltaEtajj'].copy()
-_legParams['lPt']['topmargin'] = 0.05
-_legParams['l1Pt']['topmargin'] = 0.06
 _legParams['jet1Eta']['topmargin'] = 0.058
 _legParams['jet2Eta']['topmargin'] = 0.058
 _legParams['nJets']['topmargin'] = 0.058
+
+_legParamsLogy = {v:p.copy() for v,p in _legParams.iteritems()}
+_legParamsLogy['deltaRZZ']['textsize'] = .025
+_legParamsLogy['deltaRZZ']['entryheight'] = .03
+_legParamsLogy['deltaRZZ']['topmargin'] = .7
+_legParamsLogy['deltaRZZ']['leftmargin'] = .18
+_legParamsLogy['deltaRZZ']['rightmargin'] = .22
+_legParamsLogy['l1Pt']['topmargin'] = 0.05
+_legParamsLogy['l1Pt']['leftmargin'] = 0.425
+_legParamsLogy['l1Pt']['rightmargin'] = 0.01
+_legParamsLogy['l1Pt']['textsize'] = 0.025
+_legParamsLogy['mass']['topmargin'] = 0.05
+_legParamsLogy['mass']['leftmargin'] = 0.39
+_legParamsLogy['mass']['rightmargin'] = 0.025
+_legParamsLogy['mass']['textsize'] = 0.025
+_legParamsLogy['lPt']['topmargin'] = 0.05
+_legParamsLogy['zHigherPt']['topmargin'] = 0.045
 
 
 _uncertaintyTitles = {
@@ -567,7 +584,10 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         elif not _isdir(subDir):
             raise IOError("There is already some non-directory object called {}.".format(subDir))
 
-
+    if logy:
+        legParams = _legParamsLogy
+    else:
+        legParams = _legParams
 
     lumifb = lumi / 1000.
 
@@ -1363,7 +1383,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hUnf.color = 'black'
             hUnf.drawstyle = 'PE1'
             hUnf.legendstyle = 'LPE1'
-            hUnf.title = '\\textbf{Data + stat. unc.}'
+            hUnf.title = '\\textbf{Data + stat.\ unc.}'
             if not norm:
                 print "Inclusive {} fiducial cross section = {} fb".format(chan, hUnf.Integral(0,hUnf.GetNbinsX()+1))
             _normalizeBins(hUnf)
@@ -1372,8 +1392,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             hTrue.fillcolor = '#99ccff'
             hTrue.linecolor = '#000099'
             hTrue.drawstyle = 'hist'
-            hTrue.fillstyle = 'solid'
-            hTrue.legendstyle = 'F'
+            TAttFill.SetFillStyle(hTrue, 3004)
+            hTrue.SetLineWidth(2*hTrue.GetLineWidth())
+            #hTrue.fillstyle = '/'#'solid'
             hTrue.title = '{}'.format(signalName)
 
             # true uncertainty
@@ -1407,14 +1428,26 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             errorBandTrue.fillstyle = 'solid'
             errorBandTrue.SetFillColorAlpha(600, 0.5)
 
+            hTrueLeg = Hist(1, 0, 1)
+            hTrueLeg.fillcolor = hTrue.fillcolor
+            hTrueLeg.linecolor = '#7f7fff' # color transparent error band looks like on white background, found with GIMP eyedropper
+            TAttFill.SetFillStyle(hTrueLeg, 3004)
+            hTrueLeg.SetLineWidth(5*hTrue.GetLineWidth())
+            hTrueLeg.title = hTrue.title
+            hTrueLeg.legendstyle = 'FL'
+
+            # use later to put fill and error bars on same legend entry
+            trueLegOverlay = Hist(1, 0, 1, title='', legendstyle='L',
+                                  linecolor=hTrue.linecolor)
+            trueLegOverlay.SetLineWidth(hTrue.GetLineWidth())
+
             toPlot = [hTrue, errorBandTrue]
-            forLegend = [hTrue]
+            forLegend = [hTrueLeg]#Leg]
 
 
             hTrueAlt.color = 'red'
             hTrueAlt.drawstyle = 'hist'
             hTrueAlt.fillstyle = 'hollow'
-            hTrueAlt.legendstyle = 'L'
             hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
             hTrueAlt.title = '{}'.format(signalNameAlt)
 
@@ -1445,8 +1478,18 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             errorBandTrueAlt.fillstyle = 'solid'
             errorBandTrueAlt.SetFillColorAlpha(628, 0.5)
 
+            hTrueLegAlt = Hist(1, 0, 1)
+            hTrueLegAlt.linecolor = '#ff9898'
+            hTrueLegAlt.SetLineWidth(5*hTrueAlt.GetLineWidth())
+            hTrueLegAlt.title = hTrueAlt.title
+            hTrueLegAlt.legendstyle = 'L'
+
+            trueLegOverlayAlt = Hist(1, 0, 1, linecolor=hTrueAlt.linecolor,
+                                     legendstyle='L', title='')
+            trueLegOverlayAlt.SetLineWidth(hTrueAlt.GetLineWidth())
+
             toPlot += [errorBandTrueAlt, hTrueAlt]
-            forLegend.append(hTrueAlt)
+            forLegend.append(hTrueLegAlt)
 
             if varName in _matrixNames:
                 with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
@@ -1482,7 +1525,6 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 matDist.color = 'forestgreen'
                 matDist.drawstyle = 'hist'
                 matDist.fillstyle = 'hollow'
-                matDist.legendstyle = 'L'
                 matDist.SetLineWidth(matDist.GetLineWidth()*2)
 
                 matDistUp -= matDist
@@ -1492,8 +1534,18 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 errorBandMat.fillstyle = 'solid'
                 errorBandMat.SetFillColorAlpha(819, 0.5)
 
+                matDistLeg = Hist(1,0,1)
+                matDistLeg.linecolor = '#98e57f'
+                matDistLeg.SetLineWidth(5*matDist.GetLineWidth())
+                matDistLeg.title = matDist.title
+                matDistLeg.legendstyle = 'L'
+
+                matDistLegOverlay = Hist(1, 0, 1, linecolor=matDist.linecolor,
+                                         legendstyle='L', title='')
+                matDistLegOverlay.SetLineWidth(matDist.GetLineWidth())
+
                 toPlot += [errorBandMat,matDist]
-                forLegend.append(matDist)
+                forLegend.append(matDistLeg)
 
 
             if norm:
@@ -1552,7 +1604,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
             xaxis.SetTitleOffset(0.95*xaxis.GetTitleOffset())
 
-            leg = makeLegend(cUnf, *forLegend, **_legParams[varName])
+            leg = makeLegend(cUnf, *forLegend, **legParams[varName])
+            leg.SetFillStyle(1001)
 
             if varName in _blind and _blind[varName] < xmax:
                 box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
@@ -1563,26 +1616,48 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
 
             leg.Draw("same")
 
+            # want shaded error band and hatched fill for true legend entry,
+            # so cheat and overlay a second legend
+            legOverlay = asrootpy(TLegend(leg))
+            legOverlay.SetFillStyle(0)
+            for entry in legOverlay.primitives:
+                if entry.GetLabel() == hTrue.title:
+                    overlay = trueLegOverlay
+                elif entry.GetLabel() == hTrueAlt.title:
+                    overlay = trueLegOverlayAlt
+                elif entry.GetLabel() == matDist.title:
+                    overlay = matDistLegOverlay
+                else:
+                    entry.SetObject(None)
+                    entry.SetOption('')
+                    entry.SetLabel('')
+                    continue
+                entry.SetObject(overlay)
+                entry.SetOption(overlay.legendstyle)
+                entry.SetLabel('')
+            legOverlay.Draw("same")
+
             latex = TLatex()
             latex.SetNDC()
+            latex.SetTextAlign(11)
             latex.SetTextSize(.13)
             latex.SetTextFont(62)
             latexXMargin = 0.15
             if varName == 'deltaRZZ':
                 latex.SetTextAlign(31)
                 latexXMargin = 1.-latexXMargin
-            else:
-                latex.SetTextAlign(11)
+            elif varName == 'l1Pt':
+                latexXMargin = 0.35
 
             drawOpts = {
-                'ytitle' : 'Data / MC',
+                'ytitle' : 'Data / Theo.',
                 'xlimits' : (xmin,xmax),
                 'ylimits' : (0.50001,1.9999),
                 'ydivisions' : 505,
                 }
             if ana == 'full':
                 drawOpts['logx'] = True
-            if varName in ['pt','deltaRZZ']:
+            if varName in ['pt','deltaRZZ','mass']:
                 drawOpts['ylimits'] = (0.2500001, 1.9999)
 
             if varName in _matrixNames:
@@ -1762,9 +1837,9 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hTrue.fillcolor = '#99ccff'
         hTrue.linecolor = '#000099'
         hTrue.drawstyle = 'hist'
-        hTrue.fillstyle = 'solid'
-        hTrue.legendstyle = 'F'
+        TAttFill.SetFillStyle(hTrue, 3004)
         hTrue.title = '{}'.format(signalName)
+        hTrue.SetLineWidth(2*hTrue.GetLineWidth())
 
         # true uncertainty
         pdfErrTot = sum(hTruePDFErr.values())
@@ -1799,15 +1874,28 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         errorBandTrue.fillstyle = 'solid'
         errorBandTrue.SetFillColorAlpha(600, 0.5)
 
+        hTrueLeg = Hist(1, 0, 1)
+        hTrueLeg.fillcolor = hTrue.fillcolor
+        hTrueLeg.linecolor = '#7f7fff'
+        TAttFill.SetFillStyle(hTrueLeg, 3004)
+        hTrueLeg.SetLineWidth(5*hTrue.GetLineWidth())
+        hTrueLeg.title = hTrue.title
+        hTrueLeg.legendstyle = 'FL'
+
+        # use later to put fill and error bars on same legend entry
+        trueLegOverlay = Hist(1, 0, 1, title='', legendstyle='L',
+                              linecolor=hTrue.linecolor)
+        trueLegOverlay.SetLineWidth(hTrue.GetLineWidth())
+
         toPlot = [hTrue, errorBandTrue]
-        forLegend = [hTrue]
+        forLegend = [hTrueLeg]
+
 
         hTrueAlt = altTrue.makeHist(_variables[varName], selTrueAll,
                                     binning, perUnitWidth=False)
         hTrueAlt.color = 'r'
         hTrueAlt.drawstyle = 'hist'
         hTrueAlt.fillstyle = 'hollow'
-        hTrueAlt.legendstyle = 'L'
         hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
         hTrueAlt.title = '{}'.format(signalNameAlt)
 
@@ -1843,8 +1931,18 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         errorBandTrueAlt.fillstyle = 'solid'
         errorBandTrueAlt.SetFillColorAlpha(628, 0.5)
 
+        hTrueLegAlt = Hist(1, 0, 1)
+        hTrueLegAlt.linecolor = '#ff9898'
+        hTrueLegAlt.SetLineWidth(5*hTrueAlt.GetLineWidth())
+        hTrueLegAlt.title = hTrueAlt.title
+        hTrueLegAlt.legendstyle = 'L'
+
+        trueLegOverlayAlt = Hist(1, 0, 1, linecolor=hTrueAlt.linecolor,
+                                 legendstyle='L', title='')
+        trueLegOverlayAlt.SetLineWidth(hTrueAlt.GetLineWidth())
+
         toPlot += [errorBandTrueAlt, hTrueAlt]
-        forLegend.append(hTrueAlt)
+        forLegend.append(hTrueLegAlt)
 
         if varName in _matrixNames:
             with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
@@ -1879,7 +1977,6 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             matDist.color = 'forestgreen'
             matDist.drawstyle = 'hist'
             matDist.fillstyle = 'hollow'
-            matDist.legendstyle = 'L'
             matDist.SetLineWidth(matDist.GetLineWidth()*2)
 
             matDistUp -= matDist
@@ -1889,8 +1986,18 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             errorBandMat.fillstyle = 'solid'
             errorBandMat.SetFillColorAlpha(819, 0.5)
 
+            matDistLeg = Hist(1,0,1)
+            matDistLeg.linecolor = '#98e57f'
+            matDistLeg.SetLineWidth(5*matDist.GetLineWidth())
+            matDistLeg.title = matDist.title
+            matDistLeg.legendstyle = 'L'
+
+            matDistLegOverlay = Hist(1, 0, 1, linecolor=matDist.linecolor,
+                                     legendstyle='L', title='')
+            matDistLegOverlay.SetLineWidth(matDist.GetLineWidth())
+
             toPlot += [errorBandMat, matDist]
-            forLegend.append(matDist)
+            forLegend.append(matDistLeg)
 
         hUncTot = {}
         uncList = []
@@ -1991,7 +2098,8 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
         xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
 
-        leg = makeLegend(mainPad, *forLegend, **_legParams[varName])
+        leg = makeLegend(mainPad, *forLegend, **legParams[varName])
+        leg.SetFillStyle(1001)
 
         if varName in _blind and _blind[varName] < xmax:
             box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
@@ -2001,27 +2109,48 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             leg.SetFillStyle(1001)
 
         leg.Draw("same")
+        # want shaded error band and hatched fill for true legend entry,
+        # so cheat and overlay a second legend
+        legOverlay = asrootpy(TLegend(leg))
+        legOverlay.SetFillStyle(0)
+        for entry in legOverlay.primitives:
+            if entry.GetLabel() == hTrue.title:
+                overlay = trueLegOverlay
+            elif entry.GetLabel() == hTrueAlt.title:
+                overlay = trueLegOverlayAlt
+            elif entry.GetLabel() == matDist.title:
+                overlay = matDistLegOverlay
+            else:
+                entry.SetObject(None)
+                entry.SetOption('')
+                entry.SetLabel('')
+                continue
+            entry.SetObject(overlay)
+            entry.SetOption(overlay.legendstyle)
+            entry.SetLabel('')
+        legOverlay.Draw("same")
 
         latex = TLatex()
         latex.SetNDC()
+        latex.SetTextAlign(11)
         latex.SetTextSize(.13)
         latex.SetTextFont(62)
         latexXMargin = 0.15
         if varName == 'deltaRZZ':
             latex.SetTextAlign(31)
             latexXMargin = 1. - latexXMargin
-        else:
-            latex.SetTextAlign(11)
+        elif varName == 'deltaRZZ':
+            latexXMargin = 0.35
 
         drawOpts = {
-            'ytitle' : 'Data / MC',
+            'ytitle' : 'Data / Theo.',
             'xlimits' : (xmin,xmax),
             'ylimits' : (0.5,1.99999),
             'ydivisions' : 505,
             }
         if ana == 'full':
             drawOpts['logx'] = True
-        if varName in ['pt','deltaRZZ']:
+        if varName in ['pt','deltaRZZ','mass']:
             drawOpts['ylimits'] = (0.2500001, 1.9999)
 
         if varName in _matrixNames:

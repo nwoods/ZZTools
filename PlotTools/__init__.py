@@ -202,10 +202,13 @@ def makeErrorBand(hMean, errUp, errDn=None):
             print "problem in bin {} ({:.2f} +{:.2f}/-{:.2f})".format(bMean.idx, bMean.value, bUp.value, bDn.value)
 
     err = _band(hDn, hUp, hMean)
-    _Fill.SetFillStyle(err, 3244) # rootpy Graph.SetFillStyle() breaks
+    #_Fill.SetFillStyle(err, 3244) # rootpy Graph.SetFillStyle() breaks
+    err.SetFillColorAlpha(1,0.6)
+    err.SetLineWidth(0)
+    err.fillstyle = 'x'
     err.drawstyle = '2'
-    err.fillcolor = '0.05'
-    err.title = r'\mathbf{Stat. \oplus syst.\ unc.}'#'\\text{Stat.}\\oplus\\text{syst. unc.}'
+    #err.fillcolor = '0.05'
+    err.title = r'\textbf{Stat.} \ \! \boldsymbol{\oplus} \ \! \textbf{syst.\ unc.}'
     err.legendstyle = 'F'
     try:
         err.SetLineColorAlpha(_Color(err.GetLineColor())('root'),0.)

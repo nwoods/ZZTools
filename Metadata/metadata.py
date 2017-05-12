@@ -187,7 +187,7 @@ sampleInfo['GluGluZZTo2mu2tau'] = {
 
 sampleInfo["ZZTo4L"] = {
     'xsec' : 1.256,
-    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ, Z}\gamma^\ast', #'q#bar{q} #rightarrow ZZ, Z#gamma*',
+    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'q#bar{q} #rightarrow ZZ, Z#gamma*',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#99ccff',
@@ -198,7 +198,7 @@ sampleInfo["ZZTo4L"] = {
 
 sampleInfo["ZZTo4L-amcatnlo"] = {
     'xsec' : 1.212,
-    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ, Z}\gamma^\ast', #'q#bar{q} #rightarrow ZZ, Z#gamma*',
+    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'q#bar{q} #rightarrow ZZ, Z#gamma*',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#99ccff',
@@ -345,7 +345,7 @@ sampleInfo['ZZZ'] = {
 # so many aTGC samples!
 sampleInfo["ZZTo4L-sherpa"] = {
     'xsec' : 0.455985,
-    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ (SHERPA)}', #'q#bar{q} #rightarrow ZZ (SHERPA)',
+    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ\ (SHERPA)}', #'q#bar{q} #rightarrow ZZ (SHERPA)',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#99ccff',
@@ -466,7 +466,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p0015'] = {
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p003'] = {
     'xsec' : 4.647e-01,
-    'prettyName' : r'f_{4}^{\gamma} = 0.0038, f_{4}^{\mathbf{Z}} = 0.003', #'f_{4}^{#gamma} = 0.0038, f_{4}^{Z} = 0.003',
+    'prettyName' : r'\boldsymbol{f}_{\boldsymbol{4}}^{\boldsymbol{\gamma}} = \boldsymbol{0.0038}, \boldsymbol{f}_{\boldsymbol{4}}^{\mathbf{Z}} = \boldsymbol{0.003}', #'f_{4}^{#gamma} = 0.0038, f_{4}^{Z} = 0.003',
     'isSignal' : 1000,
     'format' : {
         'fillstyle' : 'hollow',
@@ -708,7 +708,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p0015'] = {
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p003'] = {
     'xsec' : 4.653e-01,
-    'prettyName' : r'f_{5}^{\gamma} = 0.0038, f_{5}^{\mathbf{Z}} = 0.003', #'f_{5}^{#gamma} = 0.0038, f_{5}^{Z} = 0.003',
+    'prettyName' : r'\boldsymbol{f}_{\boldsymbol{5}}^{\boldsymbol{\gamma}} = \boldsymbol{0.0038}, \boldsymbol{f}_{\boldsymbol{5}}^{\mathbf{Z}} = \boldsymbol{0.003}', #'f_{5}^{#gamma} = 0.0038, f_{5}^{Z} = 0.003',
     'isSignal' : 1000,
     'format' : {
         'fillstyle' : 'hollow',
@@ -843,7 +843,7 @@ groupInfo = {}
 
 groupInfo['GluGluZZ'] = {
     'isSignal' : 1000,
-    'prettyName' : r'\mathbf{gg} \rightarrow \mathbf{ZZ, Z}\gamma^\ast', #'gg #rightarrow ZZ, Z#gamma*',
+    'prettyName' : r'\mathbf{gg} \rightarrow \mathbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'gg #rightarrow ZZ, Z#gamma*',
     'format' : {
         'fillcolor' : '#4b78ff',
         'linecolor' : '#000099',

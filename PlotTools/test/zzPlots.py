@@ -35,11 +35,11 @@ _objNames = {
     'eeee' : '4e',
     'eemm' : '2e2\\mu',
     'mmmm' : '4\\mu',
-    'z' : 'Z',
-    'z1' : 'Z_{1}',
-    'z2' : 'Z_{2}',
-    'ze' : 'Z \\rightarrow e^{+}e^{-}',
-    'zm' : 'Z \\rightarrow \\mu^{+}\\mu^{-}',
+    'z' : '\\text{Z}',
+    'z1' : '\\text{Z}_{1}',
+    'z2' : '\\text{Z}_{2}',
+    'ze' : '\\text{Z} \\rightarrow e^{+}e^{-}',
+    'zm' : '\\text{Z} \\rightarrow \\mu^{+}\\mu^{-}',
     'l1' : '\\ell_{1}',
     'l' : '\\ell',
     'e' : 'e',
@@ -71,22 +71,22 @@ _units = {
     }
 
 _xTitles = {
-    'Mass' : 'm_{{{obj}}} \\, [\\text{{GeV}}]',
+    'Mass' : 'm_{{{obj}}} \\, (\\text{{GeV}})',
     'Eta' : '\\eta_{{{obj}}}',
     'Phi' : '\\phi_{{{obj}}}',
-    'Pt' : '{obj} \\, p_{{T}} \\, [\\text{{GeV}}]',
+    'Pt' : '{obj} \\, p_{{T}} \\, (\\text{{GeV}})',
     'nJets' : 'N_{\\text{jets}}',
     'nJets_eta2p4' : 'N_{\\text{jets}} \\left( \\left|\\eta\\right| < 2.4 \\right)',
     'Iso' : 'R_{{Iso}} \\, ({obj})',
-    'PVDXY' : '\\left| \\Delta_{{xy}} \\, ({obj}) \\right| \\, [\\text{{cm}}]',
-    'PVDZ' : '\\left| \\Delta_{{z}} \\, ({obj}) \\right| \\, [\\text{{cm}}]',
+    'PVDXY' : '\\left| \\Delta_{{xy}} \\, ({obj}) \\right| \\, (\\text{{cm}})',
+    'PVDZ' : '\\left| \\Delta_{{z}} \\, ({obj}) \\right| \\, (\\text{{cm}})',
     'nvtx' : 'N_{\\text{vtx}}',
     'SIP3D' : 'SIP_{{3D}} \\, ({obj})',
-    'jet1Pt' : 'p_T^\\text{j1} \\, [\\text{GeV}]',
+    'jet1Pt' : 'p_T^\\text{j1} \\, (\\text{GeV})',
     'jet1Eta' : '\\eta_\\text{j1}',
-    'jet2Pt' : 'p_T^\\text{j2} \\, [\\text{GeV}]',
+    'jet2Pt' : 'p_T^\\text{j2} \\, (\\text{GeV})',
     'jet2Eta' : '\\eta_\\text{j2}',
-    'mjj' : 'm_\\text{jj} \\, [\\text{GeV}]',
+    'mjj' : 'm_\\text{jj} \\, (\\text{GeV})',
     'deltaEtajj' : '|\\Delta \\eta_{\\text{jj}}}|',
     'deltaPhiZZ' : '\\Delta \\phi (\\text{Z}_1, \\text{Z}_2)',
     'deltaRZZ' : '\\Delta \\text{R} (\\text{Z}_1, \\text{Z}_2)',
@@ -94,7 +94,7 @@ _xTitles = {
 
 for v,t in _xTitles.iteritems():
     if _units[v]:
-        t += ' \\, [\\text{{{{{}}}}}]'.format(_units[v])
+        t += ' \\, (\\text{{{{{}}}}})'.format(_units[v])
 
 # some distributions need the legend moved
 _legParamsLeft = {
@@ -871,6 +871,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                                     sfArgs)
 
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
+                band.title = r'\textbf{Systematic unc.}'
 
                 band.fillstyle = 'x'
                 band.SetFillColorAlpha(1,0.6)
@@ -1068,6 +1069,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                                     puWeightFile, sfArgs)
 
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
+                band.title = r'\textbf{Systematic unc.}'
 
                 band.fillstyle = 'x'
                 band.SetFillColorAlpha(1,0.6)
@@ -1086,7 +1088,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             if '{obj}' in xTitle:
                 xTitle = xTitle.format(obj=objNames[z])
 
-            yTitle = 'Z bosons / {} {}'.format(binNormWidth2l[varName],
+            yTitle = 'Z bosons / {} {}'.format(makeNumberPretty(binNormWidth2l[varName],2),
                                                units[varName])
 
             (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c,
@@ -1141,6 +1143,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                                     puWeightFile, sfArgs)
 
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
+                band.title = r'\textbf{Systematic unc.}'
 
                 band.fillstyle = 'x'
                 band.SetFillColorAlpha(1,0.6)
@@ -1156,7 +1159,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             if '{obj}' in xTitle:
                 xTitle = xTitle.format(obj=objNames[lep])
 
-            yTitle = 'Leptons / {} {}'.format(_binNormWidth1l[varName],
+            yTitle = 'Leptons / {} {}'.format(makeNumberPretty(_binNormWidth1l[varName],2),
                                               units[varName])
 
             (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c,
