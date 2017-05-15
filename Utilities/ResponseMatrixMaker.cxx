@@ -1698,6 +1698,7 @@ typedef UseSFHists<FirstJetAbsFloatResponseMatrixMaker>  SFHistFirstJetAbsFloatR
 typedef UseSFHists<SecondJetAbsFloatResponseMatrixMaker> SFHistSecondJetAbsFloatResponseMatrixMaker;
 
 typedef RelaxGenZCuts<FloatBranchResponseMatrixMaker> FullSpectrumFloatResponseMatrixMaker;
+typedef UseSFHists<FullSpectrumFloatResponseMatrixMaker> SFHistFullSpectrumFloatResponseMatrixMaker;
 
 #if defined(__ROOTCLING__)
 #pragma link C++ class FloatBranchResponseMatrixMaker;
