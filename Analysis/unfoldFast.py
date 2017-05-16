@@ -377,6 +377,7 @@ _legParams['eta'] = _legParams['deltaEtajj'].copy()
 _legParams['jet1Eta']['topmargin'] = 0.058
 _legParams['jet2Eta']['topmargin'] = 0.058
 _legParams['nJets']['topmargin'] = 0.058
+_legParams['massFull']['leftmargin'] = 0.25
 
 _legParamsLogy = {v:p.copy() for v,p in _legParams.iteritems()}
 _legParamsLogy['deltaRZZ']['textsize'] = .025
@@ -394,6 +395,7 @@ _legParamsLogy['mass']['rightmargin'] = 0.025
 _legParamsLogy['mass']['textsize'] = 0.025
 _legParamsLogy['lPt']['topmargin'] = 0.05
 _legParamsLogy['zHigherPt']['topmargin'] = 0.045
+_legParamsLogy['massFull']['topmargin'] = 0.035
 
 
 _uncertaintyTitles = {
@@ -474,10 +476,11 @@ def _unnormalizeBins(h):
     h.sumw2()
 
 _printNext = False
-
+_printCounter = 0
 def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
                  withRespAndCov=False, printIt=False):
     global _printNext
+    global _printCounter
 
     response = Response(hSig, hTrue.clone(), hResponse.clone())
 
@@ -488,27 +491,35 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
             condition = sig.Max() / max(0., sig.Min())
         except ZeroDivisionError:
             condition = float('inf')
-            print hSig.Integral(), hBkg.Integral(), hTrue.Integral(), hResponse.Integral()
+            raise
 
         print ''
         print 'condition: {}'.format(condition)
         print ''
 
     except:
-        print "It broke!"
-        # print hSig.Integral(), hBkg.Integral(), hTrue.Integral(), hResponse.Integral()
-        # c = Canvas(1000,1000)
-        # hSig.draw()
-        # c.Print("sig.png")
-        # hBkg.draw()
-        # c.Print("bkg.png")
-        # hTrue.draw()
-        # c.Print("true.png")
-        # hData.draw()
-        # c.Print("data.png")
-        # hResponse.drawstyle = 'colz'
-        # hResponse.draw()
-        # c.Print("resp.png")
+        print "It broke! Printing debug info"
+        print "Sig: {}, bkg: {}, true: {}, response: {}".format(hSig.Integral(), hBkg.Integral(), hTrue.Integral(), hResponse.Integral())
+        print "Generating debug plots sig{0}.png, bkg{0}.png, true{0}.png, data{0}.png, resp{0}.png, resp{0}.root".format(_printCounter)
+        c = Canvas(1000,1000)
+        hSig.draw()
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("sig{}.png".format(_printCounter))
+        hBkg.draw()
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("bkg{}.png".format(_printCounter))
+        hTrue.draw()
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("true{}.png".format(_printCounter))
+        hData.draw()
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("data{}.png".format(_printCounter))
+        hResponse.drawstyle = 'colz'
+        hResponse.draw()
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("resp{}.png".format(_printCounter))
+        c.Print("resp{}.root".format(_printCounter))
+        _printCounter += 1
 
 
     hDataMinusBkg = hData - hBkg
@@ -519,23 +530,26 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
     if _printNext or printIt:
         _printNext = False
 
+        print "Generating debug plots sig{0}.png, bkg{0}.png, true{0}.png, data{0}.png, resp{0}.png, resp{0}.root".format(_printCounter)
         c = Canvas(1000,1000)
         hSig.draw()
-        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
-        c.Print("sig.png")
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("sig{}.png".format(_printCounter))
         hBkg.draw()
-        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
-        c.Print("bkg.png")
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("bkg{}.png".format(_printCounter))
         hTrue.draw()
-        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
-        c.Print("true.png")
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("true{}.png".format(_printCounter))
         hData.draw()
-        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
-        c.Print("data.png")
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("data{}.png".format(_printCounter))
         hResponse.drawstyle = 'colz'
         hResponse.draw()
-        _style.setCMSStyle(c, '', dataType='Preliminary', intLumi=36810.)
-        c.Print("resp.png")
+        _style.setCMSStyle(c, '', dataType='Debug', intLumi=35860.)
+        c.Print("resp{}.png".format(_printCounter))
+        c.Print("resp{}.root".format(_printCounter))
+        _printCounter += 1
 
     hOut = unf.Hreco()
     if not hOut:
@@ -1020,6 +1034,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             for s, resp in responseMakers.iteritems():
                 if "GluGluZZ" not in s and 'phantom' not in s:
                     hResponseVariations.append(asrootpy(resp.getPDFResponses()))
+
             # for each var bin in each sample, get the RMS across all the variations
             allSigRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hSigVariations]
             allResponseRMSes = [[[Graph(h.ProjectionZ('slice_{}_{}'.format(x,y), x+1, x+1, y+1, y+1)).GetRMS(2)
@@ -1625,7 +1640,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                     overlay = trueLegOverlay
                 elif entry.GetLabel() == hTrueAlt.title:
                     overlay = trueLegOverlayAlt
-                elif entry.GetLabel() == matDist.title:
+                elif varName in _matrixNames and entry.GetLabel() == matDist.title:
                     overlay = matDistLegOverlay
                 else:
                     entry.SetObject(None)
@@ -2118,7 +2133,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                 overlay = trueLegOverlay
             elif entry.GetLabel() == hTrueAlt.title:
                 overlay = trueLegOverlayAlt
-            elif entry.GetLabel() == matDist.title:
+            elif varName in _matrixNames and entry.GetLabel() == matDist.title:
                 overlay = matDistLegOverlay
             else:
                 entry.SetObject(None)
@@ -2139,7 +2154,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         if varName == 'deltaRZZ':
             latex.SetTextAlign(31)
             latexXMargin = 1. - latexXMargin
-        elif varName == 'deltaRZZ':
+        elif varName == 'l1Pt':
             latexXMargin = 0.35
 
         drawOpts = {
