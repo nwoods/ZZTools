@@ -17,13 +17,14 @@ rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 rlog["/rootpy.tree.chain"].setLevel(rlog.WARNING)
 
 from Metadata.metadata import sampleInfo as _samples
-from Utilities import combineWeights
+from Utilities import combineWeights as _combineWeights, removeXErrors as _removeXErrors
 
 from rootpy.io import root_open, TemporaryFile
 from rootpy.io import DoesNotExist as _RootpyDNE
 from rootpy.tree import Tree, TreeChain
 from rootpy.plotting import Hist, Hist2D, Canvas
 from rootpy.context import preserve_current_directory
+from rootpy.ROOT import TGraphAsymmErrors as _TGAE
 
 from glob import glob
 from math import sqrt
@@ -211,9 +212,9 @@ class NtupleSample(_SampleBase):
             "Invalid plotting parameters! Variable: {}, selection: {}, weight: {}.".format(var,selection,weight)
 
         for v, s, w in zip(var, selection, weight):
-            w = combineWeights(w, self.fullWeight())
+            w = _combineWeights(w, self.fullWeight())
 
-            s = combineWeights(w, s)
+            s = _combineWeights(w, s)
 
             self.addToHist(h, v, s)
 
@@ -280,9 +281,9 @@ class NtupleSample(_SampleBase):
         for vx, vy, s, w in zip(varX, varY, selection, weight):
             v = '{}:{}'.format(vx,vy)
 
-            w = combineWeights(w, self.fullWeight())
+            w = _combineWeights(w, self.fullWeight())
 
-            s = combineWeights(w, s)
+            s = _combineWeights(w, s)
 
             self.addToHist(h, v, s)
 
@@ -323,7 +324,7 @@ class NtupleSample(_SampleBase):
         if reset:
             self.weight = str(w)
         else:
-            self.weight = combineWeights(self.weight, w)
+            self.weight = _combineWeights(self.weight, w)
 
     @property
     def weight(self):
@@ -342,7 +343,7 @@ class NtupleSample(_SampleBase):
         Get the weight including the automatically set weights (cross
         section etc.).
         '''
-        return combineWeights(self.weight, self.implicitWeight())
+        return _combineWeights(self.weight, self.implicitWeight())
 
     def applyCut(self, cut='', name=''):
         '''
@@ -446,7 +447,7 @@ class MCSample(NtupleSample):
         else:
             w = ''
 
-        return combineWeights(super(MCSample, self).implicitWeight(), w)
+        return _combineWeights(super(MCSample, self).implicitWeight(), w)
 
 
     def formatDefault(self):
@@ -587,10 +588,18 @@ class DataSample(NtupleSample):
             if postprocess:
                 self._postprocessor(pois)
 
+            if h.uniform():
+                _removeXErrors(pois)
+
             return pois
 
         if postprocess:
             self._postprocessor(h)
 
+        if 'e' in h.drawstyle.lower() and h.uniform():
+            _removeXErrors(h)
+
         return h
+
+
 

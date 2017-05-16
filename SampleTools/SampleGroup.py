@@ -13,6 +13,7 @@ from Metadata.metadata import sampleInfo as _samples
 
 from Sample import _SampleBase
 from . import DataSample as _DataSample
+from Utilities import removeXErrors as _removeXErrors
 
 from rootpy.plotting import Hist, Hist2D, HistStack
 
@@ -138,6 +139,9 @@ class SampleGroup(_SampleBase):
             if postprocess:
                 self._postprocessor(out)
 
+            if h.uniform():
+                _removeXErrors(out)
+
             return out
 
         bins = binning[:]
@@ -155,6 +159,9 @@ class SampleGroup(_SampleBase):
 
         if postprocess:
             self._postprocessor(h)
+
+        if 'e' in h.drawstyle.lower() and h.uniform():
+            _removeXErrors(h)
 
         return h
 

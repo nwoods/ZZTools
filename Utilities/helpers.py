@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.WARNING)
 rlog["/rootpy.compiled"].setLevel(rlog.WARNING)
 
 import rootpy.compiled as _rootComp
+from rootpy.ROOT import TGraphAsymmErrors as _TGAE
 
 from numbers import Number as _NumType
 
@@ -202,4 +203,20 @@ def zMassDist(m):
 def zeroNegativeBins(h):
     for b in h:
         b.value = max(0., b.value)
+
+
+def removeXErrors(p):
+    '''
+    Set all x-axis errors on a TGraphAsymmErrors to 0, or set a TH1 to not
+    draw its x errors.
+    '''
+    try:
+        for i in xrange(len(p)):
+            p.SetPointEXhigh(i,0)
+            p.SetPointEXlow(i,0)
+    except: # histogram
+        p.drawstyle = p.drawstyle + 'X0'
+
+    if 'l' in p.legendstyle.lower():
+        p.legendstyle = p.legendstyle.replace('L','').replace('l','')
 
