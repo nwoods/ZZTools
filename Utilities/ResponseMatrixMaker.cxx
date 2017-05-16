@@ -389,7 +389,7 @@ void ResponseMatrixMakerBase<T>::setup()
                   this->fillResponse(responses["mEff_dn"], val, trueVal, scale * puWt * lepSFMDn * genWeight);
                 }
 
-              if(hasLHE)
+              if(hasLHE && pdfAndAlphaSWeights.at(0))
                 {
                   // fill once for each scale variation
                   float nominalWeightScaleNorm = nominalWeight / scaleWeights.at(0);
@@ -1471,7 +1471,7 @@ UseSFHists<R>::UseSFHists(const Str& channel, const Str& varName,
                           const Vec<float>& binning) :
   R(channel, varName, binning)
 {
-  // set some defaults to things don't break
+  // set some defaults so things don't break
   hEleSelSF.reset(new TH2F("eSelSFDefault", "", 1, 0., 1000., 1, 0., 1000.));
   hEleSelSF->SetBinContent(4, 1.);
   hEleSelGapSF.reset(new TH2F("eSelGapSFDefault", "", 1, 0., 1000., 1, 0., 1000.));
@@ -1600,7 +1600,7 @@ UseSFHists<R>::getLepSF(const Vec<Str>& leptons,
 {
   float out = 1.;
 
- for(size_t i = 0; i < leptons.size(); ++i)
+  for(size_t i = 0; i < leptons.size(); ++i)
     {
       if(leptons.at(i).compare(0,1,"e") == 0)
         {
