@@ -889,13 +889,16 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             xTitle = _xTitles[varName]
             if 'obj' in xTitle:
                 xTitle = xTitle.format(obj=objNames[chan])
-            if varName == 'Mass' and ana == 'smp':
-                xTitle = xTitle.replace('GeV','TeV')
-
             yTitle = 'Events'
             if norm:
                 yTitle += ' / {} {}'.format(makeNumberPretty(normForYAxis, 2),
                                             units[varName])
+
+            if varName == 'Mass' and ana == 'smp':
+                xTitle = xTitle.replace('GeV','TeV')
+                if norm:
+                    yTitle = yTitle.replace(makeNumberPretty(normForYAxis, 2),
+                                            makeNumberPretty(normForYAxis/1000.,4)).replace('GeV','TeV')
 
             # cure inexplicable crash with inexplicable fix
             if chan == 'eeee' and varName == 'deltaPhiZZ':
