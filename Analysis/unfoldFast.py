@@ -1658,7 +1658,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             latex.SetTextSize(.13)
             latex.SetTextFont(62)
             latexXMargin = 0.15
-            if varName == 'deltaRZZ':
+            if varName in ['deltaRZZ','massFull']:
                 latex.SetTextAlign(31)
                 latexXMargin = 1.-latexXMargin
             elif varName == 'l1Pt':
@@ -2151,7 +2151,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         latex.SetTextSize(.13)
         latex.SetTextFont(62)
         latexXMargin = 0.15
-        if varName == 'deltaRZZ':
+        if varName in ['deltaRZZ','massFull']:
             latex.SetTextAlign(31)
             latexXMargin = 1. - latexXMargin
         elif varName == 'l1Pt':
