@@ -16,50 +16,51 @@ class PlotStyle(object):
     '''
     A class for making plots look decent. Sets up gStyle, adds garnishes like text boxes.
     '''
-    def __init__(self):
+    def __init__(self, setStyle=True):
         '''
         Set up PlotStyle, set gStyle for things we always want no matter what.
         '''
-        # CMS-approved everything
-        tdrstyle.setTDRStyle()
+        if setStyle:
+            # CMS-approved everything
+            tdrstyle.setTDRStyle()
 
-        ### Differences from TDR standard:
+            ### Differences from TDR standard:
 
-        # Big canvas (can always shrink later)
-        gStyle.SetCanvasDefH(1200)
-        gStyle.SetCanvasDefW(1200)
+            # Big canvas (can always shrink later)
+            gStyle.SetCanvasDefH(1200)
+            gStyle.SetCanvasDefW(1200)
 
-        # Tick marks on all sides
-        gStyle.SetPadTickX(1)
-        gStyle.SetPadTickY(1)
+            # Tick marks on all sides
+            gStyle.SetPadTickX(1)
+            gStyle.SetPadTickY(1)
 
-        # Everything has white backgrounds
-        gStyle.SetLegendFillColor(0)
+            # Everything has white backgrounds
+            gStyle.SetLegendFillColor(0)
 
-        # Colors that don't suck
-        gStyle.SetPalette(1)
+            # Colors that don't suck
+            gStyle.SetPalette(1)
 
-        # Make axis title and labels just a little smaller and (for Y) closer to the axis
-        gStyle.SetTitleSize(0.048, "X")
-        gStyle.SetTitleSize(0.044, "YZ")
-        gStyle.SetLabelSize(0.033, "XYZ")
-        gStyle.SetTitleYOffset(1.15)
-        gStyle.SetTitleXOffset(0.86)
-        gStyle.SetPadLeftMargin(0.1)
-        gStyle.SetPadRightMargin(0.025)
-        gStyle.SetPadBottomMargin(0.095)
-        gStyle.SetTitleAlign(12)
+            # Make axis title and labels just a little smaller and (for Y) closer to the axis
+            gStyle.SetTitleSize(0.048, "X")
+            gStyle.SetTitleSize(0.044, "YZ")
+            gStyle.SetLabelSize(0.033, "XYZ")
+            gStyle.SetTitleYOffset(1.15)
+            gStyle.SetTitleXOffset(0.86)
+            gStyle.SetPadLeftMargin(0.1)
+            gStyle.SetPadRightMargin(0.025)
+            gStyle.SetPadBottomMargin(0.095)
+            gStyle.SetTitleAlign(12)
 
-        # Apply changes
-        gROOT.ForceStyle()
+            # Apply changes
+            gROOT.ForceStyle()
 
-        # Force exponentials when axes are over 3 digits
-        TGaxis.SetMaxDigits(3)
-        TGaxis.SetExponentOffset(-0.060, 0.008, "y")
-        TGaxis.SetExponentOffset(-0.055, -0.062, "x") # will overlap with title unless title is centered
+            # Force exponentials when axes are over 3 digits
+            TGaxis.SetMaxDigits(3)
+            TGaxis.SetExponentOffset(-0.060, 0.008, "y")
+            TGaxis.SetExponentOffset(-0.055, -0.062, "x") # will overlap with title unless title is centered
 
-        # Format of numbers printed on histograms with the "text" option
-        gStyle.SetPaintTextFormat(".3f")
+            # Format of numbers printed on histograms with the "text" option
+            gStyle.SetPaintTextFormat(".3f")
 
 
     def setCMSStyle(self, canvas, author='N. Woods', textRight=True,
