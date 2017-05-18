@@ -112,16 +112,20 @@ def main(inData, inMC, inATGC, outDir, fakeRateFile, puWeightFile, lumi):
                                         'smp', puWeightFile, lumi)
 
     bkgData = standardZZBkg('zz', inData, inMC, 'smp', puWeightFile,
-                            fakeRateFile, lumi)
+                            fakeRateFile, lumi, sipCut=10.)
     bkgDataSyst = {
         'eup' : standardZZBkg('eeee,eemm', inData, inMC, 'smp', puWeightFile,
-                              fakeRateFile, lumi, eFakeRateSyst='up'),
+                              fakeRateFile, lumi, sipCut=10.,
+                              eFakeRateSyst='up'),
         'edn' : standardZZBkg('eeee,eemm', inData, inMC, 'smp', puWeightFile,
-                              fakeRateFile, lumi, eFakeRateSyst='dn'),
+                              fakeRateFile, lumi, sipCut=10.,
+                              eFakeRateSyst='dn'),
         'mup' : standardZZBkg('eemm,mmmm', inData, inMC, 'smp', puWeightFile,
-                              fakeRateFile, lumi, mFakeRateSyst='up'),
+                              fakeRateFile, lumi, sipCut=10.,
+                              mFakeRateSyst='up'),
         'mdn' : standardZZBkg('eemm,mmmm', inData, inMC, 'smp', puWeightFile,
-                              fakeRateFile, lumi, mFakeRateSyst='dn'),
+                              fakeRateFile, lumi, sipCut=10.,
+                              mFakeRateSyst='dn'),
         }
 
     # weight MC
@@ -453,7 +457,7 @@ def main(inData, inMC, inATGC, outDir, fakeRateFile, puWeightFile, lumi):
 
             h.write()
 
-
+        print "{:.2f} + {:.2f} = {:.2f}".format(bkgDataHists[''].Integral(),bkgMCHists[''].Integral(),bkgDataHists[''].Integral()+bkgMCHists[''].Integral())
 
 if __name__ == '__main__':
     inData = 'uwvvNtuples_data_10mar2017_LooseSIPLooseVtx'
