@@ -15,7 +15,14 @@ _texTemplate = '''
 \\end{{document}}
 '''
 
-def pdfViaTex(c, fname, texDir, pdfDir):
+def _doSub(s, (sub,exp)):
+    '''
+    Replace regex exp with str sub in str s.
+    '''
+    return exp.sub(sub,s)
+
+
+def pdfViaTex(c, fname, texDir, pdfDir, **extraSubs):
     '''
     Print a Canvas as a PDF, via a ROOT-generated .tex file.
 
@@ -24,6 +31,9 @@ def pdfViaTex(c, fname, texDir, pdfDir):
     texDir (str): Directory for tex files and pdflatex output. Will be created
         if necessary.
     pdfDir (str): Directory for final PDF. Will be created if necessary.
+    extraSubs(str keyed to str): Value is a regular expression that will be
+        replaced with key anywhere it appears in the output tex file, via
+        re.sub().
     '''
     if not _path.exists(texDir):
         _mkdirp(texDir)
@@ -35,16 +45,20 @@ def pdfViaTex(c, fname, texDir, pdfDir):
     if not _path.exists(imgFile):
         raise IOError("Something went wrong trying to print {} to a tex file.".format(fname))
 
+    subList = []
+
     # Remove unwanted boxes from around hatched and transparent fill areas
     imgFileFixed = imgFile.replace('.tex','_fixed.tex')
-    drawPattern = _reComp(r'\\draw(?= \[((pattern=)|(.+fill opacity=)))')
+    subList.append(('',_reComp(r'\\draw(?= \[((pattern=)|(.+fill opacity=)))')))
     # make transparency actually work for hatched areas
     # there's probably a way to combine with the previous regex...
-    opacityPattern = _reComp(r'(?<=\\path \[pattern=crosshatch, pattern color=c, )fill (?=opacity=[01])')
+    subList.append((r'\path',_reComp(r'(?<=\\path \[pattern=crosshatch, pattern color=c, )fill (?=opacity=[01])')))
+    # anything else that needs to change
+    subList += [(k, _reComp(v)) for k,v in extraSubs.iteritems()]
     with open(imgFile, 'r') as fIm:
         with open(imgFileFixed, 'w') as fImFix:
             for line in fIm:
-                fImFix.write(opacityPattern.sub('',drawPattern.sub(r'\path',line)))
+                fImFix.write(reduce(_doSub, subList, line))
 
     texFile = _path.join(texDir, fname+'.tex')
 
