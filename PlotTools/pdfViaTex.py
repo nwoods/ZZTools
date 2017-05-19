@@ -49,10 +49,10 @@ def pdfViaTex(c, fname, texDir, pdfDir, **extraSubs):
 
     # Remove unwanted boxes from around hatched and transparent fill areas
     imgFileFixed = imgFile.replace('.tex','_fixed.tex')
-    subList.append(('',_reComp(r'\\draw(?= \[((pattern=)|(.+fill opacity=)))')))
+    subList.append(('\path',_reComp(r'\\draw(?= \[((pattern=)|(.+fill opacity=)))')))
     # make transparency actually work for hatched areas
     # there's probably a way to combine with the previous regex...
-    subList.append((r'\path',_reComp(r'(?<=\\path \[pattern=crosshatch, pattern color=c, )fill (?=opacity=[01])')))
+    subList.append((r'',_reComp(r'(?<=\\path \[pattern=crosshatch, pattern color=c, )fill (?=opacity=[01])')))
     # anything else that needs to change
     subList += [(k, _reComp(v)) for k,v in extraSubs.iteritems()]
     with open(imgFile, 'r') as fIm:
