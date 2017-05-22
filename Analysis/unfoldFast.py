@@ -449,11 +449,13 @@ _matrixNames = {
     }
 _matrixXSecs = {
     '' : 17.5413,
-    'up' : 17.1878,
-    'dn' : 17.9555,
+    'dn' : 17.1878,
+    'up' : 17.9555,
     }
-_matrixPath = '/afs/cern.ch/user/k/kelong/www/ZZMatrixDistributions'
+_matrixPath = '/data/nawoods/ZZMatrixDistributions'#'/afs/cern.ch/user/k/kelong/www/ZZMatrixDistributions'
 
+_cacheFileTemplate = _join(_env['zzt'], 'Analysis', 'savedResults',
+                           'unfoldCache_{}Iter.root')
 
 def _normalizeBins(h):
     binUnit = 1 # min(h.GetBinWidth(b) for b in range(1,len(h)+1))
@@ -562,101 +564,88 @@ def _getUnfolded(hSig, hBkg, hTrue, hResponse, hData, nIter,
     return asrootpy(hOut)
 
 
-
-def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
-         amcatnlo=False, norm=True, logy=False, looseSIP=False, noSIP=False,
-         sfRemake=False, *varNames, **kwargs):
-    sfArgs = {}
+def _generateAnalysisInputs(puWeightFile, looseSIP=False, noSIP=False,
+                            sfRemake=False):
+    sfFiles = {}
     sipForBkg = 4.
     if noSIP:
-        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_NoSIP'
-        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_NoSIP'
-        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
-        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_NoSIP'
+        sfFiles['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_NoSIP'
+        sfFiles['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_NoSIP'
+        sfFiles['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sfFiles['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_NoSIP'
         sipForBkg = -1
         if looseSIP:
             raise ValueError("You can use scale factors for loose SIP cut or "
                              "no SIP cut, but not both.")
     elif looseSIP:
-        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_LooseSIP'
-        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_LooseSIP'
-        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_LooseSIP'
-        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sfFiles['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake_LooseSIP'
+        sfFiles['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake_LooseSIP'
+        sfFiles['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17_LooseSIP'
+        sfFiles['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
         sipForBkg = 10.
     elif sfRemake:
-        sfArgs['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake'
-        sfArgs['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake'
-        sfArgs['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
-        sfArgs['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17'
-
-    plotType = '' #'Preliminary'
-
-    for fileType in 'Cs', 'pngs', 'texs', 'pdfs',:
-        subDir = _join(plotDir, fileType)
-        if not _exists(subDir):
-            _mkdir(subDir)
-        elif not _isdir(subDir):
-            raise IOError("There is already some non-directory object called {}.".format(subDir))
-
-    if logy:
-        legParams = _legParamsLogy
-    else:
-        legParams = _legParams
-
-    lumifb = lumi / 1000.
-
-    ana = 'smp'
-    if 'massFull' in varNames:
-        # massFull is totally different from everything else. Instead of
-        # trying to make them play nicely, just do massFull totally separately
-        if len(varNames) != 1:
-            raise ValueError("massFull must be run separately from other variables")
-        else:
-            ana = 'full'
-
-    classesNeeded = list(set(cls  for v in varNames for cls in _responseClassNames[v].values()))
-    if sfArgs:
-        classesNeeded = ['SFHist'+cn for cn in classesNeeded]
-    _rootComp.register_file(_join(_zztBaseDir, 'Utilities',
-                                  'ResponseMatrixMaker.cxx'),
-                            classesNeeded)
-
-    # force compilation
-    _C = getattr(_rootComp, classesNeeded[0])
-
-    channels = _channels[:]
-
-    puWeightStr, puWt = puWeight(puWeightFile, '')
-    puWeightStrUp, puWtUp = puWeight(puWeightFile, 'up')
-    puWeightStrDn, puWtDn = puWeight(puWeightFile, 'dn')
+        sfFiles['eSelSFFile'] = 'eleSelectionSF_HZZ_NWRemake'
+        sfFiles['eSelSFFileGap'] = 'eleSelectionSFGap_HZZ_NWRemake'
+        sfFiles['eRecoSFFile'] = 'eleRecoSF_HZZ_Moriond17'
+        sfFiles['mSFFile'] = 'muSelectionAndRecoSF_HZZ_Moriond17'
 
     puWeightFileFull = _join(_env['zzt'],'data','pileup',puWeightFile+'.root')
     with preserve_current_directory():
         with root_open(puWeightFileFull) as fPU:
-            hPUWt = asrootpy(fPU.puScaleFactor)
-            hPUWtUp = asrootpy(fPU.puScaleFactor_up)
-            hPUWtDn = asrootpy(fPU.puScaleFactor_down)
-            hPUWt.SetDirectory(0)
-            hPUWtUp.SetDirectory(0)
-            hPUWtDn.SetDirectory(0)
+            hPUWt = {
+                '' : asrootpy(fPU.puScaleFactor),
+                'up' : asrootpy(fPU.puScaleFactor_up),
+                'dn' : asrootpy(fPU.puScaleFactor_down),
+                }
+            for hpu in hPUWt.values():
+                hpu.SetDirectory(0)
 
-    true = genZZSamples('zz', inMC, ana, lumi, amcatnlo=amcatnlo,
-                        higgs=(ana=='full'))
-    reco = zzStackSignalOnly('zz', inMC, ana, puWeightFile,
-                             lumi, amcatnlo=amcatnlo, asGroup=True,
-                             higgs=(ana=='full'),
-                             **sfArgs)
-    sigFileNames = {s.name : [f for f in s.getFileNames()]
-                    for s in reco.values()[0].getBaseSamples()}
-    sigConstWeights = {s.name : s.xsec * s.intLumi * float(s.kFactor) / s.sumW
-                       for s in reco.values()[0].getBaseSamples()}
+    hSF = {}
+    if sfFiles:
+        with preserve_current_directory():
+            with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
+                                      sfFiles['eSelSFFile']+'.root')) as fEleSel:
+                hSF['eSel'] = asrootpy(fEleSel.EGamma_SF2D).clone()
+                hSF['eSel'].SetDirectory(0)
+            with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
+                                 sfFiles['eSelSFFileGap']+'.root')) as fEleSelGap:
+                hSF['eSelGap'] = asrootpy(fEleSelGap.EGamma_SF2D).clone()
+                hSF['eSelGap'].SetDirectory(0)
+            with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
+                                 sfFiles['eRecoSFFile']+'.root')) as fEleReco:
+                hSF['eReco'] = asrootpy(fEleReco.EGamma_SF2D).clone()
+                hSF['eReco'].SetDirectory(0)
+            with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
+                                 sfFiles['mSFFile']+'.root')) as fMuSF:
+                hSF['m'] = asrootpy(fMuSF.FINAL).clone()
+                hSF['m'].SetDirectory(0)
+                hSF['mErr'] = asrootpy(fMuSF.ERROR).clone()
+                hSF['mErr'].SetDirectory(0)
 
-    bkgMC = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
-                             **sfArgs)
-    bkg = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
-                        fakeRateFile, lumi,
-                        sipCut=sipForBkg)
-    bkgSyst = {
+    return sfFiles, hPUWt, hSF, sipForBkg
+
+
+def _generateSamples(inData, inMC, ana, fakeRateFile, puWeightFile, lumi,
+                     amcatnlo=False, sipForBkg=4., sfFiles={}):
+    puWeightStr, puWt = puWeight(puWeightFile, '')
+    puWeightStrUp, puWtUp = puWeight(puWeightFile, 'up')
+    puWeightStrDn, puWtDn = puWeight(puWeightFile, 'dn')
+
+    allSamples = {}
+
+    allSamples['true'] = genZZSamples('zz', inMC, ana, lumi, amcatnlo=amcatnlo,
+                                      higgs=(ana=='full'))
+    allSamples['reco'] = zzStackSignalOnly('zz', inMC, ana, puWeightFile,
+                                           lumi, amcatnlo=amcatnlo,
+                                           asGroup=True, higgs=(ana=='full'),
+                                           **sfFiles)
+
+    allSamples['bkgMC'] = zzIrreducibleBkg('zz', inMC, ana, puWeightFile, lumi,
+                                           **sfFiles)
+    allSamples['bkg'] = standardZZBkg('zz', inData, inMC, ana, puWeightFile,
+                                      fakeRateFile, lumi,
+                                      sipCut=sipForBkg)
+    allSamples['bkgSyst'] = {
         'eup' : standardZZBkg('zz', inData, inMC, ana, puWeightFile,
                               fakeRateFile, lumi, eFakeRateSyst='up',
                               sipCut=sipForBkg),
@@ -671,19 +660,823 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
                               sipCut=sipForBkg),
         }
 
-    data = standardZZData('zz', inData, ana)
+    allSamples['data'] = standardZZData('zz', inData, ana)
 
-    altReco = zzStackSignalOnly('zz', inMC, ana, puWeightFile, lumi,
-                                amcatnlo=(not amcatnlo), asGroup=True,
-                                higgs=(ana=='full'),
-                                **sfArgs)
+    allSamples['altReco'] = zzStackSignalOnly('zz', inMC, ana, puWeightFile,
+                                              lumi, amcatnlo=(not amcatnlo),
+                                              asGroup=True,
+                                              higgs=(ana=='full'), **sfFiles)
+
+    allSamples['altTrue'] = genZZSamples('zz', inMC, ana, lumi,
+                                         amcatnlo=(not amcatnlo),
+                                         higgs=(ana=='full'))
+    allSamples['recoSyst'] = {}
+    allSamples['bkgMCSyst'] = {}
+    sigFileNamesSyst = {}
+    for syst in ['eScaleUp', 'eScaleDn', 'eRhoResUp',
+                 'eRhoResDn', 'ePhiResUp']:
+        allSamples['recoSyst'][syst] = zzStackSignalOnly('eeee,eemm',
+                                                         inMC.replace('mc_','mc_{}_'.format(syst)),
+                                                         ana, puWeightFile,
+                                                         lumi,
+                                                         amcatnlo=amcatnlo,
+                                                         asGroup=True,
+                                                         higgs=(ana=='full'),
+                                                         **sfFiles)
+        allSamples['bkgMCSyst'][syst] = zzIrreducibleBkg('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
+                                                         ana, puWeightFile,
+                                                         lumi, **sfFiles)
+
+    for syst in ['mClosureUp','mClosureDn']:
+        allSamples['recoSyst'][syst] = zzStackSignalOnly('eemm,mmmm',
+                                                         inMC.replace('mc_','mc_{}_'.format(syst)),
+                                                         ana, puWeightFile,
+                                                         lumi,
+                                                         amcatnlo=amcatnlo,
+                                                         asGroup=True,
+                                                         higgs=(ana=='full'),
+                                                         **sfFiles)
+        sigFileNamesSyst[syst] = {s.name : [f for f in s.getFileNames()]
+                                  for s in allSamples['recoSyst'][syst].values()[0].getBaseSamples()}
+        allSamples['bkgMCSyst'][syst] = zzIrreducibleBkg('eemm,mmmm',
+                                                         inMC.replace('mc_','mc_{}_'.format(syst)),
+                                                         ana, puWeightFile,
+                                                         lumi, **sfFiles)
+
+    return allSamples
+
+
+def _generateResponseClass(varName, channel, samples, hPUWt, hSF={}):
+    className = _responseClassNames[varName][channel]
+    if hSF:
+        className = 'SFHist'+className
+
+    if not hasattr(_rootComp, className):
+        # compile the code and register all the classes
+        classesNeeded = set([cn for cv in _responseClassNames.values() for cn in cv.values()])
+        classesNeeded |= set(['SFHist'+cn for cn in classesNeeded])
+
+        _rootComp.register_file(_join(_zztBaseDir, 'Utilities',
+                                      'ResponseMatrixMaker.cxx'),
+                                list(classesNeeded))
+
+    C = getattr(_rootComp, className)
+
+    sigFileNames = {s.name : [f for f in s.getFileNames()]
+                    for s in samples['reco'].values()[0].getBaseSamples()}
+    sigConstWeights = {s.name : s.xsec * s.intLumi * float(s.kFactor) / s.sumW
+                       for s in samples['reco'].values()[0].getBaseSamples()}
     altSigFileNames = {s.name : [f for f in s.getFileNames()]
-                       for s in altReco.values()[0].getBaseSamples()}
+                       for s in samples['altReco'].values()[0].getBaseSamples()}
     altSigConstWeights = {s.name : s.xsec * s.intLumi * float(s.kFactor) / s.sumW
-                          for s in altReco.values()[0].getBaseSamples()}
+                          for s in samples['altReco'].values()[0].getBaseSamples()}
+    sigFileNamesSyst = {syst : {s.name : [f for f in s.getFileNames()]
+                                for s in samples['recoSyst'][syst].values()[0].getBaseSamples()}
+                        for syst in samples['recoSyst']}
 
-    altTrue = genZZSamples('zz', inMC, ana, lumi,
-                           amcatnlo=(not amcatnlo), higgs=(ana=='full'))
+    binning = _binning[varName]
+    vBinning = _VFloat()
+    if len(binning) == 3:
+        binningTemp = [binning[1] + i * (binning[2] - binning[1])/float(binning[0]) for i in xrange(binning[0]+1)]
+        for b in binningTemp:
+            vBinning.push_back(b)
+    else:
+        for b in binning:
+            vBinning.push_back(b)
+
+    responseMakers = {}
+    for sample, fNameList in sigFileNames.iteritems():
+        resp = C(channel, _varNamesForResponseMaker[varName][channel], vBinning)
+
+        for fName in fNameList:
+            resp.registerFile(fName)
+        for syst in sigFileNamesSyst:
+            for fName in sigFileNamesSyst[syst][sample]:
+                resp.registerFile(fName, syst)
+
+        resp.registerPUWeights(hPUWt[''])
+        resp.registerPUWeights(hPUWt['up'], 'up')
+        resp.registerPUWeights(hPUWt['dn'], 'dn')
+        resp.setConstantScale(sigConstWeights[sample])
+        if hSF:
+            resp.registerElectronSelectionSFHist(hSF['eSel'])
+            resp.registerElectronSelectionGapSFHist(hSF['eSelGap'])
+            resp.registerElectronRecoSFHist(hSF['eReco'])
+            resp.registerMuonSFHist(hSF['m'])
+            resp.registerMuonSFErrorHist(hSF['mErr'])
+
+        responseMakers[sample] = resp
+
+    altResponseMakers = {}
+    for sample, fNameList in altSigFileNames.iteritems():
+        if sample in responseMakers:
+            continue
+        resp = C(channel, _varNamesForResponseMaker[varName][channel], vBinning)
+
+        for fName in fNameList:
+            resp.registerFile(fName)
+        resp.registerPUWeights(hPUWt[''])
+        resp.setConstantScale(altSigConstWeights[sample])
+        resp.setSkipSystematics()
+        if hSF:
+            resp.registerElectronSelectionSFHist(hSF['eSel'])
+            resp.registerElectronSelectionGapSFHist(hSF['eSelGap'])
+            resp.registerElectronRecoSFHist(hSF['eReco'])
+            resp.registerMuonSFHist(hSF['m'])
+            resp.registerMuonSFErrorHist(hSF['mErr'])
+
+        altResponseMakers[sample] = resp
+
+    return responseMakers, altResponseMakers
+
+
+def _unfold(varName, chan, samples, puWeightFile, sfFiles,
+            responseMakers, altResponseMakers, nIter, plotDir=''):
+    # outputs
+    hUnfolded = {}
+    hTrue = {}
+    hTrueAlt = {}
+
+    var = _variables[varName][chan]
+    sel = _selections[varName][chan]
+    if isinstance(sel,str):
+        selTrue = combineWeights(sel, _trueSelections[varName][chan], selections=True)
+    else:
+        selTrue = [combineWeights(s, _trueSelections[varName][chan], selections=True) for s in sel]
+
+    binning = _binning[varName]
+    hData = samples['data'][chan].makeHist(var, sel, binning, perUnitWidth=False)
+
+    # regular weight, no systematics. Apply just in case.
+    nominalWeight = baseMCWeight(chan, puWeightFile,
+                                 **sfFiles)
+    samples['reco'][chan].applyWeight(nominalWeight, True)
+    samples['altReco'][chan].applyWeight(nominalWeight, True)
+    samples['bkgMC'][chan].applyWeight(nominalWeight, True)
+    for s in samples['recoSyst'].values():
+        try:
+            s[chan].applyWeight(nominalWeight, True)
+        except KeyError:
+            pass
+
+    hTrue[''] = samples['true'][chan].makeHist(var, selTrue, binning,
+                                               perUnitWidth=False)
+    hSigNominal = samples['reco'][chan].makeHist(var, sel, binning, perUnitWidth=False)
+    hBkgMCNominal = samples['bkgMC'][chan].makeHist(var, sel, binning, perUnitWidth=False)
+    hBkgNominal = samples['bkg'][chan].makeHist(var, sel, binning, perUnitWidth=False,
+                                                postprocess=True)
+    hResponseNominal = {s:asrootpy(resp()) for s,resp in responseMakers.iteritems()}
+    hResponseNominalTotal = sum(resp for resp in hResponseNominal.values())
+
+
+    hUnfolded[''], hCov, hResp = _getUnfolded(hSigNominal,
+                                              hBkgMCNominal+hBkgNominal,
+                                              hTrue[''],
+                                              hResponseNominalTotal,
+                                              hData, nIter, True)
+
+    # plot covariance and response
+    if plotDir:
+        cRes = Canvas(1000,1000)
+        if varName == 'massFull':
+            cRes.SetLogx()
+            cRes.SetLogy()
+        hResp.drawstyle = 'colztext'
+        hResp.xaxis.title = '\\text{Reco} '+_xTitle[varName]
+        hResp.yaxis.title = '\\text{True} '+_xTitle[varName]
+        hResp.draw()
+        _style.setCMSStyle(cRes, '', dataType='Internal', intLumi=35860.)
+        cRes.Print(_join(plotDir, 'pngs', "response_{}_{}.png".format(varName, chan)))
+        cRes.Print(_join(plotDir, 'Cs', "response_{}_{}.C".format(varName, chan)))
+
+        cCov = Canvas(1000,1000)
+        if varName == 'massFull':
+            cCov.SetLogx()
+            cCov.SetLogy()
+        hCov.Draw("colztext")
+        _style.setCMSStyle(cCov, '', dataType='Internal', intLumi=35860.)
+        cCov.Print(_join(plotDir, 'pngs', "covariance_{}_{}.png".format(varName, chan)))
+        cCov.Print(_join(plotDir, 'Cs', "covariance_{}_{}.C".format(varName, chan)))
+
+
+    # PU reweight uncertainty
+    for sys in ['up','dn']:
+        wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys,
+                             **sfFiles)
+        samples['reco'][chan].applyWeight(wtStr, True)
+        samples['bkgMC'][chan].applyWeight(wtStr, True)
+
+        hSig = samples['reco'][chan].makeHist(var, sel, binning, perUnitWidth=False)
+        hBkgMC = samples['bkgMC'][chan].makeHist(var, sel, binning, perUnitWidth=False)
+
+        hResponse = sum(asrootpy(resp('pu_'+sys)) for resp in responseMakers.values())
+
+        hUnfolded['pu_'+sys] = _getUnfolded(hSig, hBkgMC+hBkgNominal,
+                                            hTrue[''], hResponse,
+                                            hData, nIter)
+
+        samples['reco'][chan].applyWeight(nominalWeight, True)
+        samples['bkgMC'][chan].applyWeight(nominalWeight, True)
+
+
+    # lepton efficiency uncertainty
+    for lep in set(chan):
+        for sys in ['up','dn']:
+            wtArg = {lep+'Syst':sys}
+            wtArg.update(sfFiles)
+            wtStr = baseMCWeight(chan, puWeightFile, **wtArg)
+            samples['reco'][chan].applyWeight(wtStr, True)
+            samples['bkgMC'][chan].applyWeight(wtStr, True)
+
+            hSig = samples['reco'][chan].makeHist(var, sel, binning, perUnitWidth=False)
+            hBkgMC = samples['bkgMC'][chan].makeHist(var, sel, binning, perUnitWidth=False)
+
+            hResponse = sum(asrootpy(resp(lep+'Eff_'+sys)) for resp in responseMakers.values())
+
+            hUnfolded[lep+'Eff_'+sys] = _getUnfolded(hSig,
+                                                     hBkgMC+hBkgNominal,
+                                                     hTrue[''],
+                                                     hResponse,
+                                                     hData, nIter)
+
+            samples['reco'][chan].applyWeight(nominalWeight, True)
+            samples['bkgMC'][chan].applyWeight(nominalWeight, True)
+
+    # alternate generator
+    hSig = samples['altReco'][chan].makeHist(var, sel, binning,
+                                             perUnitWidth=False)
+    hTrueAlt[''] = samples['altTrue'][chan].makeHist(var, selTrue, binning,
+                                                     perUnitWidth=False)
+    hResponses = []
+    altSigFileNames = {s.name : [f for f in s.getFileNames()]
+                       for s in samples['altReco'].values()[0].getBaseSamples()}
+    for s in altSigFileNames.keys():
+        try:
+            hResponses.append(asrootpy(altResponseMakers[s]()))
+        except KeyError:
+            hResponses.append(hResponseNominal[s])
+    hResponse = sum(h for h in hResponses)
+
+    hUnfolded['generator'] = _getUnfolded(hSig,
+                                          hBkgMCNominal+hBkgNominal,
+                                          hTrueAlt[''],
+                                          hResponse,
+                                          hData, nIter)
+
+    # luminosity
+    lumiUnc = 0.025
+    lumiScale = {'up':1.+lumiUnc,'dn':1.-lumiUnc}
+    for sys, scale in lumiScale.iteritems():
+        hSig = hSigNominal * scale
+        hBkgMC = hBkgMCNominal * scale
+        hTrueLumiShift = hTrue[''] * scale
+        hResponse = hResponseNominalTotal * scale
+
+        hUnfolded['lumi_'+sys] = _getUnfolded(hSig,
+                                              hBkgMC+hBkgNominal,
+                                              hTrueLumiShift,
+                                              hResponse,
+                                              hData, nIter)
+
+    # lepton fake rate uncertainty
+    for lep in set(chan):
+        for sys in ['up','dn']:
+            hBkg = samples['bkgSyst'][lep+sys][chan].makeHist(var, sel, binning,
+                                                              perUnitWidth=False,
+                                                              postprocess=True)
+
+            hUnfolded[lep+'FR_'+sys] = _getUnfolded(hSigNominal,
+                                                    hBkgMCNominal+hBkg,
+                                                    hTrue[''],
+                                                    hResponseNominalTotal,
+                                                    hData, nIter)
+
+    # jet stuff
+    if 'jet' in varName.lower() or 'jj' in varName.lower():
+        for shift in ['up','dn']:
+            sysStr = 'Up' if shift == 'up' else 'Down'
+
+            for sys in ['jer','jes']:
+                shiftedVarName = varName + '_' + sys + sysStr
+                varShifted = _variables[shiftedVarName][chan]
+                selShifted = _selections[shiftedVarName][chan]
+
+                hSig = samples['reco'][chan].makeHist(varShifted, selShifted,
+                                                      binning,
+                                                      perUnitWidth=False)
+                hBkgMC = samples['bkgMC'][chan].makeHist(varShifted, selShifted,
+                                                         binning,
+                                                         perUnitWidth=False)
+
+                hResponse = sum(asrootpy(resp(sys+'_'+shift)) for resp in responseMakers.values())
+
+                hUnfolded[sys+'_'+shift] = _getUnfolded(hSig,
+                                                        hBkgMC+hBkgNominal,
+                                                        hTrue[''],
+                                                        hResponse,
+                                                        hData, nIter)
+
+    # lepton momentum uncertainties
+    if 'e' in chan:
+        for sys in ['eScale', 'eRhoRes', 'ePhiRes']:
+            for shift in ['up','dn']:
+                if sys == 'ePhiRes' and shift == 'dn':
+                    continue
+                sysStr = 'Up' if shift == 'up' else 'Dn'
+
+                hSig = samples['recoSyst'][sys+sysStr][chan].makeHist(var, sel,
+                                                                      binning,
+                                                                      perUnitWidth=False)
+                hBkgMC = samples['bkgMCSyst'][sys+sysStr][chan].makeHist(var, sel,
+                                                                         binning,
+                                                                         perUnitWidth=False)
+                hResponse = sum(asrootpy(resp(sys+'_'+shift)) for resp in responseMakers.values())
+
+                storeAs = sys+'_'+shift
+                if sys == 'ePhiRes':
+                    storeAs = sys
+                hUnfolded[storeAs] = _getUnfolded(hSig,
+                                                  hBkgMC+hBkgNominal,
+                                                  hTrue[''],
+                                                  hResponse,
+                                                  hData, nIter)
+    if 'm' in chan:
+        sys = 'mClosure'
+        for shift in ['up','dn']:
+            sysStr = 'Up' if shift == 'up' else 'Dn'
+
+            hSig = samples['recoSyst'][sys+sysStr][chan].makeHist(var, sel,
+                                                                  binning,
+                                                                  perUnitWidth=False)
+            hBkgMC = samples['bkgMCSyst'][sys+sysStr][chan].makeHist(var, sel,
+                                                                     binning,
+                                                                     perUnitWidth=False)
+            hResponse = sum(asrootpy(resp(sys+'_'+shift)) for resp in responseMakers.values())
+
+            hUnfolded[sys+'_'+shift] = _getUnfolded(hSig,
+                                                    hBkgMC+hBkgNominal,
+                                                    hTrue[''],
+                                                    hResponse,
+                                                    hData, nIter)
+
+    # PDF uncertainties
+    hSigVariations = []
+    for s in samples['reco'][chan].values():
+        if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
+            hSigVariations.append(s.makeHist2(var, 'Iteration$', sel, binning,
+                                              [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
+    hResponseVariations = []
+    for s, resp in responseMakers.iteritems():
+        if "GluGluZZ" not in s and 'phantom' not in s:
+            hResponseVariations.append(asrootpy(resp.getPDFResponses()))
+
+    # for each var bin in each sample, get the RMS across all the variations
+    allSigRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hSigVariations]
+    allResponseRMSes = [[[Graph(h.ProjectionZ('slice_{}_{}'.format(x,y), x+1, x+1, y+1, y+1)).GetRMS(2)
+                          for y in xrange(h.GetNbinsY())]
+                         for x in xrange(h.GetNbinsX())]
+                        for h in hResponseVariations]
+    # for each var bin, add variations for all samples
+    sigBinRMSes = [sum(rmses) for rmses in zip(*allSigRMSes)]
+    responseBinRMSes = [[sum(rmses) for rmses in zip(*colForAllSamples)] for colForAllSamples in zip(*allResponseRMSes)]
+
+    hSigUp = hSigNominal.clone()
+    hSigDn = hSigNominal.clone()
+    hResponseUp = hResponseNominalTotal.clone()
+    hResponseDn = hResponseNominalTotal.clone()
+
+    # apply variations
+    for i in xrange(hSigUp.GetNbinsX()):
+        hSigUp[i+1].value += sigBinRMSes[i]
+        hSigDn[i+1].value = max(0.,hSigDn[i+1].value - sigBinRMSes[i])
+    for x in xrange(hResponseUp.GetNbinsX()):
+        for y in xrange(hResponseUp.GetNbinsY()):
+            hResponseUp[x+1,y+1].value += responseBinRMSes[x][y]
+            hResponseDn[x+1,y+1].value = max(0., hResponseDn[x+1,y+1].value - responseBinRMSes[x][y])
+
+    hTrue['pdf_up'] = hTrue[''].clone()
+    hTrue['pdf_dn'] = hTrue[''].clone()
+    hTrueVariations = []
+    for s in samples['true'][chan].values():
+        if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
+            hTrueVariations.append(s.makeHist2(var, 'Iteration$', selTrue, binning,
+                                               [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
+    allTrueRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hTrueVariations]
+    binTrueRMSes = [sum(rmses) for rmses in zip(*allTrueRMSes)]
+
+    #hTruePDFErr[chan] = hTrue.empty_clone() # save true variation for later
+    for i in xrange(hTrue['pdf_up'].GetNbinsX()):
+        hTrue['pdf_up'][i+1].value += binTrueRMSes[i]
+        hTrue['pdf_dn'][i+1].value = max(0.,hTrue['pdf_dn'][i+1].value - binTrueRMSes[i])
+        #hTruePDFErr[chan][i+1].value = binTrueRMSes[i]
+
+    # get the other sample's uncertainty too as long as we're at it
+    #hTruePDFErrAlt[chan] = hTrueAlt.empty_clone()
+    hTrueAlt['pdf_up'] = hTrueAlt[''].clone()
+    hTrueAlt['pdf_dn'] = hTrueAlt[''].clone()
+    hTrueVariationsAlt = []
+    for s in samples['altTrue'][chan].values():
+        if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
+            hTrueVariationsAlt.append(s.makeHist2(var, 'Iteration$', selTrue, binning,
+                                                  [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
+    allTrueRMSesAlt = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hTrueVariationsAlt]
+    binTrueRMSesAlt = [sum(rmses) for rmses in zip(*allTrueRMSesAlt)]
+    for i in xrange(hTrueAlt['pdf_up'].GetNbinsX()):
+        hTrueAlt['pdf_up'][i+1].value += binTrueRMSesAlt[i]
+        hTrueAlt['pdf_dn'][i+1].value = max(0.,hTrueAlt['pdf_dn'][i+1].value - binTrueRMSesAlt[i])
+        #hTruePDFErrAlt[chan][i+1].value = binTrueRMSesAlt[i]
+
+
+    hUnfolded['pdf_up'] = _getUnfolded(hSigUp,
+                                       hBkgMCNominal+hBkgNominal,
+                                       hTrue['pdf_up'], hResponseUp,
+                                       hData, nIter)
+    hUnfolded['pdf_dn'] = _getUnfolded(hSigDn,
+                                       hBkgMCNominal+hBkgNominal,
+                                       hTrue['pdf_dn'], hResponseDn,
+                                       hData, nIter)
+
+    # QCD scale uncertainties
+    variationIndices = [1,2,3,4,6,8]
+    hSigs = [samples['reco'][chan].makeHist(var, sel, binning,
+                                            {
+                'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                },
+                                            perUnitWidth=False)
+             for i in variationIndices]
+
+    hTrues = [samples['true'][chan].makeHist(var, selTrue, binning,
+                                             {
+                'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                },
+                                             perUnitWidth=False)
+              for i in variationIndices]
+
+    # save true-level uncertainty for later
+    hTrue['scale_up'] = hTrue[''].empty_clone()
+    hTrue['scale_dn'] = hTrue[''].empty_clone()
+    for bUp, bDn, variations in zip(hTrue['scale_up'],
+                                    hTrue['scale_dn'],
+                                    zip(*hTrues)):
+        bUp.value = max(b.value for b in variations)
+        bDn.value = min(b.value for b in variations)
+
+    # get the true-level uncertainty too while we're at it
+    hTruesAlt = [samples['altTrue'][chan].makeHist(var, selTrue, binning,
+                                        {
+                'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
+                },
+                                        perUnitWidth=False)
+                 for i in variationIndices]
+    hTrueAlt['scale_up'] = hTrueAlt[''].empty_clone()
+    hTrueAlt['scale_dn'] = hTrueAlt[''].empty_clone()
+    for bUp, bDn, variations in zip(hTrueAlt['scale_up'],
+                                    hTrueAlt['scale_dn'],
+                                    zip(*hTruesAlt)):
+        bUp.value = max(b.value for b in variations)
+        bDn.value = min(b.value for b in variations)
+
+    hResponseVariations = [hResponseNominalTotal.empty_clone() for v in variationIndices]
+    for s, resp in responseMakers.iteritems():
+        vResponses = resp.getScaleResponses()
+        if vResponses.size() == len(hResponseVariations):
+            for iResp in xrange(vResponses.size()):
+                hResponseVariations[iResp] += asrootpy(vResponses.at(iResp))
+        else:
+            for hrv in hResponseVariations:
+                hrv += hResponseNominal[s]
+
+    hUnfoldedVariations = []
+    for hSig, hTr, hResponse in zip(hSigs, hTrues, hResponseVariations):
+        hUnfoldedVariations.append(_getUnfolded(hSig,
+                                                hBkgMCNominal+hBkgNominal,
+                                                hTr, hResponse,
+                                                hData, nIter))
+
+    hUnfoldedUp = hUnfoldedVariations[0].empty_clone()
+    hUnfoldedDn = hUnfoldedVariations[0].empty_clone()
+    for bUp, bDn, bVars in zip(hUnfoldedUp, hUnfoldedDn, zip(*hUnfoldedVariations)):
+        bUp.value = max(b.value for b in bVars)
+        bDn.value = min(b.value for b in bVars)
+
+    hUnfolded['scale_up'] = hUnfoldedUp
+    hUnfolded['scale_dn'] = hUnfoldedDn
+
+    # alpha_s uncertainties
+    alphaSIndices = [100,101]
+    hSigs = [samples['reco'][chan].makeHist(var, sel, binning,
+                         {
+                'ZZTo4L':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                'ZZTo4L-amcatnlo':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                'ZZJJTo4L_EWK':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                },
+                         perUnitWidth=False)
+            for i in alphaSIndices]
+    hTrues = [samples['true'][chan].makeHist(var, selTrue, binning,
+                          {
+                'ZZTo4L':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                'ZZTo4L-amcatnlo':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                'ZZJJTo4L_EWK':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                },
+                          perUnitWidth=False)
+             for i in alphaSIndices]
+
+    hTrue['alphaS_up'] = hTrues[0]
+    hTrue['alphaS_dn'] = hTrues[1]
+
+    hTruesAlt = [samples['altTrue'][chan].makeHist(var, selTrue, binning,
+                                                   {
+                'ZZTo4L':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                'ZZTo4L-amcatnlo':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                'ZZJJTo4L_EWK':'pdfWeights[{}]/pdfWeights[0]'.format(i),
+                },
+                                                   perUnitWidth=False)
+                 for i in alphaSIndices]
+
+    hTrueAlt['alphaS_up'] = hTruesAlt[0]
+    hTrueAlt['alphaS_dn'] = hTruesAlt[1]
+
+    hResponses = [hResponseNominalTotal.empty_clone(),
+                  hResponseNominalTotal.empty_clone()]
+    for s, resp in responseMakers.iteritems():
+        if resp.hasSystematic('alphaS_up'):
+            hResponses[0] += asrootpy(resp('alphaS_up'))
+            hResponses[1] += asrootpy(resp('alphaS_dn'))
+        else:
+            hResponses[0] += hResponseNominal[s]
+            hResponses[1] += hResponseNominal[s]
+
+    hUnfUp = _getUnfolded(hSigs[0], hBkgNominal+hBkgMCNominal,
+                          hTrues[0], hResponses[0],
+                          hData, nIter)
+    hUnfDn = _getUnfolded(hSigs[1], hBkgNominal+hBkgMCNominal,
+                          hTrues[1], hResponses[1],
+                          hData, nIter)
+
+    unc = hUnfUp - hUnfDn
+    unc /= 2.
+    for b in unc:
+        b.value = abs(b.value)
+
+    hUnfolded['alphaS_up'] = hUnfolded[''] + unc
+    hUnfolded['alphaS_dn'] = hUnfolded[''] - unc
+
+    # since MCFM samples don't have LHE information, we just vary by
+    # the cross section uncertainties
+    mcfmUnc = {'up':.18,'dn':-.15}
+    for sys, shift in mcfmUnc.iteritems():
+        hSig = samples['reco'][chan].makeHist(var, sel, binning,
+                                              {'GluGluZZ':str(1.+shift)},
+                                              perUnitWidth=False)
+        hTrue['mcfmxsec_'+sys] = samples['true'][chan].makeHist(var, selTrue, binning,
+                                                                {'GluGluZZ':str(1.+shift)},
+                                                                perUnitWidth=False)
+        hTrueAlt['mcfmxsec_'+sys] = samples['altTrue'][chan].makeHist(var, selTrue, binning,
+                                                                      {'GluGluZZ':str(1.+shift)},
+                                                                      perUnitWidth=False)
+        hResponse = hResponseNominalTotal.empty_clone()
+        for s, h in hResponseNominal.iteritems():
+            if 'GluGluZZ' in s:
+                hResponse += h * (1.+shift)
+            else:
+                hResponse += h
+
+        hUnfolded['mcfmxsec_'+sys] = _getUnfolded(hSig,
+                                                  hBkgNominal+hBkgMCNominal,
+                                                  hTrue['mcfmxsec_'+sys],
+                                                  hResponse,
+                                                  hData, nIter)
+
+    # make everything local (we'll cache copies)
+    for h in hUnfolded.values()+hTrue.values()+hTrueAlt.values():
+        h.SetDirectory(0)
+
+    return hUnfolded, hTrue, hTrueAlt
+
+
+def _sumUncertainties(errDict):
+    hUncUp = errDict['up'].values()[0].empty_clone()
+    hUncDn = errDict['dn'].values()[0].empty_clone()
+    sysList = errDict['up'].keys()
+    for bUncUp, bUncDn, allUncUp, allUncDn in zip(hUncUp, hUncDn,
+                                                  zip(*[errDict['up'][sys] for sys in sysList]),
+                                                  zip(*[errDict['dn'][sys] for sys in sysList])):
+        for b1,b2 in zip(allUncUp,allUncDn):
+            bUncUp.value += max(b1.value,b2.value)**2
+            bUncDn.value += min(b1.value,b2.value)**2
+
+        bUncUp.value = sqrt(bUncUp.value)
+        bUncDn.value = sqrt(bUncDn.value)
+
+    return hUncUp, hUncDn
+
+
+def _combineChannelUncertainties(*errDicts):
+    hUncTot = {}
+    uncList = []
+    for errDict in errDicts:
+        for sys in ['up','dn']:
+            uncList += errDict[sys].keys()
+    uncList = set(uncList)
+
+    for sys in ['up','dn']:
+        hUncTot[sys] = {}
+        for unc in uncList:
+            hUncTot[sys][unc] = errDicts[0][sys].values()[0].empty_clone()
+            for errDict in errDicts:
+                try:
+                    hUncTot[sys][unc] += errDict[sys][unc]
+                except KeyError:
+                    continue
+
+    return hUncTot
+
+
+def _generateUncertainties(hDict, norm, **plotArgs):
+    plot = bool(plotArgs) # only plot if told to
+    if plot:
+        lumi = plotArgs.get('lumi', 35860.)
+        varName = plotArgs['varName']
+        ana = plotArgs['ana']
+        plotDir = plotArgs['plotDir']
+        chan = plotArgs['chan']
+
+    nominalArea = hDict[''].Integral(0,hDict[''].GetNbinsX()+1)
+    hErr = {'up':{},'dn':{}}
+    for sys, h in hDict.iteritems():
+        if not sys:
+            continue
+
+        he = h.clone()
+
+        if norm:
+            he *= nominalArea / he.Integral(0,he.GetNbinsX()+1)
+        # we already shifted the response matrix for lumi, but not the
+        # final normalization
+        elif sys == 'lumi_up':
+            he /= 1.025
+        elif sys == 'lumi_dn':
+            he /= 0.975
+
+        he -= hDict['']
+        sysName = sys.replace('_up','').replace('_dn','')
+        if plot:
+            he.title = _uncertaintyTitles[sysName]
+            he.color = _uncertaintyColors[sysName]
+            he.fillstyle = 'solid'
+            he.drawstyle = 'hist'
+            he.legendstyle = 'F'
+
+        if '_up' in sys:
+            hErr['up'][sysName] = he
+        elif '_dn' in sys:
+            hErr['dn'][sysName] = he
+        else:
+            hErr['up'][sysName] = he
+            he2 = he.clone()
+            if plot:
+                he2.title = _uncertaintyTitles[sysName]
+                he2.color = _uncertaintyColors[sysName]
+                he2.fillstyle = 'solid'
+                he2.drawstyle = 'hist'
+                he2.legendstyle = 'F'
+            hErr['dn'][sysName] = he2
+
+
+    # Make all error histograms positive
+    # and make uncertainties fractional (as a percentage)
+    if plot:
+        for sys in hErr.values():
+            for h in sys.values():
+                h /= hDict['']
+                h *= 100.
+                for b in h:
+                    b.value = abs(b.value)
+
+        statErr = hDict[''].empty_clone()
+        for bUnf, bStat in zip(hDict[''], statErr):
+            bStat.value = bUnf.error
+        statErr /= hDict['']
+        statErr *= 100.
+        statErr.color = 'lightgrey'
+        statErr.fillstyle = 'solid'
+        statErr.legendstyle = 'F'
+        statErr.drawstyle = 'hist'
+        statErr.title = 'Stat/unfolding'
+        errListUp = [statErr]+list(hErr['up'].values())
+        errListDn = [statErr]+list(hErr['up'].values())
+
+        # quadrature sum of errors to put on top
+        totErrUp = statErr.empty_clone()
+        totErrDn = statErr.empty_clone()
+        for bTot, bs in zip(totErrUp, zip(*errListUp)):
+            bTot.value = sqrt(sum(b.value**2 for b in bs))
+        for bTot, bs in zip(totErrDn, zip(*errListDn)):
+            bTot.value = sqrt(sum(b.value**2 for b in bs))
+        totErrUp.title = 'Total (quadrature sum)'
+        totErrUp.color = 'black'
+        totErrUp.fillstyle = 'hollow'
+        totErrUp.drawstyle = 'hist'
+        totErrUp.legendstyle = 'L'
+        totErrUp.SetLineWidth(3*totErrUp.GetLineWidth())
+        totErrDn.title = 'Total (sum of squares)'
+        totErrDn.color = 'black'
+        totErrDn.fillstyle = 'hollow'
+        totErrDn.drawstyle = 'hist'
+        totErrDn.legendstyle = 'L'
+        totErrDn.SetLineWidth(3*totErrDn.GetLineWidth())
+
+        # Make plots of uncertainties (added linearly)
+        cErrUp = Canvas(1000,1000)
+        drawOpts = {
+            'xtitle' : _xTitle[varName],
+            'ytitle' : "+Error (%)",
+            'yerror_in_padding' : False,
+            }
+        if ana == 'full':
+            drawOpts['logx'] = True
+        if varName == 'deltaRZZ':
+            if chan == 'eeee':
+                drawOpts['ylimits'] = (0.,140.)
+            elif chan == 'mmmm':
+                drawOpts['ylimits'] = (0.,75.)
+            else:
+                drawOpts['ylimits'] = (0.,58.)
+        errStackUp = HistStack(errListUp, drawstyle = 'histnoclear')
+        draw([errStackUp,totErrUp], cErrUp, **drawOpts)
+        leg = makeLegend(cErrUp, *(errListUp+[totErrUp]), leftmargin=0.25,
+                         entryheight=.02, entrysep=.007, textsize=.022,
+                         rightmargin=.25)
+        leg.Draw('same')
+        _style.setCMSStyle(cErrUp, '', dataType='Internal', intLumi=lumi)
+        cErrUp.Print(_join(plotDir, 'pngs', 'errUp_{}_{}.png'.format(varName, chan)))
+        cErrUp.Print(_join(plotDir, 'Cs', 'errUp_{}_{}.C'.format(varName, chan)))
+
+        cErrDn = Canvas(1000,1000)
+        drawOpts = {
+            'xtitle' : _xTitle[varName],
+            'ytitle' : "-Error (%)",
+            'yerror_in_padding' : False,
+            }
+        if ana == 'full':
+            drawOpts['logx'] = True
+        if varName == 'deltaRZZ' and chan == 'eeee':
+            drawOpts['ylimits'] = (0.,140.)
+        errStackDn = HistStack(errListDn, drawstyle = 'histnoclear')
+        draw([errStackDn, totErrDn], cErrDn, **drawOpts)
+        leg = makeLegend(cErrDn, *(errListDn+[totErrDn]), leftmargin=0.25,
+                         entryheight=.02, entrysep=.007, textsize=.022,
+                         rightmargin=.25)
+        leg.Draw('same')
+        _style.setCMSStyle(cErrDn, '', dataType='Internal', intLumi=lumi)
+        cErrDn.Print(_join(plotDir, 'pngs', 'errDown_{}_{}.png'.format(varName, chan)))
+        cErrDn.Print(_join(plotDir, 'Cs', 'errDown_{}_{}.C'.format(varName, chan)))
+
+        # Errors should no longer be fractional or a percentage
+        for sys in hErr.values():
+            for h in sys.values():
+                h *= hDict['']
+                h /= 100.
+
+    return hErr
+
+
+def _generatePlots(hUnfolded, hUncUp, hUncDn,
+                   hTrue, hTrueUncUp, hTrueUncDn,
+                   hTrueAlt, hTrueUncUpAlt, hTrueUncDnAlt,
+                   varName, chan, ana, plotDir, plotType, lumi, norm, logy,
+                   amcatnlo):
+    # for normalization if needed
+    nominalArea = hUnfolded.Integral(0,hUnfolded.GetNbinsX()+1)
+    # Make uncertainties out of the unfolded histos
+    ### plot
+    hUnf = hUnfolded.clone()
+
+    lumifb = lumi / 1000.
+
+    if norm:
+        hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
+    else:
+        hUnf /= lumifb
+
+    if logy:
+        legParams = _legParamsLogy
+    else:
+        legParams = _legParams
+
+    hUnf.color = 'black'
+    hUnf.drawstyle = 'PE1'
+    hUnf.legendstyle = 'LPE1'
+    hUnf.title = '\\textbf{Data + stat.\ unc.}'
+    if not norm:
+        print "Inclusive {} fiducial cross section = {} fb".format(chan, hUnf.Integral(0,hUnf.GetNbinsX()+1))
+    _normalizeBins(hUnf)
 
     signalName = 'POWHEG+MCFM+Pythia8'
     signalNameAlt = 'MG5\_aMC@NLO+MCFM'
@@ -696,76 +1489,440 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
     signalName = r'\textbf{'+signalName+'}'
     signalNameAlt = r'\textbf{'+signalNameAlt+'}'
 
-    recoSyst = {}
-    bkgMCSyst = {}
-    sigFileNamesSyst = {}
-    for syst in ['eScaleUp', 'eScaleDn', 'eRhoResUp',
-                 'eRhoResDn', 'ePhiResUp']:
-        recoSyst[syst] = zzStackSignalOnly('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                           ana, puWeightFile, lumi, amcatnlo=amcatnlo,
-                                           asGroup=True, higgs=(ana=='full'),
-                                           **sfArgs)
-        sigFileNamesSyst[syst] = {s.name : [f for f in s.getFileNames()]
-                        for s in recoSyst[syst].values()[0].getBaseSamples()}
-        bkgMCSyst[syst] = zzIrreducibleBkg('eeee,eemm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                           ana, puWeightFile, lumi,
-                                           **sfArgs)
+    hTrueDraw = hTrue.clone()
+    hTrueDraw.fillcolor = '#99ccff'
+    hTrueDraw.linecolor = '#000099'
+    hTrueDraw.drawstyle = 'hist'
+    TAttFill.SetFillStyle(hTrueDraw, 3004)
+    hTrueDraw.SetLineWidth(2*hTrueDraw.GetLineWidth())
+    #hTrue.fillstyle = '/'#'solid'
+    hTrueDraw.title = '{}'.format(signalName)
 
-    for syst in ['mClosureUp','mClosureDn']:
-        recoSyst[syst] = zzStackSignalOnly('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                           ana, puWeightFile, lumi, amcatnlo=amcatnlo,
-                                           asGroup=True, higgs=(ana=='full'),
-                                           **sfArgs)
-        sigFileNamesSyst[syst] = {s.name : [f for f in s.getFileNames()]
-                                  for s in recoSyst[syst].values()[0].getBaseSamples()}
-        bkgMCSyst[syst] = zzIrreducibleBkg('eemm,mmmm', inMC.replace('mc_','mc_{}_'.format(syst)),
-                                           ana, puWeightFile, lumi,
-                                           **sfArgs)
+    if norm:
+        trueInt = hTrueDraw.Integral(0,hTrueDraw.GetNbinsX()+1)
+        hTrueDraw /= trueInt
+        hTrueUncUp /= trueInt # (trueInt + hTrueUncUp.Integral(0,hTrueUncUp.GetNbinsX()+1))
+        hTrueUncDn /= trueInt # (trueInt - hTrueUncDn.Integral(0,hTrueUncDn.GetNbinsX()+1))
+    else:
+        hTrueDraw /= lumifb
+        hTrueUncUp /= lumifb
+        hTrueUncDn /= lumifb
 
-    if sfArgs:
-        with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
-                                  sfArgs['eSelSFFile']+'.root')) as fEleSel:
-            hEleSelSF = asrootpy(fEleSel.EGamma_SF2D).clone()
-            hEleSelSF.SetDirectory(0)
-        with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
-                             sfArgs['eSelSFFileGap']+'.root')) as fEleSelGap:
-            hEleSelGapSF = asrootpy(fEleSelGap.EGamma_SF2D).clone()
-            hEleSelGapSF.SetDirectory(0)
-        with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
-                             sfArgs['eRecoSFFile']+'.root')) as fEleReco:
-            hEleRecoSF = asrootpy(fEleReco.EGamma_SF2D).clone()
-            hEleRecoSF.SetDirectory(0)
-        with root_open(_join(_env['zzt'],'data','leptonScaleFactors',
-                             sfArgs['mSFFile']+'.root')) as fMuSF:
-            hMuSF = asrootpy(fMuSF.FINAL).clone()
-            hMuSF.SetDirectory(0)
-            hMuSFErr = asrootpy(fMuSF.ERROR).clone()
-            hMuSFErr.SetDirectory(0)
+    _normalizeBins(hTrueDraw)
+    _normalizeBins(hTrueUncUp)
+    _normalizeBins(hTrueUncDn)
 
+    # true uncertainty band
+    errorBandTrue = makeErrorBand(hTrueDraw, hTrueUncUp, hTrueUncDn)
+    errorBandTrue.fillstyle = 'solid'
+    errorBandTrue.SetFillColorAlpha(600, 0.5)
+
+    hTrueLeg = Hist(1, 0, 1)
+    hTrueLeg.fillcolor = hTrueDraw.fillcolor
+    hTrueLeg.linecolor = '#7f7fff' # color transparent error band looks like on white background, found with GIMP eyedropper
+    TAttFill.SetFillStyle(hTrueLeg, 3004)
+    hTrueLeg.SetLineWidth(5*hTrueDraw.GetLineWidth())
+    hTrueLeg.title = hTrueDraw.title
+    hTrueLeg.legendstyle = 'FL'
+
+    # use later to put fill and error bars on same legend entry
+    trueLegOverlay = Hist(1, 0, 1, title='', legendstyle='L',
+                          linecolor=hTrueDraw.linecolor)
+    trueLegOverlay.SetLineWidth(hTrueDraw.GetLineWidth())
+
+    toPlot = [hTrueDraw, errorBandTrue]
+    forLegend = [hTrueLeg]#Leg]
+
+
+    hTrueDrawAlt = hTrueAlt.clone()
+    hTrueDrawAlt.color = 'red'
+    hTrueDrawAlt.drawstyle = 'hist'
+    hTrueDrawAlt.fillstyle = 'hollow'
+    hTrueDrawAlt.SetLineWidth(hTrueDrawAlt.GetLineWidth()*2)
+    hTrueDrawAlt.title = '{}'.format(signalNameAlt)
+
+    if norm:
+        trueIntAlt = hTrueDrawAlt.Integral(0,hTrueDrawAlt.GetNbinsX()+1)
+        hTrueDrawAlt /= trueIntAlt
+        hTrueUncUpAlt /= trueIntAlt # (trueIntAlt + hTrueUncUpAlt.Integral(0,hTrueUncUpAlt.GetNbinsX()+1))
+        hTrueUncDnAlt /= trueIntAlt # (trueIntAlt - hTrueUncDnAlt.Integral(0,hTrueUncDnAlt.GetNbinsX()+1))
+    else:
+        hTrueDrawAlt /= lumifb
+        hTrueUncUpAlt /= lumifb
+        hTrueUncDnAlt /= lumifb
+    _normalizeBins(hTrueDrawAlt)
+    _normalizeBins(hTrueUncUpAlt)
+    _normalizeBins(hTrueUncDnAlt)
+
+    errorBandTrueAlt = makeErrorBand(hTrueDrawAlt, hTrueUncUpAlt, hTrueUncDnAlt)
+    errorBandTrueAlt.fillstyle = 'solid'
+    errorBandTrueAlt.SetFillColorAlpha(628, 0.5)
+
+    hTrueLegAlt = Hist(1, 0, 1)
+    hTrueLegAlt.linecolor = '#ff9898'
+    hTrueLegAlt.SetLineWidth(5*hTrueDrawAlt.GetLineWidth())
+    hTrueLegAlt.title = hTrueDrawAlt.title
+    hTrueLegAlt.legendstyle = 'L'
+
+    trueLegOverlayAlt = Hist(1, 0, 1, linecolor=hTrueDrawAlt.linecolor,
+                             legendstyle='L', title='')
+    trueLegOverlayAlt.SetLineWidth(hTrueDrawAlt.GetLineWidth())
+
+    toPlot += [errorBandTrueAlt, hTrueDrawAlt]
+    forLegend.append(hTrueLegAlt)
+
+    if varName in _matrixNames:
+        with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
+            cMat = asrootpy(fMat.canvas)
+            matDist = asrootpy(cMat.FindObject(_matrixNames[varName])).clone()
+            # scaleDown is for the UPPER error, scaleUp is for the LOWER
+            matDistUp = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleDown')).clone()
+            matDistDn = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleUp')).clone()
+            matDist.SetDirectory(0)
+            matDistUp.SetDirectory(0)
+            matDistDn.SetDirectory(0)
+
+        # un-normalize the bins, rebin, renormalize
+        _unnormalizeBins(matDist)
+        matDist = matDist.rebinned([e for e in hUnf._edges(0)])
+        _unnormalizeBins(matDistUp)
+        matDistUp = matDistUp.rebinned([e for e in hUnf._edges(0)])
+        _unnormalizeBins(matDistDn)
+        matDistDn = matDistDn.rebinned([e for e in hUnf._edges(0)])
+        if norm:
+            matDist /= _matrixXSecs['']
+            matDistUp /= _matrixXSecs['up']
+            matDistDn /= _matrixXSecs['dn']
+        elif chan.lower() in ['eeee','mmmm']:
+            matDist /= 2
+            matDistUp /= 2
+            matDistDn /= 2
+        elif chan.lower() == 'zz':
+            matDist *= 2
+            matDistUp *= 2
+            matDistDn *= 2
+
+        matDist.title = r'\textbf{MATRIX}'
+        matDist.color = 'forestgreen'
+        matDist.drawstyle = 'hist'
+        matDist.fillstyle = 'hollow'
+        matDist.SetLineWidth(matDist.GetLineWidth()*2)
+
+        matDistUp -= matDist
+        matDistDn -= matDist
+
+        _normalizeBins(matDist)
+        _normalizeBins(matDistUp)
+        _normalizeBins(matDistDn)
+
+        errorBandMat = makeErrorBand(matDist, matDistUp, matDistDn)
+        errorBandMat.fillstyle = 'solid'
+        errorBandMat.SetFillColorAlpha(819, 0.5)
+
+        matDistLeg = Hist(1,0,1)
+        matDistLeg.linecolor = '#98e57f'
+        matDistLeg.SetLineWidth(5*matDist.GetLineWidth())
+        matDistLeg.title = matDist.title
+        matDistLeg.legendstyle = 'L'
+
+        matDistLegOverlay = Hist(1, 0, 1, linecolor=matDist.linecolor,
+                                 legendstyle='L', title='')
+        matDistLegOverlay.SetLineWidth(matDist.GetLineWidth())
+
+        toPlot += [errorBandMat,matDist]
+        forLegend.append(matDistLeg)
+
+
+    if norm:
+        hUncUp /= hUnfolded.Integral(0,hUnfolded.GetNbinsX()+1)
+        hUncDn /= hUnfolded.Integral(0,hUnfolded.GetNbinsX()+1)
+    else:
+        hUncUp /= lumifb
+        hUncDn /= lumifb
+
+    _normalizeBins(hUncUp)
+    _normalizeBins(hUncDn)
+
+    if varName in _blind:
+        for b, bUp, bDn in zip(hUnf, hUncUp, hUncDn):
+            if hUnf.xaxis.GetBinLowEdge(b.idx) >= _blind[varName]:
+                b.value = 0
+                b.error = 0
+                bUp.value = 0
+                bUp.error = 0
+                bDn.value = 0
+                bDn.error = 0
+
+    errorBand = makeErrorBand(hUnf, hUncUp, hUncDn)
+
+    toPlot += [errorBand,hUnf]
+    forLegend += [errorBand,hUnf]
+
+    drawOpts = {
+        'xtitle' : _xTitle[varName],
+        }
+    if norm:
+        drawOpts['ytitle'] = _yTitle[varName]
+    else:
+        drawOpts['ytitle'] = _yTitleNoNorm[varName]
+    if ana == 'full':
+        drawOpts['logx'] = True
+    if logy:
+        drawOpts['logy'] = True
+        drawOpts['yerror_in_padding'] = True
+        drawOpts['ypadding'] = 0.04
+    if varName == 'l1Pt':
+        drawOpts['logy_crop_value'] = 4e-5
+
+    if varName in _matrixNames:
+        cUnf = Canvas(1000,1400)
+        mainPad, ratioPadMat, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.12, 0.12, 0.12, bottomMargin=0.35)
+    else:
+        cUnf = Canvas(1000,1200)
+        mainPad, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
+
+    mainPad.cd()
+    (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, mainPad,
+                                                 **drawOpts)
+    yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
+    yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
+    yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
+    #yaxis.SetMoreLogLabels()
+    xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
+    xaxis.SetTitleOffset(0.95*xaxis.GetTitleOffset())
+
+    leg = makeLegend(cUnf, *forLegend, **legParams[varName])
+    leg.SetFillStyle(1001)
+
+    if varName in _blind and _blind[varName] < xmax:
+        box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
+        box.SetFillColor(1)
+        box.SetFillStyle(3002)
+        box.Draw("same")
+        leg.SetFillStyle(1001)
+
+    leg.Draw("same")
+
+    # want shaded error band and hatched fill for true legend entry,
+    # so cheat and overlay a second legend
+    legOverlay = asrootpy(TLegend(leg))
+    legOverlay.SetFillStyle(0)
+    for entry in legOverlay.primitives:
+        if entry.GetLabel() == hTrueDraw.title:
+            overlay = trueLegOverlay
+        elif entry.GetLabel() == hTrueDrawAlt.title:
+            overlay = trueLegOverlayAlt
+        elif varName in _matrixNames and entry.GetLabel() == matDist.title:
+            overlay = matDistLegOverlay
+        else:
+            entry.SetObject(None)
+            entry.SetOption('')
+            entry.SetLabel('')
+            continue
+        entry.SetObject(overlay)
+        entry.SetOption(overlay.legendstyle)
+        entry.SetLabel('')
+    legOverlay.Draw("same")
+
+    latex = TLatex()
+    latex.SetNDC()
+    latex.SetTextAlign(11)
+    latex.SetTextSize(.13)
+    latex.SetTextFont(62)
+    latexXMargin = 0.15
+    if varName in ['deltaRZZ','massFull']:
+        latex.SetTextAlign(31)
+        latexXMargin = 1.-latexXMargin
+    elif varName == 'l1Pt':
+        latexXMargin = 0.35
+
+    drawOpts = {
+        'ytitle' : 'Data / Theo.',
+        'xlimits' : (xmin,xmax),
+        'ylimits' : (0.50001,1.9999),
+        'ydivisions' : 505,
+        }
+    if ana == 'full':
+        drawOpts['logx'] = True
+    if varName in ['pt','deltaRZZ','mass']:
+        drawOpts['ylimits'] = (0.2500001, 1.9999)
+
+    if varName in _matrixNames:
+        ratioPadMat.cd()
+
+        matNoErrs = matDist.clone() # need central value only to keep ratio uncertainties consistent
+        for b in matNoErrs: b.error = 0
+        ratioMat, unityMat = makeRatio(hUnf, matNoErrs)
+
+        matUnity = matDist.clone() # need errors only as baseline for ratio theory uncertainties
+        for b in matUnity: b.value = 1.
+        ratioTheoryErrorMat = makeErrorBand(matUnity,
+                                            matDistUp/matNoErrs,
+                                            matDistDn/matNoErrs)
+        ratioTheoryErrorMat.fillstyle = 'solid'
+        ratioTheoryErrorMat.SetFillColorAlpha(819, 0.5)
+
+        ratioErrorMat = makeErrorBand(hUnf/matNoErrs, hUncUp/matNoErrs,
+                                      hUncDn/matNoErrs)
+        (ratioMatX, ratioMatY), ratioMatLimits = draw([ratioTheoryErrorMat,
+                                                       ratioErrorMat,
+                                                       ratioMat],
+                                                      ratioPadMat,
+                                                      **drawOpts)
+        ratioMatY.CenterTitle()
+        unityMat.Draw("same")
+        latex.DrawLatex(latexXMargin, 0.8, r"\textbf{MATRIX}")
+
+    ratioPadMain.cd()
+
+    hTrueNoErrs = hTrueDraw.clone() # need central value only to keep ratio uncertainties consistent
+    for b in hTrueNoErrs: b.error = 0
+
+    ratioMain, unityMain = makeRatio(hUnf, hTrueNoErrs)
+    ratioErrorMain = makeErrorBand(hUnf/hTrueNoErrs, hUncUp/hTrueNoErrs,
+                                   hUncDn/hTrueNoErrs)
+
+    hTrueUnity = hTrueDraw.clone() # need errors only as baseline for ratio theory uncertainties
+    for b in hTrueUnity: b.value = 1.
+    ratioTheoryError = makeErrorBand(hTrueUnity,
+                                     hTrueUncUp/hTrueNoErrs,
+                                     hTrueUncDn/hTrueNoErrs)
+    ratioTheoryError.fillstyle = 'solid'
+    ratioTheoryError.SetFillColorAlpha(600, 0.5)
+
+    (ratioMainX, ratioMainY), ratioMainLimits = draw([ratioTheoryError,
+                                                      ratioErrorMain,
+                                                      ratioMain],
+                                                     ratioPadMain,
+                                                     **drawOpts)
+    ratioMainY.CenterTitle()
+    unityMain.Draw("same")
+    latex.DrawLatex(latexXMargin, 0.8, signalName)
+
+    ratioPadAlt.cd()
+
+    hTrueNoErrsAlt = hTrueDrawAlt.clone() # need central value only to keep ratio uncertainties consistent
+    for b in hTrueNoErrsAlt: b.error = 0
+
+    ratioAlt, unityAlt = makeRatio(hUnf, hTrueNoErrsAlt)
+    ratioErrorAlt = makeErrorBand(hUnf/hTrueNoErrsAlt, hUncUp/hTrueNoErrsAlt,
+                                  hUncDn/hTrueNoErrsAlt)
+
+    hTrueUnityAlt = hTrueDrawAlt.clone() # need errors only as baseline for ratio theory uncertainties
+    for b in hTrueUnityAlt: b.value = 1.
+    ratioTheoryErrorAlt = makeErrorBand(hTrueUnityAlt,
+                                        hTrueUncUpAlt/hTrueNoErrsAlt,
+                                        hTrueUncDnAlt/hTrueNoErrsAlt)
+    ratioTheoryErrorAlt.fillstyle = 'solid'
+    ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.5)
+
+    (ratioAltX, ratioAltY), ratioAltLimits = draw([ratioTheoryErrorAlt,
+                                                   ratioErrorAlt,
+                                                   ratioAlt],
+                                                  ratioPadAlt,
+                                                  **drawOpts)
+    ratioAltY.CenterTitle()
+    unityAlt.Draw("same")
+    latex.SetTextSize(latex.GetTextSize() * ratioPadMain.height / ratioPadAlt.height)
+    latex.DrawLatex(latexXMargin, 1.-.2*ratioPadMain.height/ratioPadAlt.height,
+                    signalNameAlt)
+
+    cUnf.cd()
+    ratioPadAlt.Draw()
+    ratioPadMain.Draw()
+    if varName in _matrixNames:
+        ratioPadMat.Draw()
+    mainPad.Draw()
+
+    if varName in _matrixNames:
+        fixRatioAxes(xaxis,yaxis,ratioMatX,ratioMatY, mainPad.height, ratioPadMat.height)
+        fixRatioAxes(ratioMatX,ratioMatY,ratioMainX,ratioMainY, ratioPadMat.height, ratioPadMain.height)
+    else:
+        fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
+    fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
+
+    yaxis.SetTitleSize(0.042)
+    yaxis.SetTitleOffset(1.05)
+
+    # raster formats apparently need different fill styles?
+    errorBand.fillstyle = 'x'
+    errorBand.SetFillColorAlpha(1,0.6)
+    ratioErrorMain.fillstyle = 'x'
+    ratioErrorMain.SetFillColorAlpha(1,0.6)
+    ratioErrorAlt.fillstyle = 'x'
+    ratioErrorAlt.SetFillColorAlpha(1,0.6)
+    if varName in _matrixNames:
+        ratioErrorMat.fillstyle = 'x'
+    errorBand.drawstyle = '2'
+    cUnf.Update()
+
+    suffix = ''
+    if len(chan) > 2:
+        suffix += '_'+chan
+
+
+    _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi, forLatex=True)
+    cUnf.Print(_join(plotDir, 'pngs', "unfold_{}{}.png".format(varName, suffix)))
+    cUnf.Print(_join(plotDir, 'Cs', "unfold_{}{}.C".format(varName, suffix)))
+    _pdfViaTex(cUnf, 'unfold_{}{}'.format(varName, suffix),
+               _join(plotDir, 'texs'), _join(plotDir, 'pdfs'))
+
+    # change formatting for the postscript formats, then change it back
+    #hatchWidth = gStyle.GetHatchesLineWidth()
+    #hatchSpace = gStyle.GetHatchesSpacing()
+    #gStyle.SetHatchesLineWidth(1)
+    #gStyle.SetHatchesSpacing(1.01)
+    #TAttFill.SetFillStyle(errorBand, 3244)
+    #TAttFill.SetFillStyle(ratioErrorMain, 3244)
+    #TAttFill.SetFillStyle(ratioErrorAlt, 3244)
+    #if varName in _matrixNames:
+    #    TAttFill.SetFillStyle(ratioErrorMat, 3244)
+    #cUnf.Update()
+    #cUnf.Print(_join(plotDir, 'epses', "unfold_{}_{}.eps".format(varName, chan)))
+    #_bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
+    #                                                                                               filename='_'.join(['unfold',varName,chan])))
+    #gStyle.SetHatchesLineWidth(hatchWidth)
+    #gStyle.SetHatchesSpacing(hatchSpace)
+
+
+def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
+         amcatnlo=False, norm=True, logy=False, looseSIP=False, noSIP=False,
+         sfRemake=False, forceRedo=False, *varNames, **kwargs):
+    channels = _channels[:]
+
+    plotType = '' #'Preliminary'
+
+    for fileType in 'Cs', 'pngs', 'texs', 'pdfs',:
+        subDir = _join(plotDir, fileType)
+        if not _exists(subDir):
+            _mkdir(subDir)
+        elif not _isdir(subDir):
+            raise IOError("There is already some non-directory object called {}.".format(subDir))
+
+    ana = 'smp'
+    if 'massFull' in varNames:
+        # massFull is totally different from everything else. Instead of
+        # trying to make them play nicely, just do massFull totally separately
+        if len(varNames) != 1:
+            raise ValueError("massFull must be run separately from other variables")
+        else:
+            ana = 'full'
+
+    # variables we will need if we can't just use cached histos
+    samples = None
+    sfFiles = None
+    hPUWt = None
+    hSF = None
 
     for varName in varNames:
 
-        binning = _binning[varName]
-        vBinning = _VFloat()
-        if len(binning) == 3:
-            binningTemp = [binning[1] + i * (binning[2] - binning[1])/float(binning[0]) for i in xrange(binning[0]+1)]
-            for b in binningTemp:
-                vBinning.push_back(b)
-        else:
-            for b in binning:
-                vBinning.push_back(b)
-
         # save unfolded distributions by channel, then systematic
+        hUnfolded = {}
+        hTrue = {}
+        hTrueAlt = {}
         hErr = {}
-        hUnfolded = {c:{} for c in channels}
-
-        # save theory errors
-        hTrueScaleUp = {c:{} for c in channels}
-        hTrueScaleDn = {c:{} for c in channels}
-        hTrueScaleUpAlt = {c:{} for c in channels}
-        hTrueScaleDnAlt = {c:{} for c in channels}
-        hTruePDFErr = {c:{} for c in channels}
-        hTruePDFErrAlt = {c:{} for c in channels}
+        hErrTrue = {}
+        hErrTrueAlt = {}
 
         for chan in channels:
             print ""
@@ -775,1530 +1932,123 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
             print "**************************************************"
             print ""
 
-            var = _variables[varName][chan]
-            sel = _selections[varName][chan]
-            if isinstance(sel,str):
-                selTrue = combineWeights(sel, _trueSelections[varName][chan], selections=True)
-            else:
-                selTrue = [combineWeights(s, _trueSelections[varName][chan], selections=True) for s in sel]
+            # if the histograms are cached, get them (unless we don't want to)
+            needToCreate = forceRedo
 
-            respClassName = _responseClassNames[varName][chan]
-            if sfArgs:
-                respClassName = 'SFHist'+respClassName
-            ResponseMakerClass = getattr(_rootComp, respClassName)
-
-            responseMakers = {}
-            for sample, fNameList in sigFileNames.iteritems():
-                resp = ResponseMakerClass(chan,
-                                          _varNamesForResponseMaker[varName][chan],
-                                          vBinning)
-
-                for fName in fNameList:
-                    resp.registerFile(fName)
-                for syst in sigFileNamesSyst:
-                    for fName in sigFileNamesSyst[syst][sample]:
-                        resp.registerFile(fName, syst)
-
-                resp.registerPUWeights(hPUWt)
-                resp.registerPUWeights(hPUWtUp, 'up')
-                resp.registerPUWeights(hPUWtDn, 'dn')
-                resp.setConstantScale(sigConstWeights[sample])
-                if sfArgs:
-                    resp.registerElectronSelectionSFHist(hEleSelSF)
-                    resp.registerElectronSelectionGapSFHist(hEleSelGapSF)
-                    resp.registerElectronRecoSFHist(hEleRecoSF)
-                    resp.registerMuonSFHist(hMuSF)
-                    resp.registerMuonSFErrorHist(hMuSFErr)
-
-                responseMakers[sample] = resp
-
-            altResponseMakers = {}
-            for sample, fNameList in altSigFileNames.iteritems():
-                if sample in responseMakers:
-                    continue
-                resp = ResponseMakerClass(chan,
-                                          _varNamesForResponseMaker[varName][chan],
-                                          vBinning)
-                for fName in fNameList:
-                    resp.registerFile(fName)
-                resp.registerPUWeights(hPUWt)
-                resp.setConstantScale(altSigConstWeights[sample])
-                resp.setSkipSystematics()
-                if sfArgs:
-                    resp.registerElectronSelectionSFHist(hEleSelSF)
-                    resp.registerElectronSelectionGapSFHist(hEleSelGapSF)
-                    resp.registerElectronRecoSFHist(hEleRecoSF)
-                    resp.registerMuonSFHist(hMuSF)
-                    resp.registerMuonSFErrorHist(hMuSFErr)
-
-                altResponseMakers[sample] = resp
-
-            ### Do all the unfolding
-
-            hData = data[chan].makeHist(var, sel, binning, perUnitWidth=False)
-
-            # regular weight, no systematics. Apply just in case.
-            nominalWeight = baseMCWeight(chan, puWeightFile,
-                                         **sfArgs)
-            reco[chan].applyWeight(nominalWeight, True)
-            altReco[chan].applyWeight(nominalWeight, True)
-            bkgMC[chan].applyWeight(nominalWeight, True)
-            for s in recoSyst.values():
+            if not needToCreate:
                 try:
-                    s[chan].applyWeight(nominalWeight, True)
-                except KeyError:
-                    pass
+                    with root_open(_cacheFileTemplate.format(nIter), 'UPDATE') as cacheFile:
+                        chanDir = getattr(cacheFile, chan)
+                        varDir = getattr(chanDir, varName)
+
+                        hUnfolded[chan] = {h.name:h.clone() for h in varDir.unfolded.objects()}
+                        hUnfolded[chan][''] = varDir.hUnfolded.clone()
+                        for h in hUnfolded[chan].values():
+                            h.SetDirectory(0)
+
+                        hTrue[chan] = {h.name:h.clone() for h in varDir.true.objects()}
+                        hTrue[chan][''] = varDir.hTrue.clone()
+                        for h in hTrue[chan].values():
+                            h.SetDirectory(0)
+
+                        hTrueAlt[chan] = {h.name:h.clone() for h in varDir.trueAlt.objects()}
+                        hTrueAlt[chan][''] = varDir.hTrueAlt.clone()
+                        for h in hTrueAlt[chan].values():
+                            h.SetDirectory(0)
+                except Exception as e:
+                    rlog.warning("Rebuilding everything. Reason:")
+                    rlog.warning('    '+str(e))
+                    needToCreate = True
+
+            # otherwise, we have to make everything
+            # this can't be an else with the previous if
+            if needToCreate:
+                if samples is None:
+                    sfFiles, hPUWt, hSF, sipForBkg = _generateAnalysisInputs(puWeightFile,
+                                                                             looseSIP,
+                                                                             noSIP,
+                                                                             sfRemake)
+                    samples = _generateSamples(inData, inMC, ana, fakeRateFile,
+                                               puWeightFile, lumi, amcatnlo,
+                                               sipForBkg, sfFiles)
+
+                responseMakers, altResponseMakers = _generateResponseClass(
+                    varName, chan, samples, hPUWt, hSF
+                    )
+
+                hUnfolded[chan], hTrue[chan], hTrueAlt[chan] = _unfold(
+                    varName, chan, samples, puWeightFile, sfFiles,
+                    responseMakers, altResponseMakers, nIter, plotDir
+                    )
+
+                with root_open(_cacheFileTemplate.format(nIter), 'UPDATE') as cacheFile:
+                    if not hasattr(cacheFile, chan):
+                        cacheFile.mkdir(chan)
+                    chanDir = getattr(cacheFile, chan)
+                    if hasattr(chanDir, varName):
+                        chanDir.rm(varName)
+                    varDir = chanDir.mkdir(varName)
+
+                    varDir['hTrue'] = hTrue[chan][''].clone(name='hTrue')
+                    if hasattr(varDir, 'true'):
+                        varDir.rm('true')
+                    trueDir = varDir.mkdir('true')
+                    for syst, hist in hTrue[chan].iteritems():
+                        if syst:
+                            hist.name = syst
+                            trueDir[syst] = hist.clone(name=syst)
+
+                    varDir['hTrueAlt'] = hTrueAlt[chan][''].clone('hTrueAlt')
+                    if hasattr(varDir, 'trueAlt'):
+                        varDir.rm('trueAlt')
+                    trueDirAlt = varDir.mkdir('trueAlt')
+                    for syst, hist in hTrueAlt[chan].iteritems():
+                        if syst:
+                            hist.name = syst
+                            trueDirAlt[syst] = hist.clone(name=syst)
+
+                    varDir['hUnfolded'] = hUnfolded[chan][''].clone(name='hUnfolded')
+                    if hasattr(varDir, 'unfolded'):
+                        varDir.rm('unfolded')
+                    unfDir = varDir.mkdir('unfolded')
+                    for syst, hist in hUnfolded[chan].iteritems():
+                        if syst:
+                            hist.name = syst
+                            unfDir[syst] = hist.clone(name=syst)
+
+            hErr[chan]= _generateUncertainties(hUnfolded[chan], norm,
+                                               lumi=lumi, varName=varName,
+                                               ana=ana, plotDir=plotDir,
+                                               chan=chan)
+            (hUncUp, hUncDn) = _sumUncertainties(hErr[chan])
+            hErrTrue[chan] = _generateUncertainties(hTrue[chan], norm)
+            (hTrueUncUp, hTrueUncDn) = _sumUncertainties(hErrTrue[chan])
+            hErrTrueAlt[chan] = _generateUncertainties(hTrueAlt[chan], norm)
+            (hTrueUncUpAlt, hTrueUncDnAlt) = _sumUncertainties(hErrTrueAlt[chan])
+
+            _generatePlots(hUnfolded[chan][''], hUncUp, hUncDn,
+                           hTrue[chan][''], hTrueUncUp, hTrueUncDn,
+                           hTrueAlt[chan][''], hTrueUncUpAlt, hTrueUncDnAlt,
+                           varName, chan, ana, plotDir, plotType, lumi, norm, logy,
+                           amcatnlo)
 
-            hTrueNominal = true[chan].makeHist(var, selTrue, binning,
-                                               perUnitWidth=False)
-            hSigNominal = reco[chan].makeHist(var, sel, binning, perUnitWidth=False)
-            hBkgMCNominal = bkgMC[chan].makeHist(var, sel, binning, perUnitWidth=False)
-            hBkgNominal = bkg[chan].makeHist(var, sel, binning, perUnitWidth=False,
-                                             postprocess=True)
-            hResponseNominal = {s:asrootpy(resp()) for s,resp in responseMakers.iteritems()}
-            hResponseNominalTotal = sum(resp for resp in hResponseNominal.values())
-
-
-            # also get covariance and response matrices for later plotting
-            hUnfolded[chan][''], hCov, hResp = _getUnfolded(hSigNominal,
-                                                            hBkgMCNominal+hBkgNominal,
-                                                            hTrueNominal,
-                                                            hResponseNominalTotal,
-                                                            hData, nIter, True)
-
-            # PU reweight uncertainty
-            for sys in ['up','dn']:
-                wtStr = baseMCWeight(chan, puWeightFile, puSyst=sys,
-                                     **sfArgs)
-                reco[chan].applyWeight(wtStr, True)
-                bkgMC[chan].applyWeight(wtStr, True)
-
-                hSig = reco[chan].makeHist(var, sel, binning, perUnitWidth=False)
-                hBkgMC = bkgMC[chan].makeHist(var, sel, binning, perUnitWidth=False)
-
-                hResponse = sum(asrootpy(resp('pu_'+sys)) for resp in responseMakers.values())
-
-                hUnfolded[chan]['pu_'+sys] = _getUnfolded(hSig,
-                                                          hBkgMC+hBkgNominal,
-                                                          hTrueNominal,
-                                                          hResponse,
-                                                          hData, nIter)
-
-                reco[chan].applyWeight(nominalWeight, True)
-                bkgMC[chan].applyWeight(nominalWeight, True)
-
-
-            # lepton efficiency uncertainty
-            for lep in set(chan):
-                for sys in ['up','dn']:
-                    wtArg = {lep+'Syst':sys}
-                    wtArg.update(sfArgs)
-                    wtStr = baseMCWeight(chan, puWeightFile, **wtArg)
-                    reco[chan].applyWeight(wtStr, True)
-                    bkgMC[chan].applyWeight(wtStr, True)
-
-                    hSig = reco[chan].makeHist(var, sel, binning, perUnitWidth=False)
-                    hBkgMC = bkgMC[chan].makeHist(var, sel, binning, perUnitWidth=False)
-
-                    hResponse = sum(asrootpy(resp(lep+'Eff_'+sys)) for resp in responseMakers.values())
-
-                    hUnfolded[chan][lep+'Eff_'+sys] = _getUnfolded(hSig,
-                                                                   hBkgMC+hBkgNominal,
-                                                                   hTrueNominal,
-                                                                   hResponse,
-                                                                   hData, nIter)
-
-                    reco[chan].applyWeight(nominalWeight, True)
-                    bkgMC[chan].applyWeight(nominalWeight, True)
-
-            # alternate generator
-            hSig = altReco[chan].makeHist(var, sel, binning,
-                                          perUnitWidth=False)
-            hTrue = altTrue[chan].makeHist(var, selTrue, binning,
-                                           perUnitWidth=False)
-            hResponses = []
-            for s in altSigFileNames.keys():
-                try:
-                    hResponses.append(asrootpy(altResponseMakers[s]()))
-                except KeyError:
-                    hResponses.append(hResponseNominal[s])
-            hResponse = sum(h for h in hResponses)
-
-            hUnfolded[chan]['generator'] = _getUnfolded(hSig,
-                                                        hBkgMCNominal+hBkgNominal,
-                                                        hTrue,
-                                                        hResponse,
-                                                        hData, nIter)
-
-            # luminosity
-            lumiUnc = 0.026
-            lumiScale = {'up':1.+lumiUnc,'dn':1.-lumiUnc}
-            for sys, scale in lumiScale.iteritems():
-                hSig = hSigNominal * scale
-                hBkgMC = hBkgMCNominal * scale
-                hTrue = hTrueNominal * scale
-                hResponse = hResponseNominalTotal * scale
-
-                hUnfolded[chan]['lumi_'+sys] = _getUnfolded(hSig,
-                                                            hBkgMC+hBkgNominal,
-                                                            hTrue,
-                                                            hResponse,
-                                                            hData, nIter)
-
-            # lepton fake rate uncertainty
-            for lep in set(chan):
-                for sys in ['up','dn']:
-                    hBkg = bkgSyst[lep+sys][chan].makeHist(var, sel, binning,
-                                                           perUnitWidth=False,
-                                                           postprocess=True)
-
-                    hUnfolded[chan][lep+'FR_'+sys] = _getUnfolded(hSigNominal,
-                                                                  hBkgMCNominal+hBkg,
-                                                                  hTrueNominal,
-                                                                  hResponseNominalTotal,
-                                                                  hData, nIter)
-
-            # jet stuff
-            if 'jet' in varName.lower() or 'jj' in varName.lower():
-                for shift in ['up','dn']:
-                    sysStr = 'Up' if shift == 'up' else 'Down'
-
-                    for sys in ['jer','jes']:
-                        shiftedVarName = varName + '_' + sys + sysStr
-                        varShifted = _variables[shiftedVarName][chan]
-                        selShifted = _selections[shiftedVarName][chan]
-
-                        hSig = reco[chan].makeHist(varShifted, selShifted,
-                                                   binning, perUnitWidth=False)
-                        hBkgMC = bkgMC[chan].makeHist(varShifted, selShifted,
-                                                      binning, perUnitWidth=False)
-
-                        hResponse = sum(asrootpy(resp(sys+'_'+shift)) for resp in responseMakers.values())
-
-                        hUnfolded[chan][sys+'_'+shift] = _getUnfolded(hSig,
-                                                                      hBkgMC+hBkgNominal,
-                                                                      hTrueNominal,
-                                                                      hResponse,
-                                                                      hData, nIter)
-
-            # lepton momentum uncertainties
-            if 'e' in chan:
-                for sys in ['eScale', 'eRhoRes', 'ePhiRes']:
-                    for shift in ['up','dn']:
-                        if sys == 'ePhiRes' and shift == 'dn':
-                            continue
-                        sysStr = 'Up' if shift == 'up' else 'Dn'
-
-                        hSig = recoSyst[sys+sysStr][chan].makeHist(var, sel,
-                                                                   binning,
-                                                                   perUnitWidth=False)
-                        hBkgMC = bkgMCSyst[sys+sysStr][chan].makeHist(var, sel,
-                                                                      binning,
-                                                                      perUnitWidth=False)
-                        hResponse = sum(asrootpy(resp(sys+'_'+shift)) for resp in responseMakers.values())
-
-                        storeAs = sys+'_'+shift
-                        if sys == 'ePhiRes':
-                            storeAs = sys
-                        hUnfolded[chan][storeAs] = _getUnfolded(hSig,
-                                                                hBkgMC+hBkgNominal,
-                                                                hTrueNominal,
-                                                                hResponse,
-                                                                hData, nIter)
-            if 'm' in chan:
-                sys = 'mClosure'
-                for shift in ['up','dn']:
-                    sysStr = 'Up' if shift == 'up' else 'Dn'
-
-                    hSig = recoSyst[sys+sysStr][chan].makeHist(var, sel,
-                                                               binning,
-                                                               perUnitWidth=False)
-                    hBkgMC = bkgMCSyst[sys+sysStr][chan].makeHist(var, sel,
-                                                                  binning,
-                                                                  perUnitWidth=False)
-                    hResponse = sum(asrootpy(resp(sys+'_'+shift)) for resp in responseMakers.values())
-
-                    hUnfolded[chan][sys+'_'+shift] = _getUnfolded(hSig,
-                                                                  hBkgMC+hBkgNominal,
-                                                                  hTrueNominal,
-                                                                  hResponse,
-                                                                  hData, nIter)
-
-            # PDF uncertainties
-            hSigVariations = []
-            for s in reco[chan].values():
-                if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
-                    hSigVariations.append(s.makeHist2(var, 'Iteration$', sel, binning,
-                                                      [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
-            hResponseVariations = []
-            for s, resp in responseMakers.iteritems():
-                if "GluGluZZ" not in s and 'phantom' not in s:
-                    hResponseVariations.append(asrootpy(resp.getPDFResponses()))
-
-            # for each var bin in each sample, get the RMS across all the variations
-            allSigRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hSigVariations]
-            allResponseRMSes = [[[Graph(h.ProjectionZ('slice_{}_{}'.format(x,y), x+1, x+1, y+1, y+1)).GetRMS(2)
-                                  for y in xrange(h.GetNbinsY())]
-                                 for x in xrange(h.GetNbinsX())]
-                                for h in hResponseVariations]
-            # for each var bin, add variations for all samples
-            sigBinRMSes = [sum(rmses) for rmses in zip(*allSigRMSes)]
-            responseBinRMSes = [[sum(rmses) for rmses in zip(*colForAllSamples)] for colForAllSamples in zip(*allResponseRMSes)]
-
-            hSigUp = hSigNominal.clone()
-            hSigDn = hSigNominal.clone()
-            hResponseUp = hResponseNominalTotal.clone()
-            hResponseDn = hResponseNominalTotal.clone()
-
-            # apply variations
-            for i in xrange(hSigUp.GetNbinsX()):
-                hSigUp[i+1].value += sigBinRMSes[i]
-                hSigDn[i+1].value = max(0.,hSigDn[i+1].value - sigBinRMSes[i])
-            for x in xrange(hResponseUp.GetNbinsX()):
-                for y in xrange(hResponseUp.GetNbinsY()):
-                    hResponseUp[x+1,y+1].value += responseBinRMSes[x][y]
-                    hResponseDn[x+1,y+1].value = max(0., hResponseDn[x+1,y+1].value - responseBinRMSes[x][y])
-
-            hTrueUp = hTrueNominal.clone()
-            hTrueDn = hTrueNominal.clone()
-            hTrueVariations = []
-            for s in true[chan].values():
-                if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
-                    hTrueVariations.append(s.makeHist2(var, 'Iteration$', selTrue, binning,
-                                                       [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
-            allTrueRMSes = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hTrueVariations]
-            binTrueRMSes = [sum(rmses) for rmses in zip(*allTrueRMSes)]
-
-            hTruePDFErr[chan] = hTrue.empty_clone() # save true variation for later
-            for i in xrange(hTrueUp.GetNbinsX()):
-                hTrueUp[i+1].value += binTrueRMSes[i]
-                hTrueDn[i+1].value = max(0.,hTrueDn[i+1].value - binTrueRMSes[i])
-                hTruePDFErr[chan][i+1].value = binTrueRMSes[i]
-
-            # get the other sample's uncertainty too as long as we're at it
-            hTrueAlt = altTrue[chan].makeHist(var, selTrue, binning,
-                                              perUnitWidth=False)
-            hTruePDFErrAlt[chan] = hTrueAlt.empty_clone()
-            hTrueVariationsAlt = []
-            for s in altTrue[chan].values():
-                if 'GluGluZZ' not in s.name and 'phantom' not in s.name:
-                    hTrueVariationsAlt.append(s.makeHist2(var, 'Iteration$', selTrue, binning,
-                                                          [100,0.,100.], 'pdfWeights/pdfWeights[0]', False))
-            allTrueRMSesAlt = [[Graph(h.ProjectionY('slice{}'.format(i), i+1,i+1)).GetRMS(2) for i in xrange(h.GetNbinsX())] for h in hTrueVariationsAlt]
-            binTrueRMSesAlt = [sum(rmses) for rmses in zip(*allTrueRMSesAlt)]
-            for i in xrange(hTruePDFErrAlt[chan].GetNbinsX()):
-                hTruePDFErrAlt[chan][i+1].value = binTrueRMSesAlt[i]
-
-
-            hUnfolded[chan]['pdf_up'] = _getUnfolded(hSigUp,
-                                                     hBkgMCNominal+hBkgNominal,
-                                                     hTrueUp, hResponseUp,
-                                                     hData, nIter)
-            hUnfolded[chan]['pdf_dn'] = _getUnfolded(hSigDn,
-                                                     hBkgMCNominal+hBkgNominal,
-                                                     hTrueDn, hResponseDn,
-                                                     hData, nIter)
-
-            # QCD scale uncertainties
-            variationIndices = [1,2,3,4,6,8]
-            hSigs = [reco[chan].makeHist(var, sel, binning,
-                                 {
-                        'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        },
-                                 perUnitWidth=False)
-                     for i in variationIndices]
-
-            hTrues = [true[chan].makeHist(var, selTrue, binning,
-                                          {
-                        'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        },
-                                          perUnitWidth=False)
-                      for i in variationIndices]
-
-            # save true-level uncertainty for later
-            hTrueScaleUp[chan] = hTrueNominal.empty_clone()
-            hTrueScaleDn[chan] = hTrueNominal.empty_clone()
-            for bUp, bDn, bNom, variations in zip(hTrueScaleUp[chan],
-                                                  hTrueScaleDn[chan],
-                                                  hTrue, zip(*hTrues)):
-                bUp.value = max(b.value for b in variations) - bNom.value
-                bDn.value = abs(min(b.value for b in variations) - bNom.value)
-
-            # get the true-level uncertainty too while we're at it
-            hTruesAlt = [altTrue[chan].makeHist(var, selTrue, binning,
-                                                {
-                        'ZZTo4L':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        'ZZTo4L-amcatnlo':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        'ZZJJTo4L_EWK':'scaleWeights[{}]/scaleWeights[0]'.format(i),
-                        },
-                                                perUnitWidth=False)
-                         for i in variationIndices]
-            hTrueScaleUpAlt[chan] = hTrueAlt.empty_clone()
-            hTrueScaleDnAlt[chan] = hTrueAlt.empty_clone()
-            for bUp, bDn, bNom, variations in zip(hTrueScaleUpAlt[chan],
-                                                  hTrueScaleDnAlt[chan],
-                                                  hTrueAlt, zip(*hTruesAlt)):
-                bUp.value = max(b.value for b in variations) - bNom.value
-                bDn.value = abs(min(b.value for b in variations) - bNom.value)
-
-            hResponseVariations = [hResponseNominalTotal.empty_clone() for v in variationIndices]
-            for s, resp in responseMakers.iteritems():
-                vResponses = resp.getScaleResponses()
-                if vResponses.size() == len(hResponseVariations):
-                    for iResp in xrange(vResponses.size()):
-                        hResponseVariations[iResp] += asrootpy(vResponses.at(iResp))
-                else:
-                    for hrv in hResponseVariations:
-                        hrv += hResponseNominal[s]
-
-            hUnfoldedVariations = []
-            for hSig, hTrue, hResponse in zip(hSigs, hTrues, hResponseVariations):
-                hUnfoldedVariations.append(_getUnfolded(hSig,
-                                                        hBkgMCNominal+hBkgNominal,
-                                                        hTrue, hResponse,
-                                                        hData, nIter))
-
-            hUnfoldedUp = hUnfoldedVariations[0].empty_clone()
-            hUnfoldedDn = hUnfoldedVariations[0].empty_clone()
-            for bUp, bDn, bVars in zip(hUnfoldedUp, hUnfoldedDn, zip(*hUnfoldedVariations)):
-                bUp.value = max(b.value for b in bVars)
-                bDn.value = min(b.value for b in bVars)
-
-            hUnfolded[chan]['scale_up'] = hUnfoldedUp
-            hUnfolded[chan]['scale_dn'] = hUnfoldedDn
-
-            # alpha_s uncertainties
-            alphaSIndices = [100,101]
-            hSigs = [reco[chan].makeHist(var, sel, binning,
-                                 {
-                        'ZZTo4L':'pdfWeights[{}]/pdfWeights[0]'.format(i),
-                        'ZZTo4L-amcatnlo':'pdfWeights[{}]/pdfWeights[0]'.format(i),
-                        'ZZJJTo4L_EWK':'pdfWeights[{}]/pdfWeights[0]'.format(i),
-                        },
-                                 perUnitWidth=False)
-                    for i in alphaSIndices]
-            hTrues = [true[chan].makeHist(var, selTrue, binning,
-                                  {
-                        'ZZTo4L':'pdfWeights[{}]/pdfWeights[0]'.format(i),
-                        'ZZTo4L-amcatnlo':'pdfWeights[{}]/pdfWeights[0]'.format(i),
-                        'ZZJJTo4L_EWK':'pdfWeights[{}]/pdfWeights[0]'.format(i),
-                        },
-                                  perUnitWidth=False)
-                     for i in alphaSIndices]
-
-            hResponses = [hResponseNominalTotal.empty_clone(),
-                          hResponseNominalTotal.empty_clone()]
-            for s, resp in responseMakers.iteritems():
-                if resp.hasSystematic('alphaS_up'):
-                    hResponses[0] += asrootpy(resp('alphaS_up'))
-                    hResponses[1] += asrootpy(resp('alphaS_dn'))
-                else:
-                    hResponses[0] += hResponseNominal[s]
-                    hResponses[1] += hResponseNominal[s]
-
-            hUnfUp = _getUnfolded(hSigs[0], hBkgNominal+hBkgMCNominal,
-                                  hTrues[0], hResponses[0],
-                                  hData, nIter)
-            hUnfDn = _getUnfolded(hSigs[1], hBkgNominal+hBkgMCNominal,
-                                  hTrues[1], hResponses[1],
-                                  hData, nIter)
-
-            unc = hUnfUp - hUnfDn
-            unc /= 2.
-            for b in unc:
-                b.value = abs(b.value)
-
-            hUnfolded[chan]['alphaS_up'] = hUnfolded[chan][''] + unc
-            hUnfolded[chan]['alphaS_dn'] = hUnfolded[chan][''] - unc
-
-            # since MCFM samples don't have LHE information, we just vary by
-            # the cross section uncertainties
-            mcfmUnc = {'up':.18,'dn':-.15}
-            for sys, shift in mcfmUnc.iteritems():
-                hSig = reco[chan].makeHist(var, sel, binning,
-                                           {'GluGluZZ':str(1.+shift)},
-                                           perUnitWidth=False)
-                hTrue = true[chan].makeHist(var, selTrue, binning,
-                                           {'GluGluZZ':str(1.+shift)},
-                                           perUnitWidth=False)
-                hResponse = hResponseNominalTotal.empty_clone()
-                for s, h in hResponseNominal.iteritems():
-                    if 'GluGluZZ' in s:
-                        hResponse += h * (1.+shift)
-                    else:
-                        hResponse += h
-
-                hUnfolded[chan]['mcfmxsec_'+sys] = _getUnfolded(hSig,
-                                                                hBkgNominal+hBkgMCNominal,
-                                                                hTrue,
-                                                                hResponse,
-                                                                hData, nIter)
-
-            # for normalization if needed
-            nominalArea = hUnfolded[chan][''].Integral(0,hUnfolded[chan][''].GetNbinsX()+1)
-            # Make uncertainties out of the unfolded histos
-            hErr[chan] = {'up':{},'dn':{}}
-            for sys, hUnf in hUnfolded[chan].iteritems():
-                if not sys:
-                    continue
-
-                if norm:
-                    hUnf *= nominalArea / hUnf.Integral(0,hUnf.GetNbinsX()+1)
-                # we already shifted the response matrix for lumi, but not the
-                # final normalization
-                elif sys == 'lumi_up':
-                    hUnf /= 1.026
-                elif sys == 'lumi_dn':
-                    hUnf /= 0.974
-
-                he = hUnf - hUnfolded[chan]['']
-                sysName = sys.replace('_up','').replace('_dn','')
-                he.title = _uncertaintyTitles[sysName]
-                he.color = _uncertaintyColors[sysName]
-                he.fillstyle = 'solid'
-                he.drawstyle = 'hist'
-                he.legendstyle = 'F'
-
-                if '_up' in sys:
-                    hErr[chan]['up'][sysName] = he
-                elif '_dn' in sys:
-                    hErr[chan]['dn'][sysName] = he
-                else:
-                    hErr[chan]['up'][sysName] = he
-                    he2 = he.clone()
-                    he2.title = _uncertaintyTitles[sysName]
-                    he2.color = _uncertaintyColors[sysName]
-                    he2.fillstyle = 'solid'
-                    he2.drawstyle = 'hist'
-                    he2.legendstyle = 'F'
-                    hErr[chan]['dn'][sysName] = he2
-
-
-
-            ### Get the total uncertainties
-            hUncUp = hUnfolded[chan][''].empty_clone()
-            hUncDn = hUnfolded[chan][''].empty_clone()
-            for bUncUp, bUncDn, allUncUp, allUncDn in zip(hUncUp, hUncDn,
-                                                          zip(*hErr[chan]['up'].values()),
-                                                          zip(*hErr[chan]['dn'].values())):
-                for b1,b2 in zip(allUncUp,allUncDn):
-                    bUncUp.value += max(b1.value,b2.value)**2
-                    bUncDn.value += min(b1.value,b2.value)**2
-
-                bUncUp.value = sqrt(bUncUp.value)
-                bUncDn.value = sqrt(bUncDn.value)
-
-
-            # Make all error histograms positive
-            # and make uncertainties fractional (as a percentage)
-            for sys in hErr[chan].values():
-                for h in sys.values():
-                    h /= hUnfolded[chan]['']
-                    h *= 100.
-                    for b in h:
-                        b.value = abs(b.value)
-
-            statErr = hUnfolded[chan][''].empty_clone()
-            for bUnf, bStat in zip(hUnfolded[chan][''], statErr):
-                bStat.value = bUnf.error
-            statErr /= hUnfolded[chan]['']
-            statErr *= 100.
-            statErr.color = 'lightgrey'
-            statErr.fillstyle = 'solid'
-            statErr.legendstyle = 'F'
-            statErr.drawstyle = 'hist'
-            statErr.title = 'Stat/unfolding'
-            errListUp = [statErr]+list(hErr[chan]['up'].values())
-            errListDn = [statErr]+list(hErr[chan]['up'].values())
-
-            # quadrature sum of errors to put on top
-            totErrUp = statErr.empty_clone()
-            totErrDn = statErr.empty_clone()
-            for bTot, bs in zip(totErrUp, zip(*errListUp)):
-                bTot.value = sqrt(sum(b.value**2 for b in bs))
-            for bTot, bs in zip(totErrDn, zip(*errListDn)):
-                bTot.value = sqrt(sum(b.value**2 for b in bs))
-            totErrUp.title = 'Total (quadrature sum)'
-            totErrUp.color = 'black'
-            totErrUp.fillstyle = 'hollow'
-            totErrUp.drawstyle = 'hist'
-            totErrUp.legendstyle = 'L'
-            totErrUp.SetLineWidth(3*totErrUp.GetLineWidth())
-            totErrDn.title = 'Total (sum of squares)'
-            totErrDn.color = 'black'
-            totErrDn.fillstyle = 'hollow'
-            totErrDn.drawstyle = 'hist'
-            totErrDn.legendstyle = 'L'
-            totErrDn.SetLineWidth(3*totErrDn.GetLineWidth())
-
-            # Make plots of uncertainties (added linearly)
-            cErrUp = Canvas(1000,1000)
-            drawOpts = {
-                'xtitle' : _xTitle[varName],
-                'ytitle' : "+Error (%)",
-                'yerror_in_padding' : False,
-                }
-            if ana == 'full':
-                drawOpts['logx'] = True
-            if varName == 'deltaRZZ':
-                if chan == 'eeee':
-                    drawOpts['ylimits'] = (0.,140.)
-                elif chan == 'mmmm':
-                    drawOpts['ylimits'] = (0.,75.)
-                else:
-                    drawOpts['ylimits'] = (0.,58.)
-            errStackUp = HistStack(errListUp, drawstyle = 'histnoclear')
-            draw([errStackUp,totErrUp], cErrUp, **drawOpts)
-            leg = makeLegend(cErrUp, *(errListUp+[totErrUp]), leftmargin=0.25,
-                             entryheight=.02, entrysep=.007, textsize=.022,
-                             rightmargin=.25)
-            leg.Draw('same')
-            _style.setCMSStyle(cErrUp, '', dataType=plotType, intLumi=lumi)
-            cErrUp.Print(_join(plotDir, 'pngs', 'errUp_{}_{}.png'.format(varName, chan)))
-            cErrUp.Print(_join(plotDir, 'Cs', 'errUp_{}_{}.C'.format(varName, chan)))
-
-            cErrDn = Canvas(1000,1000)
-            drawOpts = {
-                'xtitle' : _xTitle[varName],
-                'ytitle' : "-Error (%)",
-                'yerror_in_padding' : False,
-                }
-            if ana == 'full':
-                drawOpts['logx'] = True
-            if varName == 'deltaRZZ' and chan == 'eeee':
-                drawOpts['ylimits'] = (0.,140.)
-            errStackDn = HistStack(errListDn, drawstyle = 'histnoclear')
-            draw([errStackDn, totErrDn], cErrDn, **drawOpts)
-            leg = makeLegend(cErrDn, *(errListDn+[totErrDn]), leftmargin=0.25,
-                             entryheight=.02, entrysep=.007, textsize=.022,
-                             rightmargin=.25)
-            leg.Draw('same')
-            _style.setCMSStyle(cErrDn, '', dataType=plotType, intLumi=lumi)
-            cErrDn.Print(_join(plotDir, 'pngs', 'errDown_{}_{}.png'.format(varName, chan)))
-            cErrDn.Print(_join(plotDir, 'Cs', 'errDown_{}_{}.C'.format(varName, chan)))
-
-            # Errors should no longer be fractional or a percentage
-            for sys in hErr[chan].values():
-                for h in sys.values():
-                    h *= hUnfolded[chan]['']
-                    h /= 100.
-
-            ### plot
-            hUnf = hUnfolded[chan][''].clone()
-
-            if norm:
-                hUnf /= hUnf.Integral(0,hUnf.GetNbinsX()+1)
-            else:
-                hUnf /= lumifb
-
-            hUnf.color = 'black'
-            hUnf.drawstyle = 'PE1'
-            hUnf.legendstyle = 'LPE1'
-            hUnf.title = '\\textbf{Data + stat.\ unc.}'
-            if not norm:
-                print "Inclusive {} fiducial cross section = {} fb".format(chan, hUnf.Integral(0,hUnf.GetNbinsX()+1))
-            _normalizeBins(hUnf)
-
-            hTrue = hTrueNominal.clone()
-            hTrue.fillcolor = '#99ccff'
-            hTrue.linecolor = '#000099'
-            hTrue.drawstyle = 'hist'
-            TAttFill.SetFillStyle(hTrue, 3004)
-            hTrue.SetLineWidth(2*hTrue.GetLineWidth())
-            #hTrue.fillstyle = '/'#'solid'
-            hTrue.title = '{}'.format(signalName)
-
-            # true uncertainty
-            hTrueUncUp = hTruePDFErr[chan].empty_clone()
-            hTrueUncDn = hTruePDFErr[chan].empty_clone()
-            for bUp, bDn, bPDF, bScaleUp, bScaleDn in zip(hTrueUncUp,
-                                                          hTrueUncDn,
-                                                          hTruePDFErr[chan],
-                                                          hTrueScaleUp[chan],
-                                                          hTrueScaleDn[chan]):
-                bUp.value = sqrt(bPDF.value**2 + bScaleUp.value**2)
-                bDn.value = sqrt(bPDF.value**2 + bScaleDn.value**2)
-
-
-            if norm:
-                trueInt = hTrue.Integral(0,hTrue.GetNbinsX()+1)
-                hTrue /= trueInt
-                hTrueUncUp /= (trueInt + hTrueUncUp.Integral(0,hTrueUncUp.GetNbinsX()+1))
-                hTrueUncDn /= (trueInt + hTrueUncDn.Integral(0,hTrueUncDn.GetNbinsX()+1))
-            else:
-                hTrue /= lumifb
-                hTrueUncUp /= lumifb
-                hTrueUncDn /= lumifb
-
-            _normalizeBins(hTrue)
-            _normalizeBins(hTrueUncUp)
-            _normalizeBins(hTrueUncDn)
-
-            # true uncertainty band
-            errorBandTrue = makeErrorBand(hTrue, hTrueUncUp, hTrueUncDn)
-            errorBandTrue.fillstyle = 'solid'
-            errorBandTrue.SetFillColorAlpha(600, 0.5)
-
-            hTrueLeg = Hist(1, 0, 1)
-            hTrueLeg.fillcolor = hTrue.fillcolor
-            hTrueLeg.linecolor = '#7f7fff' # color transparent error band looks like on white background, found with GIMP eyedropper
-            TAttFill.SetFillStyle(hTrueLeg, 3004)
-            hTrueLeg.SetLineWidth(5*hTrue.GetLineWidth())
-            hTrueLeg.title = hTrue.title
-            hTrueLeg.legendstyle = 'FL'
-
-            # use later to put fill and error bars on same legend entry
-            trueLegOverlay = Hist(1, 0, 1, title='', legendstyle='L',
-                                  linecolor=hTrue.linecolor)
-            trueLegOverlay.SetLineWidth(hTrue.GetLineWidth())
-
-            toPlot = [hTrue, errorBandTrue]
-            forLegend = [hTrueLeg]#Leg]
-
-
-            hTrueAlt.color = 'red'
-            hTrueAlt.drawstyle = 'hist'
-            hTrueAlt.fillstyle = 'hollow'
-            hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
-            hTrueAlt.title = '{}'.format(signalNameAlt)
-
-            hTrueUncUpAlt = hTruePDFErrAlt[chan].empty_clone()
-            hTrueUncDnAlt = hTruePDFErrAlt[chan].empty_clone()
-            for bUp, bDn, bPDF, bScaleUp, bScaleDn in zip(hTrueUncUpAlt,
-                                                          hTrueUncDnAlt,
-                                                          hTruePDFErrAlt[chan],
-                                                          hTrueScaleUpAlt[chan],
-                                                          hTrueScaleDnAlt[chan]):
-                bUp.value = sqrt(bPDF.value**2 + bScaleUp.value**2)
-                bDn.value = sqrt(bPDF.value**2 + bScaleDn.value**2)
-
-            if norm:
-                trueIntAlt = hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
-                hTrueAlt /= trueIntAlt
-                hTrueUncUpAlt /= (trueIntAlt + hTrueUncUpAlt.Integral(0,hTrueUncUpAlt.GetNbinsX()+1))
-                hTrueUncDnAlt /= (trueIntAlt + hTrueUncDnAlt.Integral(0,hTrueUncDnAlt.GetNbinsX()+1))
-            else:
-                hTrueAlt /= lumifb
-                hTrueUncUpAlt /= lumifb
-                hTrueUncDnAlt /= lumifb
-            _normalizeBins(hTrueAlt)
-            _normalizeBins(hTrueUncUpAlt)
-            _normalizeBins(hTrueUncDnAlt)
-
-            errorBandTrueAlt = makeErrorBand(hTrueAlt, hTrueUncUpAlt, hTrueUncDnAlt)
-            errorBandTrueAlt.fillstyle = 'solid'
-            errorBandTrueAlt.SetFillColorAlpha(628, 0.5)
-
-            hTrueLegAlt = Hist(1, 0, 1)
-            hTrueLegAlt.linecolor = '#ff9898'
-            hTrueLegAlt.SetLineWidth(5*hTrueAlt.GetLineWidth())
-            hTrueLegAlt.title = hTrueAlt.title
-            hTrueLegAlt.legendstyle = 'L'
-
-            trueLegOverlayAlt = Hist(1, 0, 1, linecolor=hTrueAlt.linecolor,
-                                     legendstyle='L', title='')
-            trueLegOverlayAlt.SetLineWidth(hTrueAlt.GetLineWidth())
-
-            toPlot += [errorBandTrueAlt, hTrueAlt]
-            forLegend.append(hTrueLegAlt)
-
-            if varName in _matrixNames:
-                with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
-                    cMat = asrootpy(fMat.canvas)
-                    matDist = asrootpy(cMat.FindObject(_matrixNames[varName])).clone()
-                    # scaleDown is for the UPPER error, scaleUp is for the LOWER
-                    matDistUp = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleDown')).clone()
-                    matDistDn = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleUp')).clone()
-                    matDist.SetDirectory(0)
-                    matDistUp.SetDirectory(0)
-                    matDistDn.SetDirectory(0)
-
-                # un-normalize the bins, rebin, renormalize
-                _unnormalizeBins(matDist)
-                matDist = matDist.rebinned([e for e in hUnf._edges(0)])
-                _normalizeBins(matDist)
-                _unnormalizeBins(matDistUp)
-                matDistUp = matDistUp.rebinned([e for e in hUnf._edges(0)])
-                _normalizeBins(matDistUp)
-                _unnormalizeBins(matDistDn)
-                matDistDn = matDistDn.rebinned([e for e in hUnf._edges(0)])
-                _normalizeBins(matDistDn)
-                if norm:
-                    matDist /= _matrixXSecs['']
-                    matDistUp /= _matrixXSecs['up']
-                    matDistDn /= _matrixXSecs['dn']
-                elif chan != 'eemm':
-                    matDist /= 2
-                    matDistUp /= 2
-                    matDistDn /= 2
-
-                matDist.title = r'\textbf{MATRIX}'
-                matDist.color = 'forestgreen'
-                matDist.drawstyle = 'hist'
-                matDist.fillstyle = 'hollow'
-                matDist.SetLineWidth(matDist.GetLineWidth()*2)
-
-                matDistUp -= matDist
-                matDistDn -= matDist
-
-                errorBandMat = makeErrorBand(matDist, matDistUp, matDistDn)
-                errorBandMat.fillstyle = 'solid'
-                errorBandMat.SetFillColorAlpha(819, 0.5)
-
-                matDistLeg = Hist(1,0,1)
-                matDistLeg.linecolor = '#98e57f'
-                matDistLeg.SetLineWidth(5*matDist.GetLineWidth())
-                matDistLeg.title = matDist.title
-                matDistLeg.legendstyle = 'L'
-
-                matDistLegOverlay = Hist(1, 0, 1, linecolor=matDist.linecolor,
-                                         legendstyle='L', title='')
-                matDistLegOverlay.SetLineWidth(matDist.GetLineWidth())
-
-                toPlot += [errorBandMat,matDist]
-                forLegend.append(matDistLeg)
-
-
-            if norm:
-                hUncUp /= hUnfolded[chan][''].Integral(0,hUnfolded[chan][''].GetNbinsX()+1)
-                hUncDn /= hUnfolded[chan][''].Integral(0,hUnfolded[chan][''].GetNbinsX()+1)
-            else:
-                hUncUp /= lumifb
-                hUncDn /= lumifb
-
-            _normalizeBins(hUncUp)
-            _normalizeBins(hUncDn)
-
-            if varName in _blind:
-                for b, bUp, bDn in zip(hUnf, hUncUp, hUncDn):
-                    if hUnf.xaxis.GetBinLowEdge(b.idx) >= _blind[varName]:
-                        b.value = 0
-                        b.error = 0
-                        bUp.value = 0
-                        bUp.error = 0
-                        bDn.value = 0
-                        bDn.error = 0
-
-            errorBand = makeErrorBand(hUnf, hUncUp, hUncDn)
-
-            toPlot += [errorBand,hUnf]
-            forLegend += [errorBand,hUnf]
-
-            drawOpts = {
-                'xtitle' : _xTitle[varName],
-                }
-            if norm:
-                drawOpts['ytitle'] = _yTitle[varName]
-            else:
-                drawOpts['ytitle'] = _yTitleNoNorm[varName]
-            if ana == 'full':
-                drawOpts['logx'] = True
-            if logy:
-                drawOpts['logy'] = True
-                drawOpts['yerror_in_padding'] = True
-                drawOpts['ypadding'] = 0.04
-
-            if varName in _matrixNames:
-                cUnf = Canvas(1000,1400)
-                mainPad, ratioPadMat, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.12, 0.12, 0.12, bottomMargin=0.35)
-            else:
-                cUnf = Canvas(1000,1200)
-                mainPad, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
-
-            mainPad.cd()
-            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, mainPad,
-                                                         **drawOpts)
-            yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
-            yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
-            yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
-            yaxis.SetMoreLogLabels()
-            xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
-            xaxis.SetTitleOffset(0.95*xaxis.GetTitleOffset())
-
-            leg = makeLegend(cUnf, *forLegend, **legParams[varName])
-            leg.SetFillStyle(1001)
-
-            if varName in _blind and _blind[varName] < xmax:
-                box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
-                box.SetFillColor(1)
-                box.SetFillStyle(3002)
-                box.Draw("same")
-                leg.SetFillStyle(1001)
-
-            leg.Draw("same")
-
-            # want shaded error band and hatched fill for true legend entry,
-            # so cheat and overlay a second legend
-            legOverlay = asrootpy(TLegend(leg))
-            legOverlay.SetFillStyle(0)
-            for entry in legOverlay.primitives:
-                if entry.GetLabel() == hTrue.title:
-                    overlay = trueLegOverlay
-                elif entry.GetLabel() == hTrueAlt.title:
-                    overlay = trueLegOverlayAlt
-                elif varName in _matrixNames and entry.GetLabel() == matDist.title:
-                    overlay = matDistLegOverlay
-                else:
-                    entry.SetObject(None)
-                    entry.SetOption('')
-                    entry.SetLabel('')
-                    continue
-                entry.SetObject(overlay)
-                entry.SetOption(overlay.legendstyle)
-                entry.SetLabel('')
-            legOverlay.Draw("same")
-
-            latex = TLatex()
-            latex.SetNDC()
-            latex.SetTextAlign(11)
-            latex.SetTextSize(.13)
-            latex.SetTextFont(62)
-            latexXMargin = 0.15
-            if varName in ['deltaRZZ','massFull']:
-                latex.SetTextAlign(31)
-                latexXMargin = 1.-latexXMargin
-            elif varName == 'l1Pt':
-                latexXMargin = 0.35
-
-            drawOpts = {
-                'ytitle' : 'Data / Theo.',
-                'xlimits' : (xmin,xmax),
-                'ylimits' : (0.50001,1.9999),
-                'ydivisions' : 505,
-                }
-            if ana == 'full':
-                drawOpts['logx'] = True
-            if varName in ['pt','deltaRZZ','mass']:
-                drawOpts['ylimits'] = (0.2500001, 1.9999)
-
-            if varName in _matrixNames:
-                ratioPadMat.cd()
-
-                matNoErrs = matDist.clone() # need central value only to keep ratio uncertainties consistent
-                for b in matNoErrs: b.error = 0
-                ratioMat, unityMat = makeRatio(hUnf, matNoErrs)
-
-                matUnity = matDist.clone() # need errors only as baseline for ratio theory uncertainties
-                for b in matUnity: b.value = 1.
-                ratioTheoryErrorMat = makeErrorBand(matUnity,
-                                                    matDistUp/matNoErrs,
-                                                    matDistDn/matNoErrs)
-                ratioTheoryErrorMat.fillstyle = 'solid'
-                ratioTheoryErrorMat.SetFillColorAlpha(819, 0.5)
-
-                ratioErrorMat = makeErrorBand(hUnf/matNoErrs, hUncUp/matNoErrs,
-                                              hUncDn/matNoErrs)
-                (ratioMatX, ratioMatY), ratioMatLimits = draw([ratioTheoryErrorMat,
-                                                               ratioErrorMat,
-                                                               ratioMat],
-                                                              ratioPadMat,
-                                                              **drawOpts)
-                ratioMatY.CenterTitle()
-                unityMat.Draw("same")
-                latex.DrawLatex(latexXMargin, 0.8, r"\textbf{MATRIX}")
-
-            ratioPadMain.cd()
-
-            hTrueNoErrs = hTrue.clone() # need central value only to keep ratio uncertainties consistent
-            for b in hTrueNoErrs: b.error = 0
-
-            ratioMain, unityMain = makeRatio(hUnf, hTrueNoErrs)
-            ratioErrorMain = makeErrorBand(hUnf/hTrueNoErrs, hUncUp/hTrueNoErrs,
-                                           hUncDn/hTrueNoErrs)
-
-            hTrueUnity = hTrue.clone() # need errors only as baseline for ratio theory uncertainties
-            for b in hTrueUnity: b.value = 1.
-            ratioTheoryError = makeErrorBand(hTrueUnity,
-                                             hTrueUncUp/hTrueNoErrs,
-                                             hTrueUncDn/hTrueNoErrs)
-            ratioTheoryError.fillstyle = 'solid'
-            ratioTheoryError.SetFillColorAlpha(600, 0.5)
-
-            (ratioMainX, ratioMainY), ratioMainLimits = draw([ratioTheoryError,
-                                                              ratioErrorMain,
-                                                              ratioMain],
-                                                             ratioPadMain,
-                                                             **drawOpts)
-            ratioMainY.CenterTitle()
-            unityMain.Draw("same")
-            latex.DrawLatex(latexXMargin, 0.8, signalName)
-
-            ratioPadAlt.cd()
-
-            hTrueNoErrsAlt = hTrueAlt.clone() # need central value only to keep ratio uncertainties consistent
-            for b in hTrueNoErrsAlt: b.error = 0
-
-            ratioAlt, unityAlt = makeRatio(hUnf, hTrueNoErrsAlt)
-            ratioErrorAlt = makeErrorBand(hUnf/hTrueNoErrsAlt, hUncUp/hTrueNoErrsAlt,
-                                          hUncDn/hTrueNoErrsAlt)
-
-            hTrueUnityAlt = hTrueAlt.clone() # need errors only as baseline for ratio theory uncertainties
-            for b in hTrueUnityAlt: b.value = 1.
-            ratioTheoryErrorAlt = makeErrorBand(hTrueUnityAlt,
-                                                hTrueUncUpAlt/hTrueNoErrsAlt,
-                                                hTrueUncDnAlt/hTrueNoErrsAlt)
-            ratioTheoryErrorAlt.fillstyle = 'solid'
-            ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.5)
-
-            (ratioAltX, ratioAltY), ratioAltLimits = draw([ratioTheoryErrorAlt,
-                                                           ratioErrorAlt,
-                                                           ratioAlt],
-                                                          ratioPadAlt,
-                                                          **drawOpts)
-            ratioAltY.CenterTitle()
-            unityAlt.Draw("same")
-            latex.SetTextSize(latex.GetTextSize() * ratioPadMain.height / ratioPadAlt.height)
-            latex.DrawLatex(latexXMargin, 1.-.2*ratioPadMain.height/ratioPadAlt.height,
-                            signalNameAlt)
-
-            cUnf.cd()
-            ratioPadAlt.Draw()
-            ratioPadMain.Draw()
-            if varName in _matrixNames:
-                ratioPadMat.Draw()
-            mainPad.Draw()
-
-            if varName in _matrixNames:
-                fixRatioAxes(xaxis,yaxis,ratioMatX,ratioMatY, mainPad.height, ratioPadMat.height)
-                fixRatioAxes(ratioMatX,ratioMatY,ratioMainX,ratioMainY, ratioPadMat.height, ratioPadMain.height)
-            else:
-                fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
-            fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
-
-            yaxis.SetTitleSize(0.042)
-            yaxis.SetTitleOffset(1.05)
-
-            # raster formats apparently need different fill styles?
-            errorBand.fillstyle = 'x'
-            errorBand.SetFillColorAlpha(1,0.6)
-            ratioErrorMain.fillstyle = 'x'
-            ratioErrorMain.SetFillColorAlpha(1,0.6)
-            ratioErrorAlt.fillstyle = 'x'
-            ratioErrorAlt.SetFillColorAlpha(1,0.6)
-            if varName in _matrixNames:
-                ratioErrorMat.fillstyle = 'x'
-            errorBand.drawstyle = '2'
-            cUnf.Update()
-
-            _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi, forLatex=True)
-            cUnf.Print(_join(plotDir, 'pngs', "unfold_{}_{}.png".format(varName, chan)))
-            cUnf.Print(_join(plotDir, 'Cs', "unfold_{}_{}.C".format(varName, chan)))
-            _pdfViaTex(cUnf, 'unfold_{}_{}'.format(varName, chan),
-                       _join(plotDir, 'texs'), _join(plotDir, 'pdfs'))
-
-            # change formatting for the postscript formats, then change it back
-            #hatchWidth = gStyle.GetHatchesLineWidth()
-            #hatchSpace = gStyle.GetHatchesSpacing()
-            #gStyle.SetHatchesLineWidth(1)
-            #gStyle.SetHatchesSpacing(1.01)
-            #TAttFill.SetFillStyle(errorBand, 3244)
-            #TAttFill.SetFillStyle(ratioErrorMain, 3244)
-            #TAttFill.SetFillStyle(ratioErrorAlt, 3244)
-            #if varName in _matrixNames:
-            #    TAttFill.SetFillStyle(ratioErrorMat, 3244)
-            #cUnf.Update()
-            #cUnf.Print(_join(plotDir, 'epses', "unfold_{}_{}.eps".format(varName, chan)))
-            #_bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
-            #                                                                                               filename='_'.join(['unfold',varName,chan])))
-            #gStyle.SetHatchesLineWidth(hatchWidth)
-            #gStyle.SetHatchesSpacing(hatchSpace)
-
-            cRes = Canvas(1000,1000)
-            if ana == 'full':
-                cRes.SetLogx()
-                cRes.SetLogy()
-            hResp.drawstyle = 'colztext'
-            hResp.xaxis.title = '\\text{Reco} '+_xTitle[varName]
-            hResp.yaxis.title = '\\text{True} '+_xTitle[varName]
-            hResp.draw()
-            _style.setCMSStyle(cRes, '', dataType=plotType+' Simulation', intLumi=lumi)
-            cRes.Print(_join(plotDir, 'pngs', "response_{}_{}.png".format(varName, chan)))
-            cRes.Print(_join(plotDir, 'Cs', "response_{}_{}.C".format(varName, chan)))
-
-            cCov = Canvas(1000,1000)
-            if ana == 'full':
-                cCov.SetLogx()
-                cCov.SetLogy()
-            hCov.Draw("colztext")
-            _style.setCMSStyle(cCov, '', dataType=plotType, intLumi=lumi)
-            cCov.Print(_join(plotDir, 'pngs', "covariance_{}_{}.png".format(varName, chan)))
-            cCov.Print(_join(plotDir, 'Cs', "covariance_{}_{}.C".format(varName, chan)))
 
         hTot = sum(hUnfolded[c][''] for c in channels)
-        hTot.color = 'black'
-        hTot.drawstyle = 'PE1'
-        hTot.legendstyle = 'LPE'
-        hTot.title = r'\textbf{Data + stat.\ unc.}'
-
-        selTrueAll = {}
-        for c in channels:
-            if isinstance(_selections[varName][c], str):
-                selTrueAll[c] = combineWeights(_selections[varName][c],
-                                               _trueSelections[varName][c],
-                                               selections=True)
-            else:
-                selTrueAll[c] = [combineWeights(s, _trueSelections[varName][c],
-                                                selections=True)
-                                 for s in _selections[varName][c]
-                                 ]
-
-
-        hTrue = true.makeHist(_variables[varName], selTrueAll,
-                              binning, perUnitWidth=False)
-        hTrue.fillcolor = '#99ccff'
-        hTrue.linecolor = '#000099'
-        hTrue.drawstyle = 'hist'
-        TAttFill.SetFillStyle(hTrue, 3004)
-        hTrue.title = '{}'.format(signalName)
-        hTrue.SetLineWidth(2*hTrue.GetLineWidth())
-
-        # true uncertainty
-        pdfErrTot = sum(hTruePDFErr.values())
-        scaleErrTotUp = sum(hTrueScaleUp.values())
-        scaleErrTotDn = sum(hTrueScaleDn.values())
-        hTrueUncUp = pdfErrTot.empty_clone()
-        hTrueUncDn = pdfErrTot.empty_clone()
-        for bUp, bDn, bPDF, bScaleUp, bScaleDn in zip(hTrueUncUp,
-                                                      hTrueUncDn,
-                                                      pdfErrTot,
-                                                      scaleErrTotUp,
-                                                      scaleErrTotDn):
-            bUp.value = sqrt(bPDF.value**2 + bScaleUp.value**2)
-            bDn.value = sqrt(bPDF.value**2 + bScaleDn.value**2)
-
-        if norm:
-            trueInt = hTrue.Integral(0,hTrue.GetNbinsX()+1)
-            hTrue /= trueInt
-            hTrueUncUp /= (trueInt + hTrueUncUp.Integral(0,hTrueUncUp.GetNbinsX()+1))
-            hTrueUncDn /= (trueInt + hTrueUncDn.Integral(0,hTrueUncDn.GetNbinsX()+1))
-        else:
-            hTrue /= lumifb
-            hTrueUncUp /= lumifb
-            hTrueUncDn /= lumifb
-
-        _normalizeBins(hTrue)
-        _normalizeBins(hTrueUncUp)
-        _normalizeBins(hTrueUncDn)
-
-        # true uncertainty band
-        errorBandTrue = makeErrorBand(hTrue, hTrueUncUp, hTrueUncDn)
-        errorBandTrue.fillstyle = 'solid'
-        errorBandTrue.SetFillColorAlpha(600, 0.5)
-
-        hTrueLeg = Hist(1, 0, 1)
-        hTrueLeg.fillcolor = hTrue.fillcolor
-        hTrueLeg.linecolor = '#7f7fff'
-        TAttFill.SetFillStyle(hTrueLeg, 3004)
-        hTrueLeg.SetLineWidth(5*hTrue.GetLineWidth())
-        hTrueLeg.title = hTrue.title
-        hTrueLeg.legendstyle = 'FL'
-
-        # use later to put fill and error bars on same legend entry
-        trueLegOverlay = Hist(1, 0, 1, title='', legendstyle='L',
-                              linecolor=hTrue.linecolor)
-        trueLegOverlay.SetLineWidth(hTrue.GetLineWidth())
-
-        toPlot = [hTrue, errorBandTrue]
-        forLegend = [hTrueLeg]
-
-
-        hTrueAlt = altTrue.makeHist(_variables[varName], selTrueAll,
-                                    binning, perUnitWidth=False)
-        hTrueAlt.color = 'r'
-        hTrueAlt.drawstyle = 'hist'
-        hTrueAlt.fillstyle = 'hollow'
-        hTrueAlt.SetLineWidth(hTrueAlt.GetLineWidth()*2)
-        hTrueAlt.title = '{}'.format(signalNameAlt)
-
-        pdfErrTotAlt = sum(hTruePDFErrAlt.values())
-        scaleErrTotUpAlt = sum(hTrueScaleUpAlt.values())
-        scaleErrTotDnAlt = sum(hTrueScaleDnAlt.values())
-        hTrueUncUpAlt = pdfErrTotAlt.empty_clone()
-        hTrueUncDnAlt = pdfErrTotAlt.empty_clone()
-        for bUp, bDn, bPDF, bScaleUp, bScaleDn in zip(hTrueUncUpAlt,
-                                                      hTrueUncDnAlt,
-                                                      pdfErrTotAlt,
-                                                      scaleErrTotUpAlt,
-                                                      scaleErrTotDnAlt):
-            bUp.value = sqrt(bPDF.value**2 + bScaleUp.value**2)
-            bDn.value = sqrt(bPDF.value**2 + bScaleDn.value**2)
-
-        if norm:
-            trueIntAlt = hTrueAlt.Integral(0,hTrueAlt.GetNbinsX()+1)
-            hTrueAlt /= trueIntAlt
-            hTrueUncUpAlt /= (trueIntAlt + hTrueUncUpAlt.Integral(0,hTrueUncUpAlt.GetNbinsX()+1))
-            hTrueUncDnAlt /= (trueIntAlt + hTrueUncDnAlt.Integral(0,hTrueUncDnAlt.GetNbinsX()+1))
-        else:
-            hTrueAlt /= lumifb
-            hTrueUncUpAlt /= lumifb
-            hTrueUncDnAlt /= lumifb
-
-        _normalizeBins(hTrueAlt)
-        _normalizeBins(hTrueUncUpAlt)
-        _normalizeBins(hTrueUncDnAlt)
-
-        # true uncertainty band
-        errorBandTrueAlt = makeErrorBand(hTrueAlt, hTrueUncUpAlt, hTrueUncDnAlt)
-        errorBandTrueAlt.fillstyle = 'solid'
-        errorBandTrueAlt.SetFillColorAlpha(628, 0.5)
-
-        hTrueLegAlt = Hist(1, 0, 1)
-        hTrueLegAlt.linecolor = '#ff9898'
-        hTrueLegAlt.SetLineWidth(5*hTrueAlt.GetLineWidth())
-        hTrueLegAlt.title = hTrueAlt.title
-        hTrueLegAlt.legendstyle = 'L'
-
-        trueLegOverlayAlt = Hist(1, 0, 1, linecolor=hTrueAlt.linecolor,
-                                 legendstyle='L', title='')
-        trueLegOverlayAlt.SetLineWidth(hTrueAlt.GetLineWidth())
-
-        toPlot += [errorBandTrueAlt, hTrueAlt]
-        forLegend.append(hTrueLegAlt)
-
-        if varName in _matrixNames:
-            with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
-                cMat = asrootpy(fMat.canvas)
-                matDist = asrootpy(cMat.FindObject(_matrixNames[varName])).clone()
-                matDistUp = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleDown')).clone()
-                matDistDn = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleUp')).clone()
-                matDist.SetDirectory(0)
-                matDistUp.SetDirectory(0)
-                matDistDn.SetDirectory(0)
-
-            # un-normalize the bins, rebin, renormalize
-            _unnormalizeBins(matDist)
-            matDist = matDist.rebinned([e for e in hUnf._edges(0)])
-            _normalizeBins(matDist)
-            _unnormalizeBins(matDistUp)
-            matDistUp = matDistUp.rebinned([e for e in hUnf._edges(0)])
-            _normalizeBins(matDistUp)
-            _unnormalizeBins(matDistDn)
-            matDistDn = matDistDn.rebinned([e for e in hUnf._edges(0)])
-            _normalizeBins(matDistDn)
-            if norm:
-                matDist /= _matrixXSecs['']
-                matDistUp /= _matrixXSecs['up']
-                matDistDn /= _matrixXSecs['dn']
-            else:
-                matDist *= 2
-                matDistUp *= 2
-                matDistDn *= 2
-
-            matDist.title = r'\textbf{MATRIX}'
-            matDist.color = 'forestgreen'
-            matDist.drawstyle = 'hist'
-            matDist.fillstyle = 'hollow'
-            matDist.SetLineWidth(matDist.GetLineWidth()*2)
-
-            matDistUp -= matDist
-            matDistDn -= matDist
-
-            errorBandMat = makeErrorBand(matDist, matDistUp, matDistDn)
-            errorBandMat.fillstyle = 'solid'
-            errorBandMat.SetFillColorAlpha(819, 0.5)
-
-            matDistLeg = Hist(1,0,1)
-            matDistLeg.linecolor = '#98e57f'
-            matDistLeg.SetLineWidth(5*matDist.GetLineWidth())
-            matDistLeg.title = matDist.title
-            matDistLeg.legendstyle = 'L'
-
-            matDistLegOverlay = Hist(1, 0, 1, linecolor=matDist.linecolor,
-                                     legendstyle='L', title='')
-            matDistLegOverlay.SetLineWidth(matDist.GetLineWidth())
-
-            toPlot += [errorBandMat, matDist]
-            forLegend.append(matDistLeg)
-
-        hUncTot = {}
-        uncList = []
-        for chan in channels:
-            for sys in ['up','dn']:
-                uncList += hErr[chan][sys].keys()
-        uncList = set(uncList)
-        for sys in ['up','dn']:
-            hUncTot[sys] = {}
-            for unc in uncList:
-                hUncTot[sys][unc] = hTot.empty_clone()
-                for chan in _channels:
-                    try:
-                        hUncTot[sys][unc] += hErr[chan][sys][unc]
-                        #hThis = hErr[chan][sys][unc].clone()
-                    except KeyError:
-                        continue
-
-                    # weight by size of channel, re-normalize to total
-                    #hThis *= hUnfolded[chan][''] / hTotNoNorm
-                    # for bErr, bChan, bTot in zip(hThis, hUnfoldedByChan[chan], hTotNoNorm):
-                    #     try:
-                    #         bErr.value *= bChan.value / bTot.value
-                    #     except ZeroDivisionError:
-                    #         pass
-                    #hUncTot[sys][unc] += hThis
-
-
-        hUncUp = hTot.clone()
-        for bTot, allbs in zip(hUncUp, zip(*hUncTot['up'].values())):
-            bTot.value = sqrt(sum(b.value**2 for b in allbs))
-        hUncDn = hTot.clone()
-        for bTot, allbs in zip(hUncDn, zip(*hUncTot['dn'].values())):
-            bTot.value = sqrt(sum(b.value**2 for b in allbs))
-
-        if norm:
-            hUncUp /= hTot.Integral(0,hTot.GetNbinsX()+1)
-            hUncDn /= hTot.Integral(0,hTot.GetNbinsX()+1)
-        else:
-            hUncUp /= lumifb
-            hUncDn /= lumifb
-
-        _normalizeBins(hUncUp)
-        _normalizeBins(hUncDn)
-
-        if norm:
-            hTot /= hTot.Integral(0,hTot.GetNbinsX()+1)
-        else:
-            hTot /= lumifb
-
-        _normalizeBins(hTot)
-
-        if varName in _blind:
-            for b, bUp, bDn in zip(hTot, hUncUp, hUncDn):
-                if hTot.xaxis.GetBinLowEdge(b.idx) >= _blind[varName]:
-                    b.value = 0
-                    b.error = 0
-                    bUp.value = 0
-                    bUp.error = 0
-                    bDn.value = 0
-                    bDn.error = 0
-
-        errorBand = makeErrorBand(hTot, hUncUp, hUncDn)
-
-        toPlot += [errorBand, hTot]
-        forLegend += [errorBand, hTot]
-
-        if varName in _matrixNames:
-            cUnf = Canvas(1000,1400)
-            mainPad, ratioPadMat, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.12, 0.12, 0.12, bottomMargin=0.35)
-        else:
-            cUnf = Canvas(1000,1200)
-            mainPad, ratioPadMain, ratioPadAlt = addPadsBelow(cUnf, 0.15, 0.15, bottomMargin=0.35)
-
-        drawOpts = {
-            'xtitle' : _xTitle[varName],
-            }
-        if norm:
-            drawOpts['ytitle'] = _yTitle[varName]
-        else:
-            drawOpts['ytitle'] = _yTitleNoNorm[varName]
-        if ana == 'full':
-            drawOpts['logx'] = True
-        if logy:
-            drawOpts['logy'] = True
-            drawOpts['yerror_in_padding'] = True
-            drawOpts['ypadding'] = 0.04
-            if varName == 'l1Pt':
-                drawOpts['logy_crop_value'] = 1e-4
-
-        mainPad.cd()
-
-        (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot,
-                                                     mainPad, **drawOpts)#,
-                                                     #yerror_in_padding=False)
-        yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
-        yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
-        yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
-        xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
-
-        leg = makeLegend(mainPad, *forLegend, **legParams[varName])
-        leg.SetFillStyle(1001)
-
-        if varName in _blind and _blind[varName] < xmax:
-            box = TBox(max(xmin,_blind[varName]), ymin, xmax, ymax)
-            box.SetFillColor(1)
-            box.SetFillStyle(3002)
-            box.Draw("same")
-            leg.SetFillStyle(1001)
-
-        leg.Draw("same")
-        # want shaded error band and hatched fill for true legend entry,
-        # so cheat and overlay a second legend
-        legOverlay = asrootpy(TLegend(leg))
-        legOverlay.SetFillStyle(0)
-        for entry in legOverlay.primitives:
-            if entry.GetLabel() == hTrue.title:
-                overlay = trueLegOverlay
-            elif entry.GetLabel() == hTrueAlt.title:
-                overlay = trueLegOverlayAlt
-            elif varName in _matrixNames and entry.GetLabel() == matDist.title:
-                overlay = matDistLegOverlay
-            else:
-                entry.SetObject(None)
-                entry.SetOption('')
-                entry.SetLabel('')
-                continue
-            entry.SetObject(overlay)
-            entry.SetOption(overlay.legendstyle)
-            entry.SetLabel('')
-        legOverlay.Draw("same")
-
-        latex = TLatex()
-        latex.SetNDC()
-        latex.SetTextAlign(11)
-        latex.SetTextSize(.13)
-        latex.SetTextFont(62)
-        latexXMargin = 0.15
-        if varName in ['deltaRZZ','massFull']:
-            latex.SetTextAlign(31)
-            latexXMargin = 1. - latexXMargin
-        elif varName == 'l1Pt':
-            latexXMargin = 0.35
-
-        drawOpts = {
-            'ytitle' : 'Data / Theo.',
-            'xlimits' : (xmin,xmax),
-            'ylimits' : (0.5,1.99999),
-            'ydivisions' : 505,
-            }
-        if ana == 'full':
-            drawOpts['logx'] = True
-        if varName in ['pt','deltaRZZ','mass']:
-            drawOpts['ylimits'] = (0.2500001, 1.9999)
-
-        if varName in _matrixNames:
-            ratioPadMat.cd()
-
-            matNoErrs = matDist.clone() # need central value only to keep ratio uncertainties consistent
-            for b in matNoErrs: b.error = 0
-            ratioMat, unityMat = makeRatio(hTot, matNoErrs)
-
-            matUnity = matDist.clone() # need errors only as baseline for ratio theory uncertainties
-            for b in matUnity: b.value = 1.
-            ratioTheoryErrorMat = makeErrorBand(matUnity,
-                                                matDistUp/matNoErrs,
-                                                matDistDn/matNoErrs)
-            ratioTheoryErrorMat.fillstyle = 'solid'
-            ratioTheoryErrorMat.SetFillColorAlpha(819, 0.5)
-
-            ratioErrorMat = makeErrorBand(hTot/matNoErrs, hUncUp/matNoErrs,
-                                          hUncDn/matNoErrs)
-
-            (ratioMatX, ratioMatY), ratioMatLimits = draw([ratioTheoryErrorMat,
-                                                           ratioErrorMat,
-                                                           ratioMat],
-                                                          ratioPadMat,
-                                                          **drawOpts)
-            ratioMatY.CenterTitle()
-            unityMat.Draw("same")
-            latex.DrawLatex(latexXMargin, 0.8, r"\textbf{MATRIX}")
-
-        ratioPadMain.cd()
-
-        hTrueNoErrs = hTrue.clone() # need central value only to keep ratio uncertainties consistent
-        for b in hTrueNoErrs: b.error = 0
-
-        ratioMain, unityMain = makeRatio(hTot, hTrueNoErrs)
-        ratioErrorMain = makeErrorBand(hTot/hTrueNoErrs, hUncUp/hTrueNoErrs,
-                                       hUncDn/hTrueNoErrs)
-
-        hTrueUnity = hTrue.clone() # need errors only as baseline for ratio theory uncertainties
-        for b in hTrueUnity: b.value = 1.
-        ratioTheoryError = makeErrorBand(hTrueUnity,
-                                         hTrueUncUp/hTrueNoErrs,
-                                         hTrueUncDn/hTrueNoErrs)
-        ratioTheoryError.fillstyle = 'solid'
-        ratioTheoryError.SetFillColorAlpha(600, 0.5)
-
-        (ratioMainX, ratioMainY), ratioMainLimits = draw([ratioTheoryError,
-                                                          ratioErrorMain,
-                                                          ratioMain],
-                                                         ratioPadMain,
-                                                         **drawOpts)
-
-        ratioMainY.CenterTitle()
-        unityMain.Draw("same")
-        latex.DrawLatex(latexXMargin, 0.8, signalName)
-
-        ratioPadAlt.cd()
-
-        hTrueNoErrsAlt = hTrueAlt.clone() # need central value only to keep ratio uncertainties consistent
-        for b in hTrueNoErrsAlt: b.error = 0
-
-        ratioAlt, unityAlt = makeRatio(hTot, hTrueNoErrsAlt)
-        ratioErrorAlt = makeErrorBand(hTot/hTrueNoErrsAlt, hUncUp/hTrueNoErrsAlt,
-                                      hUncDn/hTrueNoErrsAlt)
-
-        hTrueUnityAlt = hTrueAlt.clone() # need errors only as baseline for ratio theory uncertainties
-        for b in hTrueUnityAlt: b.value = 1.
-        ratioTheoryErrorAlt = makeErrorBand(hTrueUnityAlt,
-                                            hTrueUncUpAlt/hTrueNoErrsAlt,
-                                            hTrueUncDnAlt/hTrueNoErrsAlt)
-        ratioTheoryErrorAlt.fillstyle = 'solid'
-        ratioTheoryErrorAlt.SetFillColorAlpha(628, 0.5)
-
-        (ratioAltX, ratioAltY), ratioAltLimits = draw([ratioTheoryErrorAlt,
-                                                       ratioErrorAlt,
-                                                       ratioAlt],
-                                                      ratioPadAlt,
-                                                      **drawOpts)
-
-        ratioAltY.CenterTitle()
-        unityAlt.Draw("same")
-        latex.SetTextSize(latex.GetTextSize() * ratioPadMain.height / ratioPadAlt.height)
-        latex.DrawLatex(latexXMargin, 1.-.2*ratioPadMain.height/ratioPadAlt.height, signalNameAlt)
-
-        cUnf.cd()
-        ratioPadAlt.Draw()
-        ratioPadMain.Draw()
-        if varName in _matrixNames:
-            ratioPadMat.Draw()
-        mainPad.Draw()
-
-        if varName in _matrixNames:
-            fixRatioAxes(xaxis,yaxis,ratioMatX,ratioMatY, mainPad.height, ratioPadMat.height)
-            fixRatioAxes(ratioMatX,ratioMatY,ratioMainX,ratioMainY, ratioPadMat.height, ratioPadMain.height)
-        else:
-            fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
-        fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
-
-        yaxis.SetTitleSize(0.042)
-        yaxis.SetTitleOffset(1.05)
-
-        # raster formats apparently need different fill styles?
-        errorBand.fillstyle = 'x'
-        errorBand.SetFillColorAlpha(1,0.6)
-        ratioErrorMain.fillstyle = 'x'
-        ratioErrorMain.SetFillColorAlpha(1,0.6)
-        ratioErrorAlt.fillstyle = 'x'
-        ratioErrorAlt.SetFillColorAlpha(1,0.6)
-        if varName in _matrixNames:
-            ratioErrorMat.fillstyle = 'x'
-        cUnf.Update()
-
-        _style.setCMSStyle(cUnf, '', dataType=plotType, intLumi=lumi, forLatex=True)
-        cUnf.Print(_join(plotDir, 'pngs', "unfold_{}.png".format(varName)))
-        cUnf.Print(_join(plotDir, 'Cs', "unfold_{}.C".format(varName)))
-        _pdfViaTex(cUnf, 'unfold_{}'.format(varName),
-                   _join(plotDir, 'texs'), _join(plotDir, 'pdfs'))
-
-        #hatchWidth = gStyle.GetHatchesLineWidth()
-        #hatchSpace = gStyle.GetHatchesSpacing()
-        #gStyle.SetHatchesLineWidth(1)
-        #gStyle.SetHatchesSpacing(1.01)
-        #TAttFill.SetFillStyle(errorBand, 3244)
-        #TAttFill.SetFillStyle(ratioErrorMain, 3244)
-        #TAttFill.SetFillStyle(ratioErrorAlt, 3244)
-        #if varName in _matrixNames:
-        #    TAttFill.SetFillStyle(ratioErrorMat, 3244)
-        #cUnf.Update()
-        #cUnf.Print(_join(plotDir, 'epses', "unfold_{}.eps".format(varName)))
-        #_bash('epstopdf {basedir}/epses/{filename}.eps --outfile={basedir}/pdfs/{filename}.pdf'.format(basedir=plotDir,
-        #                                                                                               filename='unfold_'+varName))
-        #gStyle.SetHatchesLineWidth(hatchWidth)
-        #gStyle.SetHatchesSpacing(hatchSpace)
+        hTrueTot = sum(hTrue[c][''] for c in channels)
+        hTrueTotAlt = sum(hTrueAlt[c][''] for c in channels)
+
+        hErrTot = _combineChannelUncertainties(*hErr.values())
+        hUncUp, hUncDn = _sumUncertainties(hErrTot)
+        hErrTotTrue = _combineChannelUncertainties(*hErrTrue.values())
+        hTrueUncUp, hTrueUncDn = _sumUncertainties(hErrTotTrue)
+        hErrTotTrueAlt = _combineChannelUncertainties(*hErrTrueAlt.values())
+        hTrueUncUpAlt, hTrueUncDnAlt = _sumUncertainties(hErrTotTrueAlt)
+
+        _generatePlots(hTot, hUncUp, hUncDn,
+                       hTrueTot, hTrueUncUp, hTrueUncDn,
+                       hTrueTotAlt, hTrueUncUpAlt, hTrueUncDnAlt,
+                       varName, 'zz', ana, plotDir, plotType, lumi, norm, logy,
+                       amcatnlo)
 
 
 
@@ -2350,6 +2100,8 @@ if __name__ == "__main__":
                         help='Use scale factors for no SIP cut and no extra IP cuts.')
     parser.add_argument('--sfRemake', action='store_true',
                         help='Use homebrewed scale factors for electrons.')
+    parser.add_argument('--redo', action='store_true',
+                        help='Make new histograms even if some are cached.')
 
     args=parser.parse_args()
 
@@ -2361,5 +2113,5 @@ if __name__ == "__main__":
     main(args.dataDir, args.mcDir, args.plotDir, args.fakeRateFile,
          args.puWeightFile, args.lumi, args.nIter, args.amcatnlo,
          not args.noNorm, args.logy, args.looseSIP, args.noSIP, args.sfRemake,
-         *args.variables)
+         args.redo, *args.variables)
 
