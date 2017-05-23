@@ -32,7 +32,7 @@ indir = '/data/nawoods/aTGCLimits1D'
 fTemplate = 'aTGCCutoff_canvas_f{}{}.root'#'plot_expObs_Cutoff_f{}{}_noPrelim_May10_fit_.root'
 fNames = {vf+str(nf):pjoin(indir, fTemplate.format(nf,vf)) for nf in (4,5) for vf in ('g','z')}
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits1D_pol3'
+outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits1D_LP'
 texdir = pjoin(outdir, 'texs')
 pdfdir = pjoin(outdir, 'pdfs')
 
@@ -57,7 +57,7 @@ vName = {
 
 for fType, fName in fNames.iteritems():
     with root_open(fName) as f:
-        c = asrootpy(f.c1_par_pol3bs_fit)#c1_par_expobs_fit)
+        c = asrootpy(f.c1_par_pol2bs_fit)#c1_par_expobs_fit)
 
         sub = {
             # totally redo y-axis title
