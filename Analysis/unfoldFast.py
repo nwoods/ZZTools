@@ -1538,6 +1538,7 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
     hTrueDrawAlt.color = 'red'
     hTrueDrawAlt.drawstyle = 'hist'
     hTrueDrawAlt.fillstyle = 'hollow'
+    hTrueDrawAlt.linestyle = 'verylongdash'
     hTrueDrawAlt.SetLineWidth(hTrueDrawAlt.GetLineWidth()*2)
     hTrueDrawAlt.title = '{}'.format(signalNameAlt)
 
@@ -1565,7 +1566,8 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
     hTrueLegAlt.legendstyle = 'L'
 
     trueLegOverlayAlt = Hist(1, 0, 1, linecolor=hTrueDrawAlt.linecolor,
-                             legendstyle='L', title='')
+                             legendstyle='L', title='',
+                             linestyle=hTrueDrawAlt.linestyle)
     trueLegOverlayAlt.SetLineWidth(hTrueDrawAlt.GetLineWidth())
 
     toPlot += [errorBandTrueAlt, hTrueDrawAlt]
@@ -1606,6 +1608,7 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
         matDist.color = 'forestgreen'
         matDist.drawstyle = 'hist'
         matDist.fillstyle = 'hollow'
+        matDist.linestyle = 'longdash'
         matDist.SetLineWidth(matDist.GetLineWidth()*2)
 
         matDistUp -= matDist
@@ -1626,7 +1629,8 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
         matDistLeg.legendstyle = 'L'
 
         matDistLegOverlay = Hist(1, 0, 1, linecolor=matDist.linecolor,
-                                 legendstyle='L', title='')
+                                 legendstyle='L', title='',
+                                 linestyle=matDist.linestyle,)
         matDistLegOverlay.SetLineWidth(matDist.GetLineWidth())
 
         toPlot += [errorBandMat,matDist]
