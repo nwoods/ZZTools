@@ -1115,6 +1115,9 @@ def _unfold(varName, chan, samples, puWeightFile, sfFiles,
                 },
                                              perUnitWidth=False)
               for i in variationIndices]
+    nominalArea = hTrue[''].Integral(0,hTrue[''].GetNbinsX()+1)
+    for h in hTrues:
+        h *= nominalArea / h.Integral(0,h.GetNbinsX()+1)
 
     # save true-level uncertainty for later
     hTrue['scale_up'] = hTrue[''].empty_clone()
@@ -1134,6 +1137,10 @@ def _unfold(varName, chan, samples, puWeightFile, sfFiles,
                 },
                                         perUnitWidth=False)
                  for i in variationIndices]
+    nominalAreaAlt = hTrueAlt[''].Integral(0,hTrueAlt[''].GetNbinsX()+1)
+    for h in hTruesAlt:
+        h *= nominalAreaAlt / h.Integral(0,h.GetNbinsX()+1)
+
     hTrueAlt['scale_up'] = hTrueAlt[''].empty_clone()
     hTrueAlt['scale_dn'] = hTrueAlt[''].empty_clone()
     for bUp, bDn, variations in zip(hTrueAlt['scale_up'],
