@@ -96,8 +96,8 @@ def CMS_lumi(pad,  iPeriod,  iPosX,  forLatex=False):
     #print lumiText
 
     if forLatex:
-        lumiText = lumiText.replace("fb",r"\,fb").replace("pb",r"\,pb").replace("TeV",r"\,TeV")
-        lumiText = r'\mathbf{'+lumiText+'}'
+        #lumiText = lumiText.replace("fb",r"\,fb").replace("pb",r"\,pb").replace("TeV",r"\,TeV")
+        lumiText = r'\textbf{'+lumiText.replace(r'^{-1}',r'}^\mathbf{-1} \textbf{')+'}'
 
     latex = rt.TLatex()
     latex.SetNDC()

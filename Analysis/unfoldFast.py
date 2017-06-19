@@ -1697,10 +1697,11 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
                                                  **drawOpts)
     yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
     yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
-    yaxis.SetLabelSize(0.82*yaxis.GetLabelSize())
+    #yaxis.SetLabelSize(0.82*yaxis.GetLabelSize()*1.2)
     #yaxis.SetMoreLogLabels()
-    xaxis.SetLabelSize(0.82*xaxis.GetLabelSize())
-    xaxis.SetTitleOffset(0.95*xaxis.GetTitleOffset())
+    #xaxis.SetLabelSize(1.2*xaxis.GetLabelSize())#(0.82*xaxis.GetLabelSize()*1.2)
+    xaxis.SetTitleSize(1.2*xaxis.GetTitleSize())
+    xaxis.SetTitleOffset(1.5)#*xaxis.GetTitleOffset())#(0.95*xaxis.GetTitleOffset())
 
     leg = makeLegend(cUnf, *forLegend, **legParams[varName])
     leg.SetFillStyle(1001)
@@ -1738,7 +1739,7 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
     latex = TLatex()
     latex.SetNDC()
     latex.SetTextAlign(11)
-    latex.SetTextSize(.13)
+    latex.SetTextSize(.16)#3)
     latex.SetTextFont(62)
     latexXMargin = 0.15
     if varName in ['deltaRZZ','massFull']:
@@ -1852,7 +1853,7 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
         fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
     fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
 
-    yaxis.SetTitleSize(0.042)
+    yaxis.SetTitleSize(0.05)#0.042)
     yaxis.SetTitleOffset(1.05)
 
     # raster formats apparently need different fill styles?
