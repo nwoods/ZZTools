@@ -348,14 +348,14 @@ _varListNoFull.remove("massFull")
 
 # Sometimes need to more or resize legend
 _legDefaults = {
-    'textsize' : .027,#2,
+    'textsize' : 0.034, #.027,#2,
     'leftmargin' : 0.35,
     'entryheight' : 0.037,
     'rightmargin' : 0.03,
     }
 _legParams = {v:_legDefaults.copy() for v in _varList}
 _legParams['z1Mass'] = {
-    'textsize' : .02,
+    'textsize' : .026,
     'leftmargin' : .03,
     'rightmargin' : .46,
     'entryheight' : .034,#23
@@ -368,7 +368,7 @@ _legParams['deltaRZZ'] = _legParams['z1Mass'].copy()
 #_legParams['deltaRZZ']['rightmargin'] = 0.23
 #_legParams['deltaRZZ']['solid'] = True
 _legParams['deltaPhiZZ']['leftmargin'] = 0.05
-_legParams['deltaPhiZZ']['rightmargin'] = 0.32
+_legParams['deltaPhiZZ']['rightmargin'] = 0.27
 _legParams['deltaEtajj'] = _legParams['z1Mass'].copy()
 _legParams['deltaEtajj']['leftmargin'] = .5
 _legParams['deltaEtajj']['rightmargin'] = .03
@@ -385,14 +385,13 @@ _legParamsLogy['deltaRZZ']['entryheight'] = .03
 _legParamsLogy['deltaRZZ']['topmargin'] = .7
 _legParamsLogy['deltaRZZ']['leftmargin'] = .18
 _legParamsLogy['deltaRZZ']['rightmargin'] = .22
-_legParamsLogy['l1Pt']['topmargin'] = 0.05
-_legParamsLogy['l1Pt']['leftmargin'] = 0.425
-_legParamsLogy['l1Pt']['rightmargin'] = 0.01
-_legParamsLogy['l1Pt']['textsize'] = 0.025
-_legParamsLogy['mass']['topmargin'] = 0.05
-_legParamsLogy['mass']['leftmargin'] = 0.39
+_legParamsLogy['l1Pt']['topmargin'] = 0.65
+_legParamsLogy['l1Pt']['leftmargin'] = 0.2
+_legParamsLogy['l1Pt']['rightmargin'] = 0.18
+_legParamsLogy['mass']['topmargin'] = 0.075
+_legParamsLogy['mass']['leftmargin'] = 0.35
 _legParamsLogy['mass']['rightmargin'] = 0.025
-_legParamsLogy['mass']['textsize'] = 0.025
+_legParamsLogy['mass']['textsize'] = 0.033
 _legParamsLogy['lPt']['topmargin'] = 0.05
 _legParamsLogy['zHigherPt']['topmargin'] = 0.045
 _legParamsLogy['massFull']['topmargin'] = 0.035
