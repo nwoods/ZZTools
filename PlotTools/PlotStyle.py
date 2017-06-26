@@ -56,7 +56,7 @@ class PlotStyle(object):
 
             # Force exponentials when axes are over 3 digits
             TGaxis.SetMaxDigits(3)
-            TGaxis.SetExponentOffset(-0.060, 0.008, "y")
+            TGaxis.SetExponentOffset(-0.090, 0.008, "y")
             TGaxis.SetExponentOffset(-0.055, -0.062, "x") # will overlap with title unless title is centered
 
             # Format of numbers printed on histograms with the "text" option

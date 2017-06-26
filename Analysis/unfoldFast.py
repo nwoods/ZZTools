@@ -1699,9 +1699,9 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
                                                  **drawOpts)
     yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
     yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
-    #yaxis.SetLabelSize(0.82*yaxis.GetLabelSize()*1.2)
+    yaxis.SetLabelSize(yaxis.GetLabelSize())
     #yaxis.SetMoreLogLabels()
-    #xaxis.SetLabelSize(1.2*xaxis.GetLabelSize())#(0.82*xaxis.GetLabelSize()*1.2)
+    xaxis.SetLabelSize(xaxis.GetLabelSize())
     xaxis.SetTitleSize(1.2*xaxis.GetTitleSize())
     xaxis.SetTitleOffset(1.5)#*xaxis.GetTitleOffset())#(0.95*xaxis.GetTitleOffset())
 
