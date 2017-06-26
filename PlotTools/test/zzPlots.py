@@ -74,7 +74,7 @@ _xTitles = {
     'Mass' : 'm_{{{obj}}} \\, (\\text{{GeV}})',
     'Eta' : '\\eta_{{{obj}}}',
     'Phi' : '\\phi_{{{obj}}}',
-    'Pt' : '{obj} \\, p_{{T}} \\, (\\text{{GeV}})',
+    'Pt' : '{obj} \\, p_\\text{{T}} \\, (\\text{{GeV}})',
     'nJets' : 'N_{\\text{jets}}',
     'nJets_eta2p4' : 'N_{\\text{jets}} \\left( \\left|\\eta\\right| < 2.4 \\right)',
     'Iso' : 'R_{{Iso}} \\, ({obj})',
@@ -82,9 +82,9 @@ _xTitles = {
     'PVDZ' : '\\left| \\Delta_{{z}} \\, ({obj}) \\right| \\, (\\text{{cm}})',
     'nvtx' : 'N_{\\text{vtx}}',
     'SIP3D' : 'SIP_{{3D}} \\, ({obj})',
-    'jet1Pt' : 'p_T^\\text{j1} \\, (\\text{GeV})',
+    'jet1Pt' : 'p_\\text{T}^\\text{j1} \\, (\\text{GeV})',
     'jet1Eta' : '\\eta_\\text{j1}',
-    'jet2Pt' : 'p_T^\\text{j2} \\, (\\text{GeV})',
+    'jet2Pt' : 'p_\\text{T}^\\text{j2} \\, (\\text{GeV})',
     'jet2Eta' : '\\eta_\\text{j2}',
     'mjj' : 'm_\\text{jj} \\, (\\text{GeV})',
     'deltaEtajj' : '|\\Delta \\eta_{\\text{jj}}}|',
@@ -98,9 +98,10 @@ for v,t in _xTitles.iteritems():
 
 # some distributions need the legend moved
 _legParamsLeft = {
-    'leftmargin' : 0.05,
-    'rightmargin' : 0.53,
-    'textsize' : 0.025,
+    'leftmargin' : 0.03,
+    'rightmargin' : 0.48,
+    'textsize' : 0.034,
+    'topmargin' : 0.05,
     }
 
 
@@ -733,7 +734,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
     objNames = _objNames.copy()
     if ana == 'smp':
-        objNames['zz'] = 'ZZ'
+        objNames['zz'] = r'\text{ZZ}'
 
     if doSyst:
         sig = zzStackSignalOnly('zz', inMC, ana, puWeightFile, lumi,
@@ -798,10 +799,10 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
         if looseSIP:
             aTGCDataset += '_LooseSIP'
         aTGCf4 = standardZZMC('zz', aTGCDataset,
-                              'ZZTo4L-aTGC-f4-fg0p0038-fz0p003',
+                              'ZZTo4L-aTGC-f4-fg0p0019-fz0p0015',
                               ana, puWeightFile, lumi)
         aTGCf5 = standardZZMC('zz', aTGCDataset,
-                              'ZZTo4L-aTGC-f5-fg0p0038-fz0p003',
+                              'ZZTo4L-aTGC-f5-fg0p0019-fz0p0015',
                               ana, puWeightFile, lumi)
         sherpa = standardZZMC('zz', aTGCDataset,
                               'ZZTo4L-sherpa',
@@ -815,8 +816,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
         binning4l['Mass'] = [20, 80., 100.]
         binNormWidth4l['Mass'] = 1.
     elif ana == 'full':
-        binning4l['Mass'] = [25.*i for i in range(17)] + [500.,600.,800.] #[80.,100.,120.,130.,150.,180.,200.,240.,300.,400.,1000]
-        binNormWidth4l['Mass'] = 25. #10.
+        binning4l['Mass'] = [25.*i for i in range(17)] + [500.,600.,800.]
+        binNormWidth4l['Mass'] = 25.
     elif ana == 'smp':
         binning4l['Mass'] = [b / 1000. for b in binning4l['Mass']]
         binNormWidth4l['Mass'] /= 1000.
@@ -859,7 +860,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                     poissonErrors=True,
                                     perUnitWidth=norm)
             if paper:
-                dataPts.title = r'\mathbf{{{}}}'.format(dataPts.title)
+                dataPts.title = r'\textbf{{{}}}'.format(dataPts.title)
             toPlot = [hStack, dataPts]
 
             if doSyst:
@@ -881,7 +882,10 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
             c = Canvas(1000,1000)
 
-            legParams = {'textsize':0.025}
+            legParams = {
+                'textsize':0.035,
+                'leftmargin' : 0.45,
+                }
             if ana == 'z4l' and varName == 'Mass' or ana == 'smp' and varName == 'deltaRZZ':
                 legParams = _legParamsLeft.copy()
             leg = makeLegend(c, *toPlot, **legParams)
@@ -979,14 +983,19 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 hSherpa.fillstyle = 'hollow'
                 hSherpa.linecolor = 'black'
                 hSherpa.SetLineWidth(2*hSherpa.GetLineWidth())
-                hSherpa.linestyle = 'dashed'
+                #hSherpa.linestyle = 'dashed'
 
-                toPlot = [hStack, hTGCf4, hTGCf5, hSherpa, dataPts]
+                hSherpa.legendstyle = 'L'
+                hTGCf4.legendstyle = 'L'
+                hTGCf5.legendstyle = 'L'
 
-                legParams['entryheight'] = 0.02
+                toPlot = [hStack, hSherpa, hTGCf4, hTGCf5, dataPts]
+
+                legParams['entryheight'] = 0.032
                 legParams['entrysep'] = 0.008
-                legParams['textsize'] = 0.02
-                legParams['leftmargin'] = 0.4
+                legParams['textsize'] = 0.031
+                legParams['topmargin'] = 0.04
+                legParams['rightmargin'] = 0.04
 
                 cTGC = Canvas(1000,1000)
                 leg = makeLegend(cTGC, *toPlot, **legParams)
@@ -1047,7 +1056,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                     perUnitWidth=binNormWidth2l[varName])
 
             if paper:
-                dataPts.title = r'\mathbf{{{}}}'.format(dataPts.title)
+                dataPts.title = r'\textbf{{{}}}'.format(dataPts.title)
 
             if varName == 'Pt' and binning2l['Pt'][-1] > 200.:
                 copy = dataPts.clone()
@@ -1082,8 +1091,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
             c = Canvas(1000,1000)
 
-            legParams = {'textsize':0.025}
-            if ana == 'full' and varName == 'Mass':
+            legParams = {'textsize':0.03}
+            if ana in ('full','smp') and varName == 'Mass':
                 legParams = _legParamsLeft.copy()
             leg = makeLegend(c, *toPlot, **legParams)
 
@@ -1132,7 +1141,7 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                                     poissonErrors=True,
                                     perUnitWidth=_binNormWidth1l[varName])
             if paper:
-                dataPts.title = r'\mathbf{{{}}}'.format(dataPts.title)
+                dataPts.title = r'\textbf{{{}}}'.format(dataPts.title)
 
             toPlot = [hStack, dataPts]
 

@@ -32,7 +32,7 @@ sampleInfo['TTTo2L2Nu'] = {
 
 sampleInfo['TTZ'] = {
     'xsec' : 0.2529,
-    'prettyName' : r'\mathrm{t}\bar{\mathrm{t}}\mathrm{Z}', #'t#bar{t}Z',
+    'prettyName' : r'\mathrm{t}\mathrm{\bar{t}}\text{Z}', #'t#bar{t}Z',
     'isSignal' : -10,
     'format' : {
         'color' : 'pink',
@@ -187,7 +187,7 @@ sampleInfo['GluGluZZTo2mu2tau'] = {
 
 sampleInfo["ZZTo4L"] = {
     'xsec' : 1.256,
-    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'q#bar{q} #rightarrow ZZ, Z#gamma*',
+    'prettyName' : r'\mathbf{q}\mathbf{\bar{q}} \rightarrow \textbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'q#bar{q} #rightarrow ZZ, Z#gamma*',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#99ccff',
@@ -198,7 +198,7 @@ sampleInfo["ZZTo4L"] = {
 
 sampleInfo["ZZTo4L-amcatnlo"] = {
     'xsec' : 1.212,
-    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'q#bar{q} #rightarrow ZZ, Z#gamma*',
+    'prettyName' : r'\mathbf{q}\mathbf{\bar{q}} \rightarrow \textbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'q#bar{q} #rightarrow ZZ, Z#gamma*',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#99ccff',
@@ -256,7 +256,7 @@ sampleInfo["WZTo3LNu-amcatnlo"] = {
 
 sampleInfo["ZZJJTo4L-EWK"] = {
     'xsec' : 0.0004404,
-    'prettyName' : r'\mathbf{ZZ} + 2 \mathbf{jets EWK}', #'ZZ + 2 jets EWK',
+    'prettyName' : r'\textbf{ZZ} + \textbf{2 jets EWK}', #'ZZ + 2 jets EWK',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#bbeeff',
@@ -266,7 +266,7 @@ sampleInfo["ZZJJTo4L-EWK"] = {
 
 sampleInfo["ZZJJTo4L-QCD"] = {
     'xsec' : 0.009335,
-    'prettyName' : r'\mathbf{ZZ} + 2 \mathbf{jets QCD}', #'ZZ + 2 jets QCD',
+    'prettyName' : r'\textbf{ZZ} + \textbf{2 jets QCD}', #'ZZ + 2 jets QCD',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#bbeeff',
@@ -306,7 +306,7 @@ sampleInfo['ZZJJTo2e2mu-EWK-phantom'] = {
 
 sampleInfo['ggHZZ'] = {
     'xsec' : 0.01212,
-    'prettyName' : r'\mathbf{H} \rightarrow \mathbf{ZZ}', #'H #rightarrow ZZ',
+    'prettyName' : r'\textbf{H} \rightarrow \textbf{ZZ}', #'H #rightarrow ZZ',
     'isSignal' : 100,
     'format' : {
         'fillcolor' : '#ffb2b2',
@@ -317,7 +317,7 @@ sampleInfo['ggHZZ'] = {
 
 sampleInfo['WWZ'] = {
     'xsec' : 0.1651,
-    'prettyName' : r'\mathbf{WWZ}', #'WWZ',
+    'prettyName' : r'\textbf{WWZ}', #'WWZ',
     'isSignal' : -50,
     'format' : {
         'color' : 'purple',
@@ -326,7 +326,7 @@ sampleInfo['WWZ'] = {
 
 sampleInfo['WZZ'] = {
     'xsec' : 0.5565,
-    'prettyName' : r'\mathbf{WZZ}', #'WZZ',
+    'prettyName' : r'\textbf{WZZ}', #'WZZ',
     'isSignal' : 10,
     'format' : {
         'color' : 'indigo',
@@ -335,7 +335,7 @@ sampleInfo['WZZ'] = {
 
 sampleInfo['ZZZ'] = {
     'xsec' : 0.01398,
-    'prettyName' : r'\mathbf{ZZZ}', #'ZZZ',
+    'prettyName' : r'\textbf{ZZZ}', #'ZZZ',
     'isSignal' : 10,
     'format' : {
         'color' : 'darkorchid',
@@ -345,7 +345,7 @@ sampleInfo['ZZZ'] = {
 # so many aTGC samples!
 sampleInfo["ZZTo4L-sherpa"] = {
     'xsec' : 0.455985,
-    'prettyName' : r'\mathbf{q}\bar{\mathbf{q}} \rightarrow \mathbf{ZZ\ (SHERPA)}', #'q#bar{q} #rightarrow ZZ (SHERPA)',
+    'prettyName' : r'\mathbf{q}\mathbf{\bar{q}} \rightarrow \textbf{ZZ\ (SHERPA)}', #'q#bar{q} #rightarrow ZZ (SHERPA)',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#99ccff',
@@ -406,10 +406,12 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0'] = {
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0019-fz0p0015'] = {
     'xsec' : 4.628e-01,
-    'prettyName' : 'aTGC',
+    'prettyName' : r'\mathbf{f}_{\textbf{4}}^{\mathbf{\gamma}} = \textbf{0.0019,} \mathbf{f}_{\textbf{4}}^{\textbf{Z}} = \textbf{0.0015}', #'f_{5}^{#gamma} = 0.0038    'prettyName' : r'\boldsymbol{f}_{\boldsymbol{4}}^{\boldsymbol{\gamma}} = \boldsymbol{0.0019}, \boldsymbol{f}_{\boldsymbol{4}}^{\textbf{Z}} = \boldsymbol{0.0015}', #'f_{4}^{#gamma} = 0.0038, f_{4}^{Z} = 0.003',
     'isSignal' : 1000,
     'format' : {
-        'color' : 'magenta',
+        'fillstyle' : 'hollow',
+        'linecolor' : 'magenta',
+        'linestyle' : 'verylongdash',
         },
     'kFactor' : '1.239', #1.57',
     }
@@ -466,7 +468,7 @@ sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p0015'] = {
 
 sampleInfo['ZZTo4L-aTGC-f4-fg0p0038-fz0p003'] = {
     'xsec' : 4.647e-01,
-    'prettyName' : r'\boldsymbol{f}_{\boldsymbol{4}}^{\boldsymbol{\gamma}} = \boldsymbol{0.0038}, \boldsymbol{f}_{\boldsymbol{4}}^{\mathbf{Z}} = \boldsymbol{0.003}', #'f_{4}^{#gamma} = 0.0038, f_{4}^{Z} = 0.003',
+    'prettyName' : r'\boldsymbol{f}_{\boldsymbol{4}}^{\boldsymbol{\gamma}} = \boldsymbol{0.0038}, \boldsymbol{f}_{\boldsymbol{4}}^{\textbf{Z}} = \boldsymbol{0.003}', #'f_{4}^{#gamma} = 0.0038, f_{4}^{Z} = 0.003',
     'isSignal' : 1000,
     'format' : {
         'fillstyle' : 'hollow',
@@ -648,10 +650,12 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0'] = {
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0019-fz0p0015'] = {
     'xsec' : 4.591e-01,
-    'prettyName' : 'aTGC',
+    'prettyName' : r'\mathbf{f}_{\textbf{5}}^{\mathbf{\gamma}} = \textbf{0.0019,} \mathbf{f}_{\textbf{5}}^{\textbf{Z}} = \textbf{0.0015}', #'f_{5}^{#gamma} = 0.0038, f_{5}^{Z} = 0.003',
     'isSignal' : 1000,
     'format' : {
-        'color' : 'magenta',
+        'fillstyle' : 'hollow',
+        'linecolor' : 'purple',
+        'linestyle' : 'dashed',
         },
     'kFactor' : '1.239', #1.57',
     }
@@ -708,7 +712,7 @@ sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p0015'] = {
 
 sampleInfo['ZZTo4L-aTGC-f5-fg0p0038-fz0p003'] = {
     'xsec' : 4.653e-01,
-    'prettyName' : r'\boldsymbol{f}_{\boldsymbol{5}}^{\boldsymbol{\gamma}} = \boldsymbol{0.0038}, \boldsymbol{f}_{\boldsymbol{5}}^{\mathbf{Z}} = \boldsymbol{0.003}', #'f_{5}^{#gamma} = 0.0038, f_{5}^{Z} = 0.003',
+    'prettyName' : r'\boldsymbol{f}_{\boldsymbol{5}}^{\boldsymbol{\gamma}} = \boldsymbol{0.0038}, \boldsymbol{f}_{\boldsymbol{5}}^{\textbf{Z}} = \boldsymbol{0.003}', #'f_{5}^{#gamma} = 0.0038, f_{5}^{Z} = 0.003',
     'isSignal' : 1000,
     'format' : {
         'fillstyle' : 'hollow',
@@ -843,7 +847,7 @@ groupInfo = {}
 
 groupInfo['GluGluZZ'] = {
     'isSignal' : 1000,
-    'prettyName' : r'\mathbf{gg} \rightarrow \mathbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'gg #rightarrow ZZ, Z#gamma*',
+    'prettyName' : r'\textbf{gg} \rightarrow \textbf{ZZ, Z}\boldsymbol{\gamma}^\ast', #'gg #rightarrow ZZ, Z#gamma*',
     'format' : {
         'fillcolor' : '#4b78ff',
         'linecolor' : '#000099',
@@ -851,7 +855,7 @@ groupInfo['GluGluZZ'] = {
     }
 
 sampleInfo['ZZJJTo4L-EWK-phantom'] = {
-    'prettyName' : r'\mathbf{ZZ} + 2 \textbf{jets  EWK}', #'ZZ + 2 jets EWK',
+    'prettyName' : r'\textbf{ZZ} + \textbf{2 jets  EWK}', #'ZZ + 2 jets EWK',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#bbeeff',
@@ -860,7 +864,7 @@ sampleInfo['ZZJJTo4L-EWK-phantom'] = {
     }
 
 sampleInfo["ZZTo4L-nJ"] = {
-    'prettyName' : r'\mathbf{ZZ} + \mathbf{jets}', #'ZZ + jets',
+    'prettyName' : r'\textbf{ZZ} + \textbf{jets}', #'ZZ + jets',
     'isSignal' : 1000,
     'format' : {
         'fillcolor' : '#99ccff',
@@ -877,7 +881,7 @@ groupInfo['ggZZ2l2tau'] = {
     }
 
 groupInfo['Z+X'] = {
-    'prettyName' : r'\mathbf{Z} + \mathbf{X}',
+    'prettyName' : r'\textbf{Z} + \textbf{X}',
     'isSignal' : -1000,
     'format' : {
         'fillcolor' : '#669966',
@@ -891,12 +895,12 @@ groupInfo['irreducible'] = {
         'fillcolor' : '#ffcc00',
         'linecolor' : 'black',
         },
-    'prettyName' : r'\mathbf{t}\bar{\mathbf{t}}\mathbf{Z, WWZ}', #'t#bar{t}Z, WWZ',
+    'prettyName' : r'\mathbf{t}\mathbf{\bar{t}}\textbf{Z, WWZ}', #'t#bar{t}Z, WWZ',
     }
 
 groupInfo['DYToLL'] = {
     'shortName' : 'DYJets',
-    'prettyName' : r'\mathbf{Z} + \mathbf{jets}',
+    'prettyName' : r'\textbf{Z} + \textbf{jets}',
     'isSignal' : -100,
     'format' : {
         'fillcolor' : '#669966',
