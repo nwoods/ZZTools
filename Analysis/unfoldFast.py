@@ -445,7 +445,9 @@ _matrixNames = {
     'mass' : 'm.ZZ_5.0__NNLO_QCD',
     'nJets' : 'n_jets__NNLO_QCD',
     'pt' : 'pT.ZZ_2.5__NNLO_QCD',
-    # 'zHigherPt' : 'pT.Z_25.0__NNLO_QCD',
+    'zPt' : 'pT.Z_5.0__NNLO_QCD',
+    'zHigherPt' : 'pT.Z_5.0__NNLO_QCD',
+    'l1Pt' : 'pT.lep_5.0__NNLO_QCD',
     }
 _matrixXSecs = {
     '' : 17.5413,
