@@ -154,28 +154,28 @@ _units = {
     }
 
 _prettyVars = {
-    'pt' : 'p_T^{\\text{ZZ}}',
+    'pt' : 'p_\\text{T}^{\\text{ZZ}}',
     'nJets' : '# jets',
     'mass' : 'm_{\\text{ZZ}}',
     'massFull' : 'm_{4\\ell}',
     'eta' : '\\eta_{\\text{ZZ}}',
-    'jet1Pt' : 'p_T^\\text{j1}',
+    'jet1Pt' : 'p_\\text{T}^\\text{j1}',
     'jet1Eta' : '\\eta_\\text{j1}',
-    'jet2Pt' : 'p_T^\\text{j2}',
+    'jet2Pt' : 'p_\\text{T}^\\text{j2}',
     'jet2Eta' : '\\eta_\\text{j2}',
     'mjj' : 'm_\\text{jj}',
     'deltaEtajj' : '|\\Delta \\eta_{\\text{jj}}|',
     'z1Mass' : 'm_{\\text{Z}_{1}}',
     'z2Mass' : 'm_{\\text{Z}_{2}}',
-    'z1Pt' : 'p_T^{\\text{Z}_{1}}',
-    'z2Pt' : 'p_T^{\\text{Z}_{2}}',
-    'zPt' : 'p_T^{\\text{Z}}',
-    'zHigherPt' : 'p_T^{\\text{Z}_{\\text{lead}}}',
-    'zLowerPt' : 'p_T^{\\text{Z}_{\\text{sublead}}}',
+    'z1Pt' : 'p_\\text{T}^{\\text{Z}_{1}}',
+    'z2Pt' : 'p_\\text{T}^{\\text{Z}_{2}}',
+    'zPt' : 'p_\\text{T}^{\\text{Z}}',
+    'zHigherPt' : 'p_\\text{T}^{\\text{Z}_{\\text{lead}}}',
+    'zLowerPt' : 'p_\\text{T}^{\\text{Z}_{\\text{sublead}}}',
     'deltaPhiZZ' : '\\Delta \\phi_{\\text{Z}_1,\\text{Z}_2}',
     'deltaRZZ' : '\\Delta \\text{R}_{\\text{Z}_1,\\text{Z}_2}',
-    'lPt' : 'p_{T}^{\\ell}',
-    'l1Pt' : 'p_{T}^{\\ell_1}',
+    'lPt' : 'p_\\text{T}^{\\ell}',
+    'l1Pt' : 'p_\\text{T}^{\\ell_1}',
     }
 
 _xTitle = {}
