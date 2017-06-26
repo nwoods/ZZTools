@@ -1696,13 +1696,13 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
     mainPad.cd()
     (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, mainPad,
                                                  **drawOpts)
-    yaxis.SetTitleSize(0.75*yaxis.GetTitleSize())
-    yaxis.SetTitleOffset(1.25*yaxis.GetTitleOffset())
-    yaxis.SetLabelSize(yaxis.GetLabelSize())
-    #yaxis.SetMoreLogLabels()
-    xaxis.SetLabelSize(xaxis.GetLabelSize())
+    yaxis.SetTitleSize(1.2*yaxis.GetTitleSize())
+    yaxis.SetLabelSize(1.2*yaxis.GetLabelSize())
+    if logy:
+        yaxis.SetLabelOffset(-0.003)
+    xaxis.SetLabelSize(1.2*xaxis.GetLabelSize())
     xaxis.SetTitleSize(1.2*xaxis.GetTitleSize())
-    xaxis.SetTitleOffset(1.5)#*xaxis.GetTitleOffset())#(0.95*xaxis.GetTitleOffset())
+    xaxis.SetTitleOffset(1.5)
 
     leg = makeLegend(cUnf, *forLegend, **legParams[varName])
     leg.SetFillStyle(1001)
@@ -1854,8 +1854,16 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
         fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
     fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
 
-    yaxis.SetTitleSize(0.05)#0.042)
-    yaxis.SetTitleOffset(1.05)
+    ratioMainY.SetTitleSize(0.7*ratioMainY.GetTitleSize())
+    ratioMainY.SetTitleOffset(ratioMainY.GetTitleOffset() / 0.7)
+    ratioAltY.SetTitleSize(0.7*ratioAltY.GetTitleSize())
+    ratioAltY.SetTitleOffset(ratioAltY.GetTitleOffset() / 0.7)
+    if varName in _matrixNames:
+        ratioMatY.SetTitleSize(0.7*ratioMatY.GetTitleSize())
+        ratioMatY.SetTitleOffset(ratioMatY.GetTitleOffset() / 0.7)
+
+    #yaxis.SetTitleSize(0.05)#0.042)
+    #yaxis.SetTitleOffset(1.05)
 
     # raster formats apparently need different fill styles?
     errorBand.fillstyle = 'x'
