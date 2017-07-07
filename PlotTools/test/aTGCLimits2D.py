@@ -29,7 +29,7 @@ indir = '/data/nawoods/aTGCLimits2D'
 fTemplate = 'output_contours_f{}.root'
 fNames = {str(nf):pjoin(indir, fTemplate.format(nf)) for nf in (4,5)}
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits2D'
+outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits2D_paper'
 texdir = pjoin(outdir, 'texs')
 pdfdir = pjoin(outdir, 'pdfs')
 
@@ -55,10 +55,10 @@ graphNames = OrderedDict([
     ])
 
 titles = {
-    'exp68'   : r'\textbf{Expected 68\% C.L.}',
-    'exp95'   : r'\textbf{Expected 95\% C.L.}',
-    'exp99'   : r'\textbf{Expected 99\% C.L.}',
-    'obs'     : r'\textbf{Observed 95\% C.L.}',
+    'exp68'   : r'\textbf{Expected 68\% CL}',
+    'exp95'   : r'\textbf{Expected 95\% CL}',
+    'exp99'   : r'\textbf{Expected 99\% CL}',
+    'obs'     : r'\textbf{Observed 95\% CL}',
     'bestFit' : r'\textbf{Best Fit}',
     }
 
@@ -71,8 +71,8 @@ colors = {
     }
 
 linestyle = {
-    'exp68'   : 'verylongdash',
-    'exp95'   : 'verylongdash',
+    'exp68'   : 'dashed',
+    'exp95'   : 'longdash',
     'exp99'   : 'verylongdash',
     'obs'     : 'solid',
     'bestFit' : '',
@@ -116,10 +116,10 @@ for nf, fName in fNames.iteritems():
 
     xaxis.SetLimits(*axlimits)
     xaxis.SetRangeUser(*axlimits)
-    xaxis.SetTitle(r'\boldsymbol{{f}}_\mathbf{{{}}}^\mathbf{{\gamma}}'.format(nf))
+    xaxis.SetTitle(r'f_{}^\gamma'.format(nf))
     yaxis.SetLimits(*axlimits)
     yaxis.SetRangeUser(*axlimits)
-    yaxis.SetTitle(r'\boldsymbol{{f}}_\mathbf{{{}}}^\textbf{{Z}}'.format(nf))
+    yaxis.SetTitle(r'f_{}^\text{{Z}}'.format(nf)) #r'\mathbf{{f}}_\mathbf{{{}}}^\textbf{{Z}}'.format(nf))
 
     xaxis.SetNoExponent(True)
     yaxis.SetNoExponent(True)
@@ -132,7 +132,7 @@ for nf, fName in fNames.iteritems():
                      leftmargin=0.045,
                      rightmargin=0.455,
                      topmargin=0.63,
-                     textsize=0.03)
+                     textsize=0.034)
 
     leg.SetFillStyle(1001)
     leg.Draw("same")

@@ -19,7 +19,7 @@ from rootpy.ROOT import gStyle
 
 from PlotTools import PlotStyle, pdfViaTex
 from PlotTools import CMS_lumi
-CMS_lumi.lumiTextSize = 1.3
+CMS_lumi.lumiTextSize = 1.2
 CMS_lumi.cmsTextSize = 1.3
 CMS_lumi.lumiTextOffset = 0.01
 CMS_lumi.cmsTextOffset = 0.01
@@ -30,9 +30,9 @@ from os import makedirs as mkdirp
 
 indir = '/data/nawoods/aTGCLimits1D'
 fTemplate = 'aTGCCutoff_canvas_f{}{}.root'#'plot_expObs_Cutoff_f{}{}_noPrelim_May10_fit_.root'
-fNames = {vf+str(nf):pjoin(indir, fTemplate.format(nf,vf)) for nf in (4,5) for vf in ('g','z')}
+fNames = {vf+str(nf):pjoin(indir, fTemplate.format(nf,vf)) for nf in (4,5) for vf in 'gz'}
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits1D_LP'
+outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits1D_paper'
 texdir = pjoin(outdir, 'texs')
 pdfdir = pjoin(outdir, 'pdfs')
 
@@ -51,8 +51,8 @@ gStyle.SetPadColor(0)
 gStyle.SetOptTitle(0)
 
 vName = {
-    'g' : r'\\mathbf{\\gamma}',
-    'z' : r'\\textbf{Z}',
+    'g' : r'\\gamma',
+    'z' : r'\\text{Z}',
     }
 
 for fType, fName in fNames.iteritems():
@@ -61,9 +61,9 @@ for fType, fName in fNames.iteritems():
 
         sub = {
             # totally redo y-axis title
-            r'$\\boldsymbol{{f}}^{}_\\mathbf{{{}}}\\ \\textbf{{95\\% C.L.}}$'.format(vName[fType[0]],fType[1]):r'\} 95\\%CL',
+            r'$f^{}_{}\\ 95\\% \\ \\text{{CL}}$'.format(vName[fType[0]],fType[1]):r'\} 95\\%CL',
             # make x-axis title bold
-            r'\\boldsymbol{m}_\\mathbf{4\\ell} \\ \\textbf{cutoff (GeV)}' : r'm_\{4\\ell\}\\ \\text\{cut-off \(GeV\)\}',
+            r'm_{4\\ell} \\ \\text{cutoff (GeV)}' : r'm_\{4\\ell\}\\ \\text\{cut-off \(GeV\)\}',
             # center infinity
             r'\\!\\!\\infty' : r'\\infty',
             }

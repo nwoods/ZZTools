@@ -24,7 +24,7 @@ from os import makedirs as mkdir
 
 
 inDir = 'uwvvNtuples_data_10mar2017_LooseSIPLooseVtx'
-outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter_thinned'
+outDir = '/afs/cern.ch/user/n/nawoods/www/UWVVPlots/zMassScatter_paper'
 lumi = 35860.
 
 # plot one event for every thinFactor events found
