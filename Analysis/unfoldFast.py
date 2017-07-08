@@ -173,7 +173,7 @@ _prettyVars = {
     'zHigherPt' : 'p_\\text{T}^{\\text{Z}_{\\text{lead}}}',
     'zLowerPt' : 'p_\\text{T}^{\\text{Z}_{\\text{sublead}}}',
     'deltaPhiZZ' : '\\Delta \\phi_{\\text{Z}_1,\\text{Z}_2}',
-    'deltaRZZ' : '\\Delta \\text{R}_{\\text{Z}_1,\\text{Z}_2}',
+    'deltaRZZ' : '\\Delta R_{\\text{Z}_1,\\text{Z}_2}',
     'lPt' : 'p_\\text{T}^{\\ell}',
     'l1Pt' : 'p_\\text{T}^{\\ell_1}',
     }
@@ -444,7 +444,7 @@ _matrixNames = {
     'mass' : 'm.ZZ_5.0__NNLO_QCD',
     'nJets' : 'n_jets__NNLO_QCD',
     'pt' : 'pT.ZZ_2.5__NNLO_QCD',
-    'zPt' : 'pT.Z_5.0__NNLO_QCD',
+    'zPt' : ('pT.Zmax_5.0__NNLO_QCD','pT.Zmin_5.0__NNLO_QCD'),
     'zHigherPt' : 'pT.Z_5.0__NNLO_QCD',
     'l1Pt' : 'pT.lep_5.0__NNLO_QCD',
     }
@@ -1582,15 +1582,35 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
     forLegend.append(hTrueLegAlt)
 
     if varName in _matrixNames:
-        with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
-            cMat = asrootpy(fMat.canvas)
-            matDist = asrootpy(cMat.FindObject(_matrixNames[varName])).clone()
-            # scaleDown is for the UPPER error, scaleUp is for the LOWER
-            matDistUp = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleDown')).clone()
-            matDistDn = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleUp')).clone()
-            matDist.SetDirectory(0)
-            matDistUp.SetDirectory(0)
-            matDistDn.SetDirectory(0)
+        if varName == 'zPt':
+            matDist = None
+            matDistUp = None
+            matDistDn = None
+            for mName in _matrixNames[varName]:
+                with root_open(_join(_matrixPath,mName+'.root')) as fMat:
+                    cMat = asrootpy(fMat.canvas)
+                    matDistFromFile = asrootpy(cMat.FindObject(mName))
+                    if matDist is None:
+                        matDist = matDistFromFile.empty_clone()
+                        matDistUp = matDistFromFile.empty_clone()
+                        matDistDn = matDistFromFile.empty_clone()
+                        matDist.SetDirectory(0)
+                        matDistUp.SetDirectory(0)
+                        matDistDn.SetDirectory(0)
+                    matDist += matDistFromFile / 2
+                    # scaleDown is for the UPPER error, scaleUp is for the LOWER
+                    matDistUp += asrootpy(cMat.FindObject(mName+'__scaleDown')) / 2
+                    matDistDn += asrootpy(cMat.FindObject(mName+'__scaleUp')) / 2
+        else:
+            with root_open(_join(_matrixPath,_matrixNames[varName]+'.root')) as fMat:
+                cMat = asrootpy(fMat.canvas)
+                matDist = asrootpy(cMat.FindObject(_matrixNames[varName])).clone()
+                # scaleDown is for the UPPER error, scaleUp is for the LOWER
+                matDistUp = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleDown')).clone()
+                matDistDn = asrootpy(cMat.FindObject(_matrixNames[varName]+'__scaleUp')).clone()
+                matDist.SetDirectory(0)
+                matDistUp.SetDirectory(0)
+                matDistDn.SetDirectory(0)
 
         # un-normalize the bins, rebin, renormalize
         _unnormalizeBins(matDist)
