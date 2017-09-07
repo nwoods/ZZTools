@@ -874,10 +874,6 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
                 band.title = r'\textbf{Systematic unc.}'
 
-                band.fillstyle = 'x'
-                band.SetFillColorAlpha(1,0.6)
-                #band.color = 'black'
-
                 toPlot = [hStack, band, dataPts]
 
             c = Canvas(1000,1000)
@@ -1083,10 +1079,6 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
                 band.title = r'\textbf{Systematic unc.}'
 
-                band.fillstyle = 'x'
-                band.SetFillColorAlpha(1,0.6)
-                #band.color = 'black'
-
                 toPlot = [hStack, band, dataPts]
 
             c = Canvas(1000,1000)
@@ -1156,10 +1148,6 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
 
                 band = makeErrorBand(hStack, hSystUp, hSystDn)
                 band.title = r'\textbf{Systematic unc.}'
-
-                band.fillstyle = 'x'
-                band.SetFillColorAlpha(1,0.6)
-                #band.color = 'black'
 
                 toPlot = [hStack, band, dataPts]
 

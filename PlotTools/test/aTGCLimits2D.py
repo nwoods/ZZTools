@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.WARNING)
 rlog["/ROOT.TUnixSystem.SetDisplay"].setLevel(rlog.ERROR)
 
 from rootpy import asrootpy
-from rootpy.plotting import Canvas, Hist
+from rootpy.plotting import Canvas, Hist, Graph
 from rootpy.io import root_open
 from rootpy.ROOT import gStyle, gPad
 
@@ -27,9 +27,9 @@ from collections import OrderedDict
 
 indir = '/data/nawoods/aTGCLimits2D'
 fTemplate = 'output_contours_f{}.root'
-fNames = {str(nf):pjoin(indir, fTemplate.format(nf)) for nf in (4,5)}
+fNames = {nf:pjoin(indir, fTemplate.format(nf)) for nf in (4,5)}
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits2D_paper'
+outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits2D_with1D'
 texdir = pjoin(outdir, 'texs')
 pdfdir = pjoin(outdir, 'pdfs')
 
@@ -49,17 +49,17 @@ gStyle.SetGridColor(1)
 graphNames = OrderedDict([
     ('exp68'   , 'contour_68exp'),
     ('exp95'   , 'contour_95exp'),
-    ('exp99'   , 'contour_99exp'),
+    #('exp99'   , 'contour_99exp'),
     ('obs'     , 'contour_obs'),
     ('bestFit' , 'bestFit'),
     ])
 
 titles = {
-    'exp68'   : r'\textbf{Expected 68\% CL}',
-    'exp95'   : r'\textbf{Expected 95\% CL}',
-    'exp99'   : r'\textbf{Expected 99\% CL}',
-    'obs'     : r'\textbf{Observed 95\% CL}',
-    'bestFit' : r'\textbf{Best Fit}',
+    'exp68'   : r'\textbf{Exp.\  68\% CL (2D)}',
+    'exp95'   : r'\textbf{Exp.\  95\% CL (2D)}',
+    'exp99'   : r'\textbf{Exp.\  99\% CL (2D)}',
+    'obs'     : r'\textbf{Obs.\  95\% CL (2D)}',
+    'bestFit' : r'\textbf{Best Fit (2D)}',
     }
 
 colors = {
@@ -78,8 +78,20 @@ linestyle = {
     'bestFit' : '',
     }
 
+limits1D = {
+    4 : {
+        'z' : [-0.0012,0.0010],
+        'g' : [-0.0012,0.0013],
+        },
+    5 : {
+        'z' : [-0.0010,0.0013],
+        'g' : [-0.0012,0.0013],
+        },
+    }
+
 for nf, fName in fNames.iteritems():
-    graphs = OrderedDict()
+    graphs_ = OrderedDict()
+
     with root_open(fName) as f:
         for name, nameInFile in graphNames.iteritems():
             g = asrootpy(getattr(f,nameInFile))
@@ -96,13 +108,28 @@ for nf, fName in fNames.iteritems():
             if linestyle[name]:
                 g.linestyle = linestyle[name]
                 g.SetLineWidth(2*g.GetLineWidth())
-            graphs[name] = g
+            graphs_[name] = g
+
+    bars1D = Graph(1, type='asymm', title=r'\textbf{Obs.\ 95\% CL (1D)}',
+                   color='r', drawstyle='ZL', legendstyle='L')
+    bars1D.SetLineWidth(4 * bars1D.GetLineWidth())
+    bars1D.SetPointError(0, *(abs(e) for e in limits1D[nf]['g']+limits1D[nf]['z']))
+    bars1D.SetMarkerStyle(7)
+
+    # have to reorder. Ugh.
+    graphs = OrderedDict()
+    for name, g in graphs_.iteritems():
+        if name == 'bestFit':
+            graphs['1D'] = bars1D
+            continue
+        graphs[name] = g
+    graphs['bestFit'] = graphs_['bestFit']
 
     c = Canvas(1000,1000)
 
     c.SetGrid(1,1)
 
-    axlimits = (-0.0045,0.0045)
+    axlimits = (-0.0028,0.0028) #(-0.0045,0.0045)
 
     # bug in this version of rootpy, so draw ourselves instead of using util
     frame = Hist(1,*axlimits)
@@ -110,6 +137,15 @@ for nf, fName in fNames.iteritems():
     frame.SetLineWidth(0)
     xaxis = frame.xaxis
     yaxis = frame.yaxis
+
+    leg = makeLegend(c, *graphs.values(),
+                     leftmargin=0.023,
+                     rightmargin=0.452,
+                     topmargin=0.63,
+                     textsize=0.036)
+
+    leg.SetFillStyle(1001)
+    leg.Draw("same")
 
     for g in graphs.values():
         g.Draw('SAME')
@@ -127,15 +163,18 @@ for nf, fName in fNames.iteritems():
     yaxis.CenterTitle()
     xaxis.SetNdivisions(405)
     yaxis.SetNdivisions(405)
-
-    leg = makeLegend(c, *graphs.values(),
-                     leftmargin=0.045,
-                     rightmargin=0.455,
-                     topmargin=0.63,
-                     textsize=0.034)
-
-    leg.SetFillStyle(1001)
-    leg.Draw("same")
+    xaxis.SetLabelOffset(-0.1*xaxis.GetLabelOffset())
+    yaxis.SetLabelOffset(-0.1*yaxis.GetLabelOffset())
+    xaxis.SetLabelSize(1.1*xaxis.GetLabelSize())
+    yaxis.SetLabelSize(1.1*yaxis.GetLabelSize())
+    xaxis.SetTitleOffset(0.9*xaxis.GetTitleOffset())
+    yaxis.SetTitleOffset(0.9*yaxis.GetTitleOffset())
+    xaxis.SetTitleSize(1.1*xaxis.GetTitleSize())
+    yaxis.SetTitleSize(1.1*yaxis.GetTitleSize())
+    nDiv = xaxis.GetNdivisions()
+    nDiv += nDiv%100
+    xaxis.SetNdivisions(nDiv)
+    yaxis.SetNdivisions(nDiv)
 
     c.Print(pjoin(outdir,'limits2D_f{}.png'.format(nf)))
     style.setCMSStyle(c, '', True, '', intLumi=35860., forLatex=True)
