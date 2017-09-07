@@ -1874,6 +1874,9 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
         fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
     fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
 
+    yaxis.SetTitleSize(1.2*yaxis.GetTitleSize())
+    yaxis.SetTitleOffset(0.8*yaxis.GetTitleOffset())
+
     ratioMainY.SetTitleSize(0.7*ratioMainY.GetTitleSize())
     ratioMainY.SetTitleOffset(ratioMainY.GetTitleOffset() / 0.7)
     ratioAltY.SetTitleSize(0.7*ratioAltY.GetTitleSize())
