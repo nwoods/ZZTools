@@ -141,6 +141,27 @@ _binNormWidth4l = {
     'deltaRZZ' : 1.,
     }
 
+_nDivisions4l = {
+    'full' : {
+        'Mass' : -408,
+        },
+    'z4l' : {
+        'Mass' : -210,
+        },
+    'smp' : {
+        },
+    }
+
+_nDivisions2l = {
+    'full' : {
+        'Mass' : -506,
+        },
+    'z4l' : {
+        },
+    'smp' : {
+        },
+    }
+
 _vars4l = {v:v for v in _binning4l}
 _vars4l['jet1Pt'] = 'jetPt[0]'
 _vars4l['jet2Pt'] = 'jetPt[1]'
@@ -930,6 +951,8 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
                 for i in xrange(frame.GetXaxis().GetNbins()):
                     frame.GetXaxis().SetBinLabel(i+1, str(i))
                 drawOpts['yaxis'] = frame.yaxis
+            if varName in _nDivisions4l[ana]:
+                drawOpts['xdivisions'] = _nDivisions4l[ana][varName]
 
             (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c, **drawOpts)
 
@@ -1095,10 +1118,15 @@ def main(inData, inMC, plotDir, ana, fakeRateFile, puWeightFile, lumi,
             yTitle = 'Z bosons / {} {}'.format(makeNumberPretty(binNormWidth2l[varName],2),
                                                units[varName])
 
-            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c,
-                                                         xtitle=xTitle,
-                                                         ytitle=yTitle,
-                                                         logy=logy)
+            drawArgs = {
+                'xtitle' : xTitle,
+                'ytitle' : yTitle,
+                'logy' : logy,
+                }
+            if varName in _nDivisions2l[ana]:
+                drawArgs['xdivisions'] = _nDivisions2l[ana][varName]
+
+            (xaxis, yaxis), (xmin,xmax,ymin,ymax) = draw(toPlot, c, **drawArgs)
 
             # blinding box
             if blind and varName == 'Pt' and binning2l['Pt'][-1] > 200.:

@@ -212,7 +212,7 @@ for chan in ['z', 'ze', 'zm']:
 
         fixRatioAxes(xaxis,yaxis,ratioX,ratioY, pad1.height, pad2.height)
 
-        style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
+        style.setCMSStyle(c, '', dataType='   Work in Progress', intLumi=lumi)
         c.Print('{}/{}{}.png'.format(outdir, chan, varName))
 
 for chan in ['l', 'e', 'm']:
@@ -253,6 +253,6 @@ for chan in ['l', 'e', 'm']:
 
         fixRatioAxes(xaxis,yaxis,ratioX,ratioY, pad1.height, pad2.height)
 
-        style.setCMSStyle(c, '', dataType='Preliminary', intLumi=lumi)
+        style.setCMSStyle(c, '', dataType='   Work in Progress', intLumi=lumi)
         c.Print('{}/{}{}.png'.format(outdir, chan, varName))
 

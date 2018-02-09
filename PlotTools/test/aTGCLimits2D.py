@@ -29,7 +29,7 @@ indir = '/data/nawoods/aTGCLimits2D'
 fTemplate = 'output_contours_f{}.root'
 fNames = {nf:pjoin(indir, fTemplate.format(nf)) for nf in (4,5)}
 
-outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits2D_with1D'
+outdir = '/afs/cern.ch/user/n/nawoods/www/aTGCLimits2D_postFR'
 texdir = pjoin(outdir, 'texs')
 pdfdir = pjoin(outdir, 'pdfs')
 
@@ -64,7 +64,7 @@ titles = {
 
 colors = {
     'exp68'   : 'b',
-    'exp95'   : 'g',
+    'exp95'   : 'magenta',
     'exp99'   : 'r',
     'obs'     : 'black',
     'bestFit' : 'black',
@@ -72,8 +72,8 @@ colors = {
 
 linestyle = {
     'exp68'   : 'dashed',
-    'exp95'   : 'longdash',
-    'exp99'   : 'verylongdash',
+    'exp95'   : 'verylongdash',
+    'exp99'   : 'longdash',
     'obs'     : 'solid',
     'bestFit' : '',
     }

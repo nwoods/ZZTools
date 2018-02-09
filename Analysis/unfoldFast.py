@@ -147,7 +147,7 @@ _units = {
     'z2Pt' : 'GeV',
     'zHigherPt' : 'GeV',
     'zLowerPt' : 'GeV',
-    'deltaPhiZZ' : '',
+    'deltaPhiZZ' : 'rad',
     'deltaRZZ' : '',
     'lPt' : 'GeV',
     'l1Pt' : 'GeV',
@@ -181,6 +181,20 @@ _prettyVars = {
 _xTitle = {}
 _yTitle = {}
 _yTitleNoNorm = {}
+#_yTitleTemp = '{prefix} \\left(d\\sigma_{{\\text{{fid}}}} / d{xvar}\\right) {units}'
+#for var, prettyVar in _prettyVars.iteritems():
+#    xt = prettyVar
+#    if _units[var]:
+#        xt += ' \\, \\left(\\text{{{}}}\\right)'.format(_units[var])
+#        yt = _yTitleTemp.format(xvar=prettyVar,
+#                                prefix='\\left(1 / \\sigma_{\\text{fid}}\\right)',
+#                                units='\\, \\left( \\text{{{unit}}}^{{-1}} \\right)'.format(unit=_units[var]))
+#        ytnn = _yTitleTemp.format(xvar=prettyVar, prefix='',
+#                                  units='\\, \\left( \\text{{fb}} / \\text{{{unit}}} \\right)'.format(unit=_units[var]))
+#    else:
+#        yt = _yTitleTemp.format(prefix='\\left(1 / \\sigma_{\\text{fid}}\\right)',
+#                                xvar=prettyVar, units='')
+#        ytnn = _yTitleTemp.format(prefix='', xvar=prettyVar, units='\\left( \\text{fb} \\right)')
 _yTitleTemp = '{prefix} \\frac{{d\\sigma_{{\\text{{fid}}}}}}{{d{xvar}}} {units}'
 for var, prettyVar in _prettyVars.iteritems():
     xt = prettyVar
@@ -1422,7 +1436,7 @@ def _generateUncertainties(hDict, norm, **plotArgs):
                          entryheight=.02, entrysep=.007, textsize=.022,
                          rightmargin=.25)
         leg.Draw('same')
-        _style.setCMSStyle(cErrUp, '', dataType='Internal', intLumi=lumi)
+        _style.setCMSStyle(cErrUp, '', dataType='   Work in Progress', intLumi=lumi)
         cErrUp.Print(_join(plotDir, 'pngs', 'errUp_{}_{}.png'.format(varName, chan)))
         cErrUp.Print(_join(plotDir, 'Cs', 'errUp_{}_{}.C'.format(varName, chan)))
 
@@ -1874,16 +1888,19 @@ def _generatePlots(hUnfolded, hUncUp, hUncDn,
         fixRatioAxes(xaxis,yaxis,ratioMainX,ratioMainY, mainPad.height, ratioPadMain.height)
     fixRatioAxes(ratioMainX,ratioMainY,ratioAltX,ratioAltY, ratioPadMain.height, ratioPadAlt.height)
 
-    yaxis.SetTitleSize(1.2*yaxis.GetTitleSize())
+    yaxis.SetTitleSize(1.5*yaxis.GetTitleSize())
     yaxis.SetTitleOffset(0.8*yaxis.GetTitleOffset())
 
     ratioMainY.SetTitleSize(0.7*ratioMainY.GetTitleSize())
     ratioMainY.SetTitleOffset(ratioMainY.GetTitleOffset() / 0.7)
+    ratioMainX.SetTickLength(3*ratioMainY.GetTickLength())
     ratioAltY.SetTitleSize(0.7*ratioAltY.GetTitleSize())
     ratioAltY.SetTitleOffset(ratioAltY.GetTitleOffset() / 0.7)
+    ratioAltX.SetTickLength(3*ratioAltY.GetTickLength())
     if varName in _matrixNames:
         ratioMatY.SetTitleSize(0.7*ratioMatY.GetTitleSize())
         ratioMatY.SetTitleOffset(ratioMatY.GetTitleOffset() / 0.7)
+        ratioMatX.SetTickLength(3*ratioMatY.GetTickLength())
 
     #yaxis.SetTitleSize(0.05)#0.042)
     #yaxis.SetTitleOffset(1.05)
@@ -1959,7 +1976,7 @@ def main(inData, inMC, plotDir, fakeRateFile, puWeightFile, lumi, nIter,
         hErrTrue = {}
         hErrTrueAlt = {}
 
-        for chan in channels:
+        for chan in channels[::-1]:
             print ""
             print "**************************************************"
             print "**** " + varName
